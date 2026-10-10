@@ -1,0 +1,45 @@
+{
+  "core_messages": {
+    "primary": "Your Vision. Our Precision.",
+    "secondary": "Ideas becoming physical impact.",
+    "tertiary": "From screen to something real."
+  },
+  "value_propositions": [
+    {
+      "headline": "Precision-Engineered Print",
+      "body": "Every project is executed with technical precision, from color calibration to final finishing."
+    },
+    {
+      "headline": "Brand Thinking, Print Execution",
+      "body": "We don't just print. We engineer brand experiences that transform ideas into tangible impact."
+    },
+    {
+      "headline": "Scale Without Compromise",
+      "body": "From one business card to ten thousand banners, every piece meets the same exacting standard."
+    },
+    {
+      "headline": "Creative Capability, Technical Excellence",
+      "body": "Premium printing, branding, signage and visual communication — all under one roof."
+    }
+  ],
+  "proof_points": [
+    "CMYK-calibrated color management",
+    "Precision registration on every print",
+    "Premium substrate selection",
+    "Professional finishing options",
+    "Quality control at every stage"
+  ],
+  "cta_library": {
+    "primary": ["Start your project", "Get a quote", "Upload your design"],
+    "secondary": ["Request samples", "Book a consultation", "Explore services"],
+    "urgent": ["Order now", "Fast turnaround", "Express service"],
+    "soft": ["Learn more", "See our work", "Discover PrintSync"]
+  },
+  "tone_examples": {
+    "confident": "We don't print. We engineer brand experiences.",
+    "technical": "Every micron matters. Every registration is precise.",
+    "creative": "Where digital ambition meets physical impact.",
+    "premium": "Not just printed. Perfected.",
+    "direct": "Your vision. Our precision. Let's build something real."
+  }
+}

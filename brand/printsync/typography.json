@@ -1,0 +1,52 @@
+{
+  "primary": {
+    "family": "Inter",
+    "fallback": ["system-ui", "-apple-system", "sans-serif"],
+    "weights": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700,
+      "extrabold": 800,
+      "black": 900
+    },
+    "usage": "Headlines, brand statements, primary typography"
+  },
+  "secondary": {
+    "family": "JetBrains Mono",
+    "fallback": ["Consolas", "Monaco", "monospace"],
+    "weights": {
+      "regular": 400,
+      "medium": 500,
+      "bold": 700
+    },
+    "usage": "Technical labels, data, coordinates, production indicators"
+  },
+  "kinetic_behaviors": [
+    "TYPE-SLAM",
+    "TYPE-BUILD",
+    "TYPE-SCAN",
+    "TYPE-SLICE",
+    "TYPE-EXPLODE",
+    "TYPE-MORPH",
+    "TYPE-STRETCH",
+    "TYPE-TRACK",
+    "TYPE-LOCK",
+    "TYPE-REVEAL",
+    "TYPE-IMPACT",
+    "TYPE-PARTICLE",
+    "TYPE-MATERIALIZE",
+    "TYPE-PRINT",
+    "TYPE-CUT",
+    "TYPE-FOLD",
+    "TYPE-STACK",
+    "TYPE-SCALE"
+  ],
+  "principles": {
+    "type_is_character": true,
+    "never_decorative_without_purpose": true,
+    "precision_over_decoration": true,
+    "kinetic_intent": "Every type movement must serve the story"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "box-001",
+  "title": "The Box That Got a Job",
+  "duration": 30,
+  "mode": "CORPORATE",
+  "service": "PrintSync",
+  "objective": "Showcase how PrintSync helps a small business (a box) find employment through smart advertising.",
+  "voice": "NARRATION",
+  "scenes": ["intro", "challenge", "solution", "call_to_action"]
+}

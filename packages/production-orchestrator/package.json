@@ -1,0 +1,25 @@
+{
+  "name": "@printsync/production-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "vitest --config ../../vitest.config.ts"
+  },
+  "dependencies": {
+    "@printsync/common": "workspace:*",
+    "@printsync/subject-engine": "workspace:*",
+    "@printsync/story-engine": "workspace:*",
+    "@printsync/script-engine": "workspace:*",
+    "@printsync/visual-grammar-engine": "workspace:*",
+    "@printsync/storyboard-engine": "workspace:*",
+    "@printsync/shot-engine": "workspace:*",
+    "@printsync/scene-graph-engine": "workspace:*",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  }
+}

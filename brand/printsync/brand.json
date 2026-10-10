@@ -1,0 +1,43 @@
+{
+  "brand": "PrintSync",
+  "tagline": "Your Vision. Our Precision.",
+  "positioning": "Premium printing, branding, signage and visual communication solutions that transform ideas into tangible brand experiences.",
+  "personality": [
+    "precise",
+    "creative",
+    "intelligent",
+    "modern",
+    "reliable",
+    "ambitious",
+    "technically capable",
+    "premium",
+    "energetic",
+    "persistent",
+    "detail-oriented",
+    "confident"
+  ],
+  "creative_rule": "Never look generic.",
+  "core_message": "Your Vision. Our Precision.",
+  "visual_principle": "Ideas becoming physical impact",
+  "motion_principle": "Precision in motion",
+  "brand_pillars": [
+    "CONSISTENCY",
+    "PERSEVERANCE",
+    "CREATIVITY",
+    "PRECISION"
+  ],
+  "voice_tone": {
+    "primary": "confident and precise",
+    "secondary": "intelligent and modern",
+    "avoid": "generic corporate speak, empty buzzwords, overly casual"
+  },
+  "audience": {
+    "primary": "businesses needing premium print and branding solutions",
+    "secondary": "marketing managers, brand managers, business owners",
+    "decision_makers": ["marketing directors", "brand managers", "business owners", "procurement"]
+  },
+  "competitors": {
+    "positioning": "generic print shops and template-based design services",
+    "differentiation": "premium quality, technical capability, creative excellence, brand thinking"
+  }
+}

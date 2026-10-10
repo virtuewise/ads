@@ -1,0 +1,19 @@
+{
+  "campaigns": [],
+  "last_updated": null,
+  "creative_patterns": {
+    "recent_styles": [],
+    "recent_palettes": [],
+    "recent_narratives": [],
+    "recent_formats": [],
+    "recent_voice_modes": []
+  },
+  "rotation_state": {
+    "last_mood": null,
+    "last_visual_style": null,
+    "last_narrative": null,
+    "last_format": null,
+    "last_voice_mode": null,
+    "consecutive_similar": 0
+  }
+}

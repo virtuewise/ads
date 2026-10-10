@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Renders and exports (keep structure, ignore contents)
+renders/*
+!renders/.gitkeep
+exports/*
+!exports/.gitkeep
+
+# Campaign outputs (keep structure, ignore contents)
+campaigns/*
+!campaigns/.gitkeep
+creative/concepts/*
+!creative/concepts/.gitkeep
+creative/scripts/*
+!creative/scripts/.gitkeep
+creative/storyboards/*
+!creative/storyboards/.gitkeep
+creative/treatments/*
+!creative/treatments/.gitkeep
+
+# Assets (keep structure, ignore large files)
+assets/footage/*
+!assets/footage/.gitkeep
+assets/images/*
+!assets/images/.gitkeep
+assets/audio/*
+!assets/audio/.gitkeep
+assets/fonts/*
+!assets/fonts/.gitkeep
+
+# Compositions
+compositions/*
+!compositions/.gitkeep

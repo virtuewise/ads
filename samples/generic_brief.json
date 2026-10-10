@@ -1,0 +1,10 @@
+{
+  "id": "generic-001",
+  "title": "Smart Product Explainer",
+  "duration": 30,
+  "mode": "EXPLAINER",
+  "service": "PrintSync",
+  "objective": "Demonstrate a product with animated map, data graph and kinetic typography.",
+  "voice": "NARRATION",
+  "scenes": ["intro", "features", "data", "conclusion"]
+}

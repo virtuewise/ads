@@ -1,0 +1,29 @@
+{
+  "name": "printsync-ads",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PrintSync Creative Operating System — a persistent brand-aware advertising engine",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "ads:create": "pnpm --filter @printsync/cli ads:create",
+    "ads:daily": "pnpm --filter @printsync/cli ads:daily",
+    "campaign:create": "pnpm --filter @printsync/cli campaign:create",
+    "film:create": "pnpm --filter @printsync/cli film:create",
+    "poster:create": "pnpm --filter @printsync/cli poster:create",
+    "social:create": "pnpm --filter @printsync/cli social:create",
+    "creative:judge": "pnpm --filter @printsync/cli creative:judge"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

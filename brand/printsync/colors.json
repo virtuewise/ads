@@ -1,0 +1,60 @@
+{
+  "primary": {
+    "red": {
+      "hex": "#C8001C",
+      "rgb": [200, 0, 28],
+      "cmyk": [0, 100, 86, 22],
+      "pantone": "186 C",
+      "usage": "Primary brand moments, CTAs, key highlights, logo"
+    }
+  },
+  "secondary": {
+    "charcoal": {
+      "hex": "#373435",
+      "rgb": [55, 52, 53],
+      "cmyk": [0, 5, 3, 78],
+      "usage": "Typography, structure, sophistication, body text"
+    }
+  },
+  "neutrals": {
+    "white": {
+      "hex": "#FFFFFF",
+      "rgb": [255, 255, 255],
+      "usage": "Space, clarity, premium feel, backgrounds"
+    },
+    "lightGray": {
+      "hex": "#F5F5F5",
+      "rgb": [245, 245, 245],
+      "usage": "Subtle backgrounds, cards, sections"
+    },
+    "mediumGray": {
+      "hex": "#9B9B9B",
+      "rgb": [155, 155, 155],
+      "usage": "Secondary text, captions, metadata"
+    }
+  },
+  "accents": {
+    "cyan": {
+      "hex": "#00A8E0",
+      "usage": "Data visualization, technical graphics, CMYK-C"
+    },
+    "magenta": {
+      "hex": "#E6007E",
+      "usage": "Data visualization, technical graphics, CMYK-M"
+    },
+    "yellow": {
+      "hex": "#FFD100",
+      "usage": "Data visualization, technical graphics, CMYK-Y"
+    },
+    "black": {
+      "hex": "#000000",
+      "usage": "Data visualization, technical graphics, CMYK-K"
+    }
+  },
+  "semantic": {
+    "success": "#00A86B",
+    "warning": "#FF8C00",
+    "error": "#C8001C",
+    "info": "#00A8E0"
+  }
+}

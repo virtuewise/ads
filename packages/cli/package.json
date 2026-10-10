@@ -1,0 +1,30 @@
+{
+  "name": "@printsync/cli",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "printsync": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "ads:create": "node dist/index.js ads:create",
+    "ads:daily": "node dist/index.js ads:daily",
+    "campaign:create": "node dist/index.js campaign:create",
+    "film:create": "node dist/index.js film:create",
+    "poster:create": "node dist/index.js poster:create",
+    "social:create": "node dist/index.js social:create",
+    "creative:judge": "node dist/index.js creative:judge"
+  },
+  "dependencies": {
+    "@printsync/shared": "workspace:*",
+    "@printsync/creative-engine": "workspace:*",
+    "commander": "^12.1.0",
+    "chalk": "^4.1.2",
+    "inquirer": "^8.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
