@@ -1,8 +1,9 @@
-# PrintSync Creative Operating System
+# Virtue Studio
+[![pnpm](https://img.shields.io/badge/pnpm-7.33.7-brightgreen)](https://pnpm.io/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)](https://www.typescriptlang.org/) [![TurboRepo](https://img.shields.io/badge/TurboRepo-1.10.9-purple)](https://turborepo.org/)
 
-> **Premium printing, branding, signage and visual communication solutions that transform ideas into tangible brand experiences.**
+> **Premium visual storytelling, motion graphics, and cinematic advertising solutions that transform ideas into compelling brand experiences.**
 
-A persistent, brand-aware advertising engine that can ideate, strategize, write, design, generate, animate, edit, critique, adapt, archive, and continuously improve PrintSync advertising.
+A persistent, brand‑aware advertising engine that can ideate, strategize, write, design, generate, animate, edit, critique, adapt, archive, and continuously improve Virtue Studio advertising.
 
 ---
 
