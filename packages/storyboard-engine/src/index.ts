@@ -1,16 +1,17 @@
+import { Script, Shot, Storyboard } from "@printsync/common";
+
 /**
  * @printsync/storyboard-engine
- * Storyboard generation for the PrintSync Creative OS.
+ * Storyboard generation for Virtue Studio.
  *
- * This package will handle:
+ * Handles:
  * - Visual storyboard generation
  * - Shot-by-shot breakdowns
  * - Camera direction
  * - Timing and pacing
  * - Asset requirements
  */
-
-export const STORYBOARD_ENGINE_VERSION = '0.1.0';
+export const STORYBOARD_ENGINE_VERSION = "0.1.0";
 
 export class StoryboardEngine {
   /**
@@ -27,9 +28,6 @@ export class StoryboardEngine {
       environment: undefined,
     }));
     return { shots };
-  }
-    // TODO: Implement storyboard generation
-    return { shots: [], assets: [] };
   }
 }
 
