@@ -1,9 +1,12 @@
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { ThreeCanvas } from '@remotion/three';
 import {
+  animatePrintObject,
+  DEFAULT_BRAND_TOKENS,
   getPrintItem,
   printItemBoundingRadius,
   type PrintItemSpec,
+  type PrintObjectAnimation,
 } from '@printsync/motion-engine';
 import { PrintItem } from '../models/PrintItem';
 import { Studio } from '../models/Studio';
@@ -26,6 +29,20 @@ const ITEMS = FEATURED.map((id) => getPrintItem(id)).filter(
   (item): item is PrintItemSpec => item !== undefined
 );
 
+/** Per-item choreography — each item gets a distinct, spec-driven animation. */
+const ITEM_ANIMATIONS: PrintObjectAnimation[] = [
+  'reveal',   // business-card
+  'rise',     // postcard-a6
+  'float',    // folding-carton
+  'orbit',    // mailer-box
+  'reveal',   // rigid-box
+  'float',    // bottle-500
+  'orbit',    // can-330
+  'rise',     // tube-50
+  'float',    // coffee-pouch
+  'reveal',   // rollup-850
+];
+
 const RING_RADIUS = 3.1;
 /** Every item is normalised to the same display radius for a consistent set. */
 const DISPLAY_RADIUS = 0.55;
@@ -34,14 +51,20 @@ const BRAND = '#c8001c';
 type ProductLineProps = {
   title: string;
   tagline: string;
+  brand?: typeof DEFAULT_BRAND_TOKENS;
 };
 
 /**
  * PrintSync Product Line — a slow turntable of the catalogue. Items are built
  * from exact millimetre specs via the shared model library, then framed to a
- * consistent display size and orbit through a single shared studio rig.
+ * consistent display size and animated through spec-driven choreography via the
+ * shared studio rig. Brand artwork is drawn procedurally onto each surface.
  */
-export const PrintSyncProductLine: React.FC<ProductLineProps> = ({ title, tagline }) => {
+export const PrintSyncProductLine: React.FC<ProductLineProps> = ({
+  title,
+  tagline,
+  brand = DEFAULT_BRAND_TOKENS,
+}) => {
   const frame = useCurrentFrame();
   const { width, height, durationInFrames, fps } = useVideoConfig();
 
@@ -61,7 +84,6 @@ export const PrintSyncProductLine: React.FC<ProductLineProps> = ({ title, taglin
     extrapolateRight: 'clamp',
   });
   const chromeOpacity = Math.min(introOpacity, outroOpacity);
-  const time = frame / fps;
 
   return (
     <AbsoluteFill>
@@ -78,15 +100,16 @@ export const PrintSyncProductLine: React.FC<ProductLineProps> = ({ title, taglin
             const x = Math.sin(itemAngle) * RING_RADIUS;
             const z = Math.cos(itemAngle) * RING_RADIUS;
             const scale = DISPLAY_RADIUS / printItemBoundingRadius(item);
-            const bob = Math.sin(time * 1.6 + index) * 0.02;
-            const sway = Math.sin(time * 0.9 + index) * 0.16;
+            const animation = ITEM_ANIMATIONS[index] ?? 'float';
+            const transform = animatePrintObject(item, animation, frame, fps, index * 7);
             return (
               <group
                 key={item.id}
-                position={[x, bob, z]}
-                rotation={[0, itemAngle + sway, 0]}
+                position={[x + transform.position[0], transform.position[1], z + transform.position[2]]}
+                rotation={[transform.rotation[0], itemAngle + transform.rotation[1], transform.rotation[2]]}
+                scale={scale * transform.scale}
               >
-                <PrintItem spec={item} scale={scale} />
+                <PrintItem spec={item} brand={brand} />
               </group>
             );
           })}
@@ -122,7 +145,7 @@ export const PrintSyncProductLine: React.FC<ProductLineProps> = ({ title, taglin
               fontFamily: 'JetBrains Mono, monospace',
             }}
           >
-            PRINTSYNC
+            {brand.wordmark}
           </div>
           <h1
             style={{

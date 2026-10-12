@@ -282,3 +282,24 @@ export const ProductionPlanSchema = z.object({
 /** Helper for runtime validation */
 export const validateProductionPlan = (data: unknown) =>
   ProductionPlanSchema.parse(data);
+
+// ---- Render-input contract (drives the Remotion renderer) ----
+
+export type {
+  BrandTokens,
+  CameraPath,
+  CompositionId,
+  RenderOutput,
+  RenderItem,
+  RenderInputs,
+} from './render-input.js';
+
+export {
+  BrandTokensSchema,
+  CameraPathSchema,
+  CompositionIdSchema,
+  RenderOutputSchema,
+  RenderInputsSchema,
+  RenderItemSchema,
+  validateRenderInputs,
+} from './render-input.js';

@@ -93,11 +93,6 @@ function revolve(heightMm: number, profile: readonly ProfilePoint[], segments: n
   return ground(geometry);
 }
 
-/** An open cylindrical band, centred on the origin, used for brand accents. */
-function band(diameterMm: number, heightMm: number, segments: number): BufferGeometry {
-  return new CylinderGeometry(toSceneUnits(diameterMm / 2), toSceneUnits(diameterMm / 2), toSceneUnits(heightMm), segments, 1, true);
-}
-
 /** Build every mesh part for an item, already positioned in item-local space. */
 export function createItemParts(spec: PrintItemSpec): ItemPart[] {
   const { width, height, depth } = spec.dimensions;
@@ -114,16 +109,7 @@ export function createItemParts(spec: PrintItemSpec): ItemPart[] {
     case 'revolve': {
       const profile = spec.profile ?? [];
       const segments = spec.radialSegments ?? 72;
-      const parts: ItemPart[] = [
-        { geometry: revolve(height, profile, segments), material: spec.material },
-      ];
-      if (profile.length > 0) {
-        const maxRadius = Math.max(...profile.map((point) => point.r));
-        const accent = band(maxRadius * 2 + 0.8, height * 0.14, segments);
-        accent.translate(0, toSceneUnits(height * 0.36), 0);
-        parts.push({ geometry: accent, material: 'paint' });
-      }
-      return parts;
+      return [{ geometry: revolve(height, profile, segments), material: spec.material }];
     }
 
     case 'pouch': {

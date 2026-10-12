@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { CreativeBrief, ProductionPlan, ProductionPlanSchema, VisualGrammar } from '@printsync/common';
-import { SubjectEngine } from '@printsync/subject-engine';
+import {
+  CreativeBrief,
+  ProductionPlan,
+  ProductionPlanSchema,
+  RenderInputs,
+  RenderInputsSchema,
+  VisualGrammar,
+} from '@printsync/common';import { SubjectEngine } from '@printsync/subject-engine';
 import { StoryEngine } from '@printsync/story-engine';
 import { selectVisualGrammar } from '@printsync/visual-grammar-engine';
 import { ScriptEngine } from '@printsync/script-engine';
@@ -14,6 +20,41 @@ export interface OrchestratorOptions {
   seed?: string;
   /** If true, perform full Zod validation and throw on failure */
   validate?: boolean;
+}
+
+/**
+ * Derive validated render inputs for the Remotion renderer from a creative
+ * brief. This bridges the production pipeline to the render engine — the
+ * renderer consumes exactly what this function produces.
+ */
+export function buildRenderInputs(brief: CreativeBrief): RenderInputs {
+  return RenderInputsSchema.parse({
+    composition: 'PrintSyncProductLine',
+    brand: {
+      wordmark: 'PRINTSYNC',
+      tagline: brief.objective || 'Your Vision. Our Precision.',
+      primary: '#C8001C',
+      secondary: '#373435',
+      accent: '#00A8E0',
+      paper: '#F5F1EA',
+      ink: '#141414',
+    },
+    items: [
+      'business-card',
+      'postcard-a6',
+      'folding-carton',
+      'mailer-box',
+      'rigid-box',
+      'bottle-500',
+      'can-330',
+      'tube-50',
+      'coffee-pouch',
+      'rollup-850',
+    ],
+    cameraPath: 'turntable',
+    timeline: { fps: 30, durationInFrames: 450 },
+    output: { format: 'mp4', width: 1920, height: 1080 },
+  });
 }
 
 /**
