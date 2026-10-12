@@ -1,9 +1,9 @@
 import { useCurrentFrame, useVideoConfig, interpolate, spring } from 'remotion';
 
-interface BrandFilmProps {
+type BrandFilmProps = {
   title: string;
   tagline: string;
-}
+};
 
 export const PrintSyncBrandFilm: React.FC<BrandFilmProps> = ({ title, tagline }) => {
   const frame = useCurrentFrame();
