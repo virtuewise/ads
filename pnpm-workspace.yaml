@@ -18,3 +18,8 @@ allowBuilds:
 
 overrides:
   postcss: ^8.5.29
+  # Collapse transitive duplicates onto a single, current version.
+  # commander: terser (via Remotion's webpack + vite) still pins ^2; we use 15.
+  # Only terser's CLI loads commander, and we never invoke it.
+  commander: ^15.0.0
+  zod: ^4.6.6
