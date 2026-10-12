@@ -13,6 +13,8 @@
 
 export const MOTION_ENGINE_VERSION = '0.1.0';
 
+export * from './print-items.js';
+
 export class MotionEngine {
   /**
    * Create a kinetic typography sequence.

@@ -226,6 +226,9 @@ importers:
       '@printsync/audio-engine':
         specifier: workspace:*
         version: link:../../packages/audio-engine
+      '@printsync/motion-engine':
+        specifier: workspace:*
+        version: link:../../packages/motion-engine
       '@printsync/shared':
         specifier: workspace:*
         version: link:../../packages/shared

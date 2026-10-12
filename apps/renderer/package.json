@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@printsync/audio-engine": "workspace:*",
+    "@printsync/motion-engine": "workspace:*",
     "@printsync/shared": "workspace:*",
     "@react-three/fiber": "^9.8.1",
     "@remotion/cli": "^4.0.535",

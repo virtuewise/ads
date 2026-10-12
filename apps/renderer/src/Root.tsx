@@ -1,6 +1,7 @@
 import { Composition } from 'remotion';
 import { PrintSyncBrandFilm } from './compositions/PrintSyncBrandFilm';
 import { PrintSyncSignatureFilm } from './compositions/PrintSyncSignatureFilm';
+import { PrintSyncProductLine } from './compositions/PrintSyncProductLine';
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -28,6 +29,18 @@ export const RemotionRoot: React.FC = () => {
           title: 'PRINTSYNC',
           tagline: 'Your Vision. Our Precision.',
           audioSrc: 'printsync-signature.wav',
+        }}
+      />
+      <Composition
+        id="PrintSyncProductLine"
+        component={PrintSyncProductLine}
+        durationInFrames={450}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{
+          title: 'Product Line',
+          tagline: 'Modelled to spec — every millimetre exact.',
         }}
       />
     </>
