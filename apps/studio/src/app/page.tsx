@@ -1,19 +1,32 @@
+const features = [
+  {
+    title: "Today's Campaign",
+    description: 'Generate and review daily advertising concepts',
+  },
+  { title: 'Concepts', description: 'Browse and manage creative concepts' },
+  { title: 'Campaigns', description: 'View and manage campaign families' },
+  { title: 'Assets', description: 'Browse the asset library' },
+  { title: 'QA', description: 'Review quality assurance results' },
+  { title: 'Analytics', description: 'View campaign performance' },
+];
+
 export default function StudioPage() {
   return (
-    <main style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1 style={{ color: '#C8001C' }}>PrintSync Creative Studio</h1>
-      <p>Welcome to the PrintSync Creative Operating System.</p>
-      <p>
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <h1 className="text-3xl font-semibold tracking-tight text-brand">
+        PrintSync Creative Studio
+      </h1>
+      <p className="mt-3 text-neutral-700">
+        Welcome to the PrintSync Creative Operating System.
+      </p>
+      <p className="mt-1 max-w-3xl text-neutral-500">
         This studio will provide a visual interface for campaign management,
         concept review, creative scoring, and production oversight.
       </p>
-      <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-        <Card title="Today's Campaign" description="Generate and review daily advertising concepts" />
-        <Card title="Concepts" description="Browse and manage creative concepts" />
-        <Card title="Campaigns" description="View and manage campaign families" />
-        <Card title="Assets" description="Browse the asset library" />
-        <Card title="QA" description="Review quality assurance results" />
-        <Card title="Analytics" description="View campaign performance" />
+      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {features.map((feature) => (
+          <Card key={feature.title} {...feature} />
+        ))}
       </div>
     </main>
   );
@@ -21,14 +34,9 @@ export default function StudioPage() {
 
 function Card({ title, description }: { title: string; description: string }) {
   return (
-    <div style={{
-      padding: '1.5rem',
-      border: '1px solid #e0e0e0',
-      borderRadius: '8px',
-      background: '#fafafa',
-    }}>
-      <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>{title}</h3>
-      <p style={{ margin: 0, fontSize: '0.875rem', color: '#666' }}>{description}</p>
+    <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+      <h3 className="text-base font-medium text-neutral-900">{title}</h3>
+      <p className="mt-2 text-sm text-neutral-500">{description}</p>
     </div>
   );
 }

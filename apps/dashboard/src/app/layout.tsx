@@ -1,4 +1,8 @@
-export const metadata = {
+import type { Metadata } from 'next';
+
+import './globals.css';
+
+export const metadata: Metadata = {
   title: 'PrintSync Dashboard',
   description: 'PrintSync Creative OS — Analytics and insights',
 };
@@ -10,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <body className="min-h-screen bg-neutral-50 font-sans text-neutral-900 antialiased">
         {children}
       </body>
     </html>
