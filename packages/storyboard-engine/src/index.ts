@@ -24,8 +24,6 @@ export class StoryboardEngine {
       duration: step.end - step.start,
       purpose: step.visual,
       camera: { type: "STATIC", lens: "35mm" },
-      subject: undefined,
-      environment: undefined,
     }));
     return { shots };
   }

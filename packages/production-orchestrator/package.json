@@ -16,10 +16,10 @@
     "@printsync/visual-grammar-engine": "workspace:*",
     "@printsync/storyboard-engine": "workspace:*",
     "@printsync/shot-engine": "workspace:*",
-    "@printsync/scene-graph-engine": "workspace:*",
-    "uuid": "^9.0.0"
+    "@printsync/scene-graph-engine": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "typescript": "^5.5.4"
   }
 }

@@ -13,7 +13,10 @@ export class SceneGraphEngine {
     }));
     const edges: SceneEdge[] = [];
     for (let i = 0; i < nodes.length - 1; i++) {
-      edges.push({ from: nodes[i].id, to: nodes[i + 1].id, relation: "NEXT" });
+      const from = nodes[i];
+      const to = nodes[i + 1];
+      if (!from || !to) continue;
+      edges.push({ from: from.id, to: to.id, relation: "NEXT" });
     }
     return { nodes, edges };
   }

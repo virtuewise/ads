@@ -1,5 +1,6 @@
 // Script Engine – deterministic script generation
-import { CreativeBrief, SubjectInfo, VisualGrammar, StoryOutline, Script, ScriptStep } from "@printsync/common";
+import { CreativeBrief, VisualGrammar, StoryOutline, Script, ScriptStep } from "@printsync/common";
+import { SubjectInfo } from "@printsync/subject-engine";
 
 export const SCRIPT_ENGINE_VERSION = "0.1.0";
 

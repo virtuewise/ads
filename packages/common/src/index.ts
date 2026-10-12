@@ -6,6 +6,7 @@ import { z } from "zod";
  */
 
 export interface CreativeBrief {
+  id?: string;
   title: string;
   duration: number; // seconds
   mode: string; // e.g. "EXPLAINER", "CORPORATE", "DETECTIVE"
@@ -16,6 +17,7 @@ export interface CreativeBrief {
 }
 
 export const CreativeBriefSchema = z.object({
+  id: z.string().optional(),
   title: z.string(),
   duration: z.number().positive(),
   mode: z.string(),
@@ -62,6 +64,7 @@ export interface StoryOutline {
 export const StoryOutlineSchema = z.object({
   outline: z.array(z.string()),
 });
+export interface Storyboard {
   shots: Shot[];
 }
 

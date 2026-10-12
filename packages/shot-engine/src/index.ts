@@ -16,8 +16,8 @@ export class ShotEngine {
       duration: shotDuration,
       purpose: s.purpose ?? `Purpose ${i + 1}`,
       camera: { type: "STATIC", lens: "35mm" },
-      subject: s.subject,
-      environment: s.environment,
+      ...(s.subject ? { subject: s.subject } : {}),
+      ...(s.environment ? { environment: s.environment } : {}),
     }));
   }
 }

@@ -18,8 +18,5 @@
     "paths": {
       "@printsync/*": ["packages/*/src"]
     }
-  },
-  "references": [
-    { "path": "./packages/common" }
-  ]
+  }
 }

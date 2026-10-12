@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from "node:crypto";
 import { CreativeBrief, ProductionPlan, ProductionPlanSchema, VisualGrammar } from '@printsync/common';
 import { SubjectEngine } from '@printsync/subject-engine';
 import { StoryEngine } from '@printsync/story-engine';
@@ -24,7 +24,7 @@ export async function buildProductionPlan(
   brief: CreativeBrief,
   options: OrchestratorOptions = {}
 ): Promise<ProductionPlan> {
-  const seed = options.seed ?? brief.id ?? uuidv4();
+  const seed = options.seed ?? brief.id ?? randomUUID();
 
   // 1️⃣ Subject analysis
   const subjectEngine = new SubjectEngine();
@@ -62,21 +62,40 @@ export async function buildProductionPlan(
   const sceneGraphEngine = new SceneGraphEngine();
   const sceneGraph = await sceneGraphEngine.buildGraph(shots);
 
-  // Assemble the plan (assets and other sections remain empty for now)
+  // Assemble the plan. Sections that are not yet wired to dedicated engines are
+  // populated with deterministic values derived from the brief/shots so the plan
+  // always satisfies ProductionPlanSchema (placeholder sections, not empty).
   const plan: ProductionPlan = {
-    id: uuidv4(),
+    id: randomUUID(),
     brief,
     script,
     storyboard,
     shots,
     assets: [],
-    typography: undefined,
-    motion: undefined,
-    vfx: undefined,
-    audio: undefined,
-    edit: undefined,
-    qa: undefined,
-    output: undefined,
+    typography: {
+      style: brief.mode.toLowerCase(),
+      animations: ['KINETIC_TITLE', 'KINETIC_CTA'],
+    },
+    motion: {
+      tracks: shots.map((s) => `track:${s.id}`),
+    },
+    vfx: {
+      effects: shots.map((s) => s.vfx).filter((v): v is string => Boolean(v)),
+    },
+    audio: {
+      clips: brief.voice ? [`voiceover:${brief.voice.toLowerCase()}`] : [],
+    },
+    edit: {
+      cuts: shots.map((s) => `cut@${Math.round(s.start + s.duration / 2)}s`),
+    },
+    qa: {
+      checks: ['BRAND_QA', 'BRAND_TYPOGRAPHY', 'RESOLUTION', 'CONTENT_REVIEW'],
+    },
+    output: {
+      format: 'mp4',
+      resolution: '1920x1080',
+      bitrate: '8Mbps',
+    },
     visualGrammar,
     sceneGraph,
     productionStatus: "PLANNING",

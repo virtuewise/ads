@@ -2,15 +2,15 @@
   "name": "@printsync/storyboard-engine",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p .",
     "dev": "tsc --watch",
     "test": "vitest run"
   },
   "dependencies": {
-    "@printsync/shared": "workspace:*"
+    "@printsync/common": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.0",
