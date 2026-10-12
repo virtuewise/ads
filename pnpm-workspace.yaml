@@ -1,5 +1,20 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Supply-chain policy: opt out of the minimum release-age delay so the repo
+# always installs the latest published versions. This is intentional — all
+# versions are pinned in pnpm-lock.yaml and updates are reviewed on commit.
+minimumReleaseAge: 0
+
+# Lifecycle scripts for native/binary modules (pnpm 12 blocks these by default).
 allowBuilds:
+  "@swc/core": true
+  "@tailwindcss/node": true
+  "@tailwindcss/oxide": true
   esbuild: true
+  sharp: true
+  unrs-resolver: true
+
+overrides:
+  postcss: ^8.5.29

@@ -6,7 +6,7 @@
   "types": "src/index.ts",
   "scripts": {
     "build": "tsc -p .",
-    "test": "vitest --config ../../vitest.config.ts"
+    "test": "vitest run --root ../.. production-orchestrator"
   },
   "dependencies": {
     "@printsync/common": "workspace:*",
@@ -19,7 +19,7 @@
     "@printsync/scene-graph-engine": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "typescript": "^5.5.4"
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
   }
 }

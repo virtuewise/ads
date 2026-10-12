@@ -126,7 +126,7 @@ export interface AssetRequirement {
 
 export const AssetRequirementSchema = z.object({
   type: z.string(),
-  url: z.string().url(),
+  url: z.url(),
   description: z.string().optional(),
 });
 
@@ -215,7 +215,7 @@ export interface SceneNode {
 export const SceneNodeSchema = z.object({
   id: z.string(),
   type: z.string(),
-  data: z.record(z.any()),
+  data: z.record(z.string(), z.any()),
 });
 
 export interface SceneEdge {

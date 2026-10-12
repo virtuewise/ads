@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['packages/**/*.test.ts'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
     // Enable TypeScript path aliases from root tsconfig
     alias: {
       '@printsync': new URL('./packages', import.meta.url).pathname,
