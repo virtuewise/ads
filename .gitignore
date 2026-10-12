@@ -8,6 +8,9 @@ dist/
 out/
 *.tsbuildinfo
 
+# Turborepo cache
+.turbo/
+
 # Environment
 .env
 .env.local
