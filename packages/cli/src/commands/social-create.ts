@@ -1,5 +1,5 @@
 /**
- * social:create — Create social media content
+ * social:create — Create animated social/story content (motion-designed)
  */
 
 import chalk from 'chalk';
@@ -34,6 +34,7 @@ export async function socialCreate(options: {
     console.log(`  Duration: ${spec.duration}s`);
   }
   console.log(`  Color Mode: RGB`);
+  console.log(`  Delivery: animated video — motion-designed, not a still image`);
   console.log();
 
   console.log(chalk.yellow('CONTENT STRUCTURE:\n'));

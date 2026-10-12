@@ -4,6 +4,7 @@
  */
 
 import type { Concept, JudgeVerdict, CreativeHistoryEntry } from '@printsync/shared';
+import { DEFAULT_THRESHOLDS } from '@printsync/shared';
 import { analyzeAntiGeneric } from './anti-generic-v2.js';
 
 interface JudgeDimension {
@@ -194,15 +195,16 @@ export function judgeConceptV2(concept: Concept, history: CreativeHistoryEntry[]
   const antiGenericReport = analyzeAntiGeneric(concept, history);
   const competitorTestPasses = antiGenericReport.competitorTest.passes;
 
-  // Determine status
+  // Determine status. Bands come from the shared rubric; V2 additionally
+  // requires all hard gates (and the competitor test for SIGNATURE) to pass.
   let status: 'REJECT' | 'REWORK' | 'APPROVE' | 'SIGNATURE' = 'REJECT';
   const allGatesPass = Object.values(hardGates).every(v => v);
 
-  if (total >= 90 && allGatesPass && competitorTestPasses) {
+  if (total >= DEFAULT_THRESHOLDS.signature && allGatesPass && competitorTestPasses) {
     status = 'SIGNATURE';
-  } else if (total >= 80 && allGatesPass) {
+  } else if (total >= DEFAULT_THRESHOLDS.approve && allGatesPass) {
     status = 'APPROVE';
-  } else if (total >= 70) {
+  } else if (total >= DEFAULT_THRESHOLDS.rework) {
     status = 'REWORK';
   }
 
@@ -212,7 +214,7 @@ export function judgeConceptV2(concept: Concept, history: CreativeHistoryEntry[]
     if (!passes) feedback.push(`Hard gate failed: ${gate}`);
   }
   if (!competitorTestPasses) feedback.push('Competitor test failed — concept is not brand-specific enough');
-  if (total < 80) feedback.push(`Score ${total} is below approval threshold (80)`);
+  if (total < DEFAULT_THRESHOLDS.approve) feedback.push(`Score ${total} is below approval threshold (${DEFAULT_THRESHOLDS.approve})`);
   if (feedback.length === 0) feedback.push('Strong concept across all dimensions');
 
   return {

@@ -1,8 +1,8 @@
-# PrintSync Creative Engine
+# Virtue Studio — Creative Engine
 
 ## Overview
 
-The Creative Engine is the intelligence layer of the PrintSync Creative OS. It generates concepts, scores them, detects generic patterns, and ensures every piece of creative meets PrintSync's standards.
+The Creative Engine is the intelligence layer of Virtue Studio. It generates concepts, scores them, detects generic patterns, and ensures every piece of creative meets PrintSync's standards — always motion-designed first.
 
 ## Components
 
@@ -43,6 +43,10 @@ Scores every concept against 10 dimensions:
 - `70–79` → REWORK
 - `80–89` → APPROVE
 - `90–100` → SIGNATURE CONCEPT
+
+> Single source of truth: `DEFAULT_THRESHOLDS` and `getScoreStatus()` in `@printsync/shared`.
+> The V1/V2 judges and the rework loop all resolve status through `getScoreStatus`; edit the
+> rubric there, not in the judges.
 
 ### Anti-Generic Engine
 

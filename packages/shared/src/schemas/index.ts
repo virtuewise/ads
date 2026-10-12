@@ -33,7 +33,7 @@ export type {
   CreativeHistoryEntry,
 } from './creative.js';
 
-export { DEFAULT_THRESHOLDS } from './creative.js';
+export { DEFAULT_THRESHOLDS, getScoreStatus } from './creative.js';
 
 export type {
   Campaign,

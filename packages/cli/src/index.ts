@@ -56,14 +56,14 @@ program
 
 program
   .command('poster:create')
-  .description('Create a poster')
+  .description('Create a motion-designed poster (animated master + print keyframes)')
   .option('-s, --size <size>', 'Poster size (A4|A3|A2|A1)', 'A2')
   .option('-t, --title <title>', 'Poster title')
   .action(posterCreate);
 
 program
   .command('social:create')
-  .description('Create social media content')
+  .description('Create animated social/story content')
   .option('-p, --platform <platform>', 'Platform (instagram|tiktok|linkedin)')
   .option('-f, --format <format>', 'Format (1:1|4:5|9:16)')
   .action(socialCreate);

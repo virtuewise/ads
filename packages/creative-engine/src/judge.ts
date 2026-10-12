@@ -5,7 +5,7 @@
  */
 
 import type { Concept, CreativeScore, CreativeScoreThresholds, CreativeHistoryEntry } from '@printsync/shared';
-import { DEFAULT_THRESHOLDS } from '@printsync/shared';
+import { DEFAULT_THRESHOLDS, getScoreStatus } from '@printsync/shared';
 import { checkAntiGeneric } from './anti-generic.js';
 
 export class CreativeJudge {
@@ -51,7 +51,7 @@ export class CreativeJudge {
         10
     );
 
-    const status = this.determineStatus(total);
+    const status = getScoreStatus(total, this.thresholds);
     const feedback = this.generateFeedback(concept, {
       brand_fit,
       originality,
@@ -105,13 +105,13 @@ export class CreativeJudge {
   } {
     const score = this.scoreConcept(concept);
 
-    if (score.total >= this.thresholds.signature) {
+    if (score.status === 'SIGNATURE') {
       return { approved: true, score, action: 'APPROVE', reason: 'SIGNATURE CONCEPT — Exceptional creative quality' };
     }
-    if (score.total >= this.thresholds.approve) {
+    if (score.status === 'APPROVE') {
       return { approved: true, score, action: 'APPROVE', reason: 'APPROVED — Strong creative concept' };
     }
-    if (score.total >= this.thresholds.rework) {
+    if (score.status === 'REWORK') {
       return { approved: false, score, action: 'REWORK', reason: 'NEEDS REWORK — Good foundation but requires improvement' };
     }
     return { approved: false, score, action: 'REJECT', reason: 'REJECTED — Does not meet PrintSync creative standards' };
@@ -270,13 +270,6 @@ export class CreativeJudge {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
-
-  private determineStatus(total: number): CreativeScore['status'] {
-    if (total >= this.thresholds.signature) return 'SIGNATURE';
-    if (total >= this.thresholds.approve) return 'APPROVE';
-    if (total >= this.thresholds.rework) return 'REWORK';
-    return 'REJECT';
-  }
 
   private generateFeedback(_concept: Concept, scores: Omit<CreativeScore, 'total' | 'status' | 'feedback'>): string[] {
     const feedback: string[] = [];

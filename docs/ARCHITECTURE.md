@@ -1,8 +1,10 @@
-# PrintSync Creative OS — Architecture
+# Virtue Studio — Architecture
 
 ## System Overview
 
-The PrintSync Creative Operating System is a modular, brand-aware advertising engine built on a monorepo architecture. It separates concerns into independent engines that can evolve independently.
+Virtue Studio is a modular, brand-aware advertising engine built on a monorepo architecture. It separates concerns into independent engines that can evolve independently.
+
+**Motion-First:** every output the system produces is motion-designed. A poster is an animated key visual (still frames exported for print), and stories/social posts are animated — there are no standalone static deliverables in the production path.
 
 ## Architecture Diagram
 

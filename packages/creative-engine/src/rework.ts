@@ -4,6 +4,7 @@
  */
 
 import type { Concept, ReworkResult, CreativeHistoryEntry } from '@printsync/shared';
+import { DEFAULT_THRESHOLDS } from '@printsync/shared';
 import { judgeConceptV2 } from './judge-v2.js';
 import { analyzeAntiGeneric } from './anti-generic-v2.js';
 
@@ -52,7 +53,7 @@ export function reworkConcept(
 
   let status: 'IMPROVED' | 'UNCHANGED' | 'REJECTED' = 'UNCHANGED';
   if (newScore > originalScore) status = 'IMPROVED';
-  if (newScore < 70) status = 'REJECTED';
+  if (newScore < DEFAULT_THRESHOLDS.rework) status = 'REJECTED';
 
   return {
     originalScore,

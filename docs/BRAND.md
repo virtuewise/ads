@@ -34,6 +34,12 @@ PrintSync should consistently feel:
 - **Secondary**: "Ideas becoming physical impact."
 - **Tertiary**: "From screen to something real."
 
+## Studio Motion Rule
+
+Everything Virtue Studio produces for PrintSync is motion-designed: a poster is an animated key
+visual (still frames ship for print), and stories and social posts are animated rather than static.
+There are no standalone static deliverables.
+
 ## Visual Language
 
 ### Colors

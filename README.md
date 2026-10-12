@@ -36,6 +36,18 @@ BUSINESS OBJECTIVE
 
 ---
 
+## Motion-First Principle
+
+**Everything in Virtue Studio is motion-designed.** There is no standalone "static" deliverable:
+
+- **Posters** are animated key visuals; still frames are exported for print (CMYK/DPI is an export concern).
+- **Stories and social posts** are animated short-form motion pieces — never a flat image.
+- **Carousels, infographics, brand layouts, and logo systems** are produced as motion pieces, with still keyframes only when a physical deliverable requires them.
+
+So "poster generation", "social formats", and "infographics" (Phase 3) are **motion-design tasks**, not static design tasks — their export pipeline may include still frames for print. Design, production, and export always flow through the motion pipeline.
+
+---
+
 ## Quick Start
 
 ```bash
@@ -63,10 +75,10 @@ pnpm campaign:create --name "Print Has Power" --service "branding"
 # Create a film
 pnpm film:create --duration 30 --style cinematic
 
-# Create a poster
+# Create a motion-designed poster (animated + print keyframes)
 pnpm poster:create --size A2 --title "BIG IDEAS"
 
-# Create social content
+# Create animated social content
 pnpm social:create --platform instagram --format 1:1
 ```
 
@@ -181,6 +193,10 @@ Every concept is scored against 10 dimensions:
 - `80–89` → APPROVE
 - `90–100` → SIGNATURE CONCEPT
 
+> Single source of truth: `DEFAULT_THRESHOLDS` and `getScoreStatus()` in
+> `@printsync/shared` (`packages/shared/src/schemas/creative.ts`). Both the V1 and V2 judges
+> resolve status through `getScoreStatus`, so these bands must be changed there only.
+
 ---
 
 ## Development Phases
@@ -207,13 +223,13 @@ Every concept is scored against 10 dimensions:
 - [ ] Anti-generic system (enhanced)
 - [ ] Creative history
 
-### Phase 3 — Design Engine
-- [ ] Poster generation
-- [ ] Social formats
-- [ ] Typography engine
-- [ ] Infographics
-- [ ] Brand layouts
-- [ ] Logo system
+### Phase 3 — Design Engine (motion-first)
+- [ ] Motion poster generation — animated master, still keyframes for print
+- [ ] Animated social / story formats
+- [ ] Motion typography engine (kinetic type)
+- [ ] Motion infographics — animated data storytelling
+- [ ] Motion brand layouts
+- [ ] Motion logo system
 
 ### Phase 4 — Motion Engine
 - [ ] Remotion integration

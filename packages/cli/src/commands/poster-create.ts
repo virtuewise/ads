@@ -1,5 +1,5 @@
 /**
- * poster:create — Create a poster
+ * poster:create — Create a motion-designed poster (animated master + print keyframes)
  */
 
 import chalk from 'chalk';
@@ -32,6 +32,11 @@ export async function posterCreate(options: {
   console.log(`  Resolution: 300 DPI`);
   console.log(`  Color Mode: CMYK`);
   console.log(`  Bleed: 3mm`);
+  console.log();
+
+  console.log(chalk.yellow('MOTION\n'));
+  console.log(`  Master: 5s loop-ready animated key visual`);
+  console.log(`  Still Keyframes: exported at 300 DPI CMYK for print`);
   console.log();
 
   console.log(chalk.yellow('LAYOUT:\n'));

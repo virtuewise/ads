@@ -1,6 +1,12 @@
 /**
  * Creative Mode Registry
  * Defines all supported creative modes with their characteristics.
+ *
+ * Motion-First principle: every Virtue Studio output is motion-designed. What
+ * looks like a "still" deliverable (poster, social post, carousel, infographic)
+ * is always designed and produced as an animated/motion piece first; still
+ * keyframes are then exported for print or static contexts. `typical_duration_seconds`
+ * is the default runtime of the motion master for each mode.
  */
 
 import type { CreativeMode, VoiceMode, Mood, VisualStyle, Pace, CreativeTerritory } from '@printsync/shared';
@@ -89,15 +95,15 @@ export const CREATIVE_MODES: Record<CreativeMode, CreativeModeDefinition> = {
   },
   SOCIAL_POST: {
     mode: 'SOCIAL_POST',
-    name: 'Social Media Post',
-    description: 'Static social media post optimized for engagement',
+    name: 'Animated Social Post',
+    description: 'Motion-designed short-form post — animated for feeds, stories, and reels',
     default_voice_mode: 'TYPOGRAPHY_ONLY',
     default_mood: 'minimal',
     default_visual_style: 'typography',
     default_pace: 'fast_energetic',
     territories: ['PRECISION', 'PLAY'],
-    typical_duration_seconds: 0,
-    formats: ['1:1', '4:5', '9:16'],
+    typical_duration_seconds: 5,
+    formats: ['9:16', '1:1', '4:5'],
     requires_voice: false,
     requires_footage: false,
     requires_3d: false,
@@ -105,14 +111,14 @@ export const CREATIVE_MODES: Record<CreativeMode, CreativeModeDefinition> = {
   },
   SOCIAL_CAROUSEL: {
     mode: 'SOCIAL_CAROUSEL',
-    name: 'Social Carousel',
-    description: 'Multi-slide social media carousel',
+    name: 'Animated Social Carousel',
+    description: 'Motion-designed carousel — kinetic multi-slide deck',
     default_voice_mode: 'TYPOGRAPHY_ONLY',
     default_mood: 'minimal',
     default_visual_style: 'typography',
     default_pace: 'fast_energetic',
     territories: ['PRECISION', 'PLAY'],
-    typical_duration_seconds: 0,
+    typical_duration_seconds: 8,
     formats: ['1:1', '4:5'],
     requires_voice: false,
     requires_footage: false,
@@ -121,15 +127,15 @@ export const CREATIVE_MODES: Record<CreativeMode, CreativeModeDefinition> = {
   },
   POSTER: {
     mode: 'POSTER',
-    name: 'Poster',
-    description: 'Print poster design',
+    name: 'Motion-Designed Poster',
+    description: 'Motion-designed poster — animated key visual, still frames exported for print',
     default_voice_mode: 'TYPOGRAPHY_ONLY',
     default_mood: 'dramatic',
     default_visual_style: 'typography',
     default_pace: 'slow_premium',
     territories: ['SCALE', 'TRANSFORMATION'],
-    typical_duration_seconds: 0,
-    formats: ['A4', 'A3', 'A2', 'A1'],
+    typical_duration_seconds: 5,
+    formats: ['A4', 'A3', 'A2', 'A1', '1:1', '9:16'],
     requires_voice: false,
     requires_footage: false,
     requires_3d: false,
@@ -153,14 +159,14 @@ export const CREATIVE_MODES: Record<CreativeMode, CreativeModeDefinition> = {
   },
   INFOGRAPHIC: {
     mode: 'INFOGRAPHIC',
-    name: 'Infographic',
-    description: 'Data-driven visual information design',
+    name: 'Motion Infographic',
+    description: 'Motion-designed infographic — animated data storytelling',
     default_voice_mode: 'TYPOGRAPHY_ONLY',
     default_mood: 'technical',
     default_visual_style: 'typography',
     default_pace: 'rhythmic',
     territories: ['PRECISION'],
-    typical_duration_seconds: 0,
+    typical_duration_seconds: 8,
     formats: ['1:1', '4:5', 'A4', 'A3'],
     requires_voice: false,
     requires_footage: false,

@@ -124,6 +124,26 @@ export interface CreativeScore {
   feedback: string[];
 }
 
+/**
+ * Score-band thresholds for the Creative Judge.
+ *
+ * Bands are contiguous and lower-bound inclusive:
+ *
+ * | Total score      | Status    |
+ * |------------------|-----------|
+ * | `>= signature`   | SIGNATURE |
+ * | `>= approve`     | APPROVE   |
+ * | `>= rework`      | REWORK    |
+ * | `<  rework`      | REJECT    |
+ *
+ * `reject` is the exclusive upper bound of the REJECT band. For a contiguous
+ * rubric it equals `rework`; it is kept explicit for readability and backward
+ * compatibility.
+ *
+ * Always resolve a score to a status with {@link getScoreStatus} rather than
+ * comparing against these fields directly, so every judge applies the same
+ * bands.
+ */
 export interface CreativeScoreThresholds {
   reject: number;
   rework: number;
@@ -131,12 +151,33 @@ export interface CreativeScoreThresholds {
   signature: number;
 }
 
+/**
+ * Canonical PrintSync creative scoring rubric (single source of truth).
+ *
+ * REJECT < 70 · REWORK 70–79 · APPROVE 80–89 · SIGNATURE 90–100
+ */
 export const DEFAULT_THRESHOLDS: CreativeScoreThresholds = {
   reject: 70,
-  rework: 80,
-  approve: 90,
-  signature: 95,
+  rework: 70,
+  approve: 80,
+  signature: 90,
 };
+
+/**
+ * Map a total creative score (0–100) to its status using the given thresholds.
+ *
+ * This is the only place the score bands are evaluated; both the V1 and V2
+ * judges call it so they can never drift apart.
+ */
+export function getScoreStatus(
+  total: number,
+  thresholds: CreativeScoreThresholds = DEFAULT_THRESHOLDS
+): 'REJECT' | 'REWORK' | 'APPROVE' | 'SIGNATURE' {
+  if (total >= thresholds.signature) return 'SIGNATURE';
+  if (total >= thresholds.approve) return 'APPROVE';
+  if (total >= thresholds.rework) return 'REWORK';
+  return 'REJECT';
+}
 
 export interface AntiGenericCheck {
   looks_canva: boolean;

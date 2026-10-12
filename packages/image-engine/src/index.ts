@@ -1,12 +1,14 @@
 /**
  * @printsync/image-engine
- * Image generation and design engine for the PrintSync Creative OS.
+ * Image generation and design engine for Virtue Studio.
  *
- * This package will handle:
- * - Poster generation
- * - Social media image creation
- * - Typography layering
- * - Logo placement
+ * Motion-First: this engine never produces standalone "static" outputs — it generates
+ * the still keyframes and frame plates that make up motion-designed pieces:
+ *
+ * - Motion poster generation (animated master + still keyframe exports)
+ * - Animated social/story frame plates
+ * - Typography layering for kinetic type
+ * - Logo placement in motion layouts
  * - Brand layout systems
  * - Multi-format adaptation
  */
@@ -15,7 +17,7 @@ export const IMAGE_ENGINE_VERSION = '0.1.0';
 
 export class ImageEngine {
   /**
-   * Generate a poster.
+   * Generate a motion-designed poster (animated master + still keyframes for print).
    */
   async generatePoster(_title: string, _size: string) {
     // TODO: Implement poster generation
@@ -23,7 +25,7 @@ export class ImageEngine {
   }
 
   /**
-   * Generate social media image.
+   * Generate an animated social/story frame plate.
    */
   async generateSocialImage(_format: string, _content: unknown) {
     // TODO: Implement social image generation
