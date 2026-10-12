@@ -1,0 +1,41 @@
+name: "CodeQL Analysis"
+
+on:
+  push:
+    branches: [ master, main, "feature/**" ]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ master, main ]
+  schedule:
+    - cron: "0 0 * * 0" # weekly
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      matrix:
+        language: ["javascript", "typescript"]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        # Please add any config options here.
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "${{ matrix.language }}"
+        upload: true
+        # Output SARIF files are automatically uploaded to the security tab.
