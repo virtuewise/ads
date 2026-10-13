@@ -53,7 +53,7 @@ The deterministic planning pipeline is wired and validated, but most stages retu
 
 See [Production Pipeline](Production-Pipeline) for the exact stage-by-stage state.
 
-## Phase 4 — Motion Engine 🟡
+## Phase 4 — Motion Engine ✅ (substantially implemented)
 
 - [x] Remotion renderer with React Three Fiber / Three.js 3D compositions (`apps/renderer`)
 - [x] Render-input bridge from the orchestrator to the renderer (`buildRenderInputs`)
@@ -74,7 +74,7 @@ See [Production Pipeline](Production-Pipeline) for the exact stage-by-stage stat
 `packages/motion-engine` is now a real engine (see [Motion & Renderer](Motion-and-Renderer));
 `packages/typography-engine` is still minimal.
 
-## Phase 5 — Video Engine 🟡
+## Phase 5 — Video Engine 🟡 (core pipeline implemented)
 
 - [x] Programmatic motion rendering core (Remotion, headless export, audio-reactive signature film)
 - [x] Enterprise render plan — shard a film into resumable worker jobs (`@printsync/render-farm`)
@@ -137,4 +137,5 @@ pnpm test
 2. Populate the empty `ProductionPlan` sections (assets, typography, motion, vfx, audio, edit, qa,
    output) and transition `productionStatus` to `COMPLETE`.
 3. Wire `creative-engine` selection into `production-orchestrator` (two brief types must be bridged).
-4. Implement the Motion and QA engines, then real export.
+4. Implement QA engine, then real export.
+5. Kinetic typography, transitions, VFX in the motion engine.
