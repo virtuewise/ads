@@ -1,0 +1,138 @@
+# cargo-make configuration for Virtue Studio
+# Run with: `cargo make <TASK>`
+
+[tasks]
+
+# ============================================================================
+# Primary Tasks
+# ============================================================================
+
+[default]
+description = "Show available tasks"
+commands = ["cargo make --list-all-steps"]
+
+# ---------------------------------------------------------------------------
+# Linting & Formatting (Biome)
+# ---------------------------------------------------------------------------
+
+[tasks.biome-check]
+description = "Run Biome lint check (no fixes)"
+command = "biome"
+args = ["check", "."]
+cwd = "."
+
+[tasks.biome-fix]
+description = "Run Biome lint check with auto-fix"
+command = "biome"
+args = ["check", "--write", "."]
+cwd = "."
+
+[tasks.biome-format]
+description = "Format code with Biome"
+command = "biome"
+args = ["format", "--write", "."]
+cwd = "."
+
+# ---------------------------------------------------------------------------
+# Schema Generation
+# ---------------------------------------------------------------------------
+
+[tasks.generate-schemas]
+description = "Generate Zod schemas from Rust types"
+command = "cargo"
+args = ["run", "--manifest-path", "rust/xtask/Cargo.toml", "--", "generate-schemas", "--output", "../../packages/common/src"]
+cwd = "."
+
+# ---------------------------------------------------------------------------
+# Native Module Build
+# ---------------------------------------------------------------------------
+
+[tasks.build-native]
+description = "Build @printsync/core-native (release)"
+command = "cargo"
+args = ["build", "--manifest-path", "rust/core-native/Cargo.toml", "--release"]
+cwd = "."
+
+[tasks.build-native-dev]
+description = "Build @printsync/core-native (dev)"
+command = "cargo"
+args = ["build", "--manifest-path", "rust/core-native/Cargo.toml"]
+cwd = "."
+
+[tasks.build-native-wasm]
+description = "Build @printsync/core-native for WASM (for Studio dashboard)"
+command = "cargo"
+args = ["build", "--manifest-path", "rust/core-native/Cargo.toml", "--release", "--target", "wasm32-unknown-unknown"]
+cwd = "."
+
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
+
+[tasks.test-rust]
+description = "Run Rust tests with nextest"
+command = "cargo"
+args = ["nextest", "run", "--workspace", "--profile", "ci"]
+cwd = "rust"
+
+[tasks.test-ts]
+description = "Run TypeScript tests"
+command = "pnpm"
+args = ["test"]
+cwd = "."
+
+[tasks.test-all]
+description = "Run all tests (Rust + TypeScript)"
+dependencies = ["test-rust", "test-ts"]
+
+# ---------------------------------------------------------------------------
+# Build Pipeline
+# ---------------------------------------------------------------------------
+
+[tasks.build-ts]
+description = "Build TypeScript monorepo"
+command = "pnpm"
+args = ["build"]
+cwd = "."
+
+[tasks.build-all]
+description = "Build everything (Rust native + TypeScript)"
+dependencies = ["build-native", "build-ts"]
+
+# ---------------------------------------------------------------------------
+# Full CI Pipeline
+# ---------------------------------------------------------------------------
+
+[tasks.ci]
+description = "Full CI pipeline (lint + schemas + native + build + tests)"
+dependencies = ["biome-check", "generate-schemas", "build-native", "build-ts", "test-all"]
+description = "Complete CI pipeline"
+
+# ---------------------------------------------------------------------------
+# Development Helpers
+# ---------------------------------------------------------------------------
+
+[tasks.install-hooks]
+description = "Install git hooks via lefthook"
+command = "lefthook"
+args = ["install"]
+cwd = "."
+
+[tasks.clean]
+description = "Clean build artifacts"
+commands = [
+  "pnpm clean",
+  "cargo clean --manifest-path rust/xtask/Cargo.toml",
+  "cargo clean --manifest-path rust/core-native/Cargo.toml",
+  "cargo clean --manifest-path rust/schemas/Cargo.toml",
+]
+cwd = "."
+
+[tasks.dev]
+description = "Start development environment"
+commands = [
+  "cargo make biome-fix",
+  "cargo make generate-schemas",
+  "cargo make build-native-dev",
+  "pnpm dev",
+]

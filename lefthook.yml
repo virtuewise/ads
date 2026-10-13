@@ -1,0 +1,30 @@
+# lefthook configuration for Virtue Studio
+# Install: `lefthook install`
+
+pre-commit:
+  parallel: true
+  commands:
+    biome-check:
+      glob: "*.{ts,tsx,js,jsx,json,css}"
+      run: cargo make biome-check
+      stage_fixed: true
+
+    typos:
+      glob: "*.{ts,tsx,js,jsx,md,txt,rs,toml,json,yml,yaml}"
+      run: typos
+
+    schema-sync:
+      glob: "rust/schemas/src/**/*.rs"
+      run: cargo make generate-schemas
+      stage_fixed: true
+
+pre-push:
+  commands:
+    full-ci:
+      run: cargo make ci
+      stage_fixed: false
+
+# Global settings
+skip_output_if_success: true
+report_summary: true
+colors: true

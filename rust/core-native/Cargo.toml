@@ -1,0 +1,28 @@
+[package]
+name = "core-native"
+version = "0.1.0"
+edition = "2021"
+description = "Native hot paths for Virtue Studio (hash, camera math, audio analysis, city layout)"
+license = "MIT"
+repository = "https://github.com/virtuewise/ads"
+
+[lib]
+name = "core_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { workspace = true, features = ["napi8"] }
+napi-derive = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+half = "2.0"  # f16 support for audio
+
+[build-dependencies]
+napi-build = { version = "3.0", features = ["napi8"] }
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1

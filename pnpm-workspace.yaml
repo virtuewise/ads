@@ -15,6 +15,7 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+  "@printsync/core-native": true
 
 overrides:
   postcss: ^8.5.29

@@ -1,0 +1,30 @@
+{
+  "name": "@printsync/core-native",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "node scripts/build-native.js",
+    "build:dev": "node scripts/build-native.js --dev",
+    "build:wasm": "node scripts/build-wasm.js",
+    "test": "cargo test --manifest-path ../../rust/core-native/Cargo.toml 2>/dev/null || echo 'Cargo not available, skipping native tests'",
+    "prepack": "pnpm run build"
+  },
+  "napi": {
+    "name": "core_native",
+    "triples": {
+      "defaults": true
+    }
+  },
+  "dependencies": {
+    "@napi-rs/wasm-runtime": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
