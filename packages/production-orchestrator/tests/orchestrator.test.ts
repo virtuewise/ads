@@ -14,7 +14,7 @@ describe('Production Orchestrator', () => {
   it('produces deterministic plan for box brief', async () => {
     const brief = loadBrief(boxBriefPath);
     const plan = await buildProductionPlan(brief, { seed: 'fixed-seed', validate: true });
-    expect(plan.productionStatus).toBe('PLANNING');
+    expect(plan.productionStatus).toBe('COMPLETE');
     // total shot duration should approx equal brief duration
     const totalShotDuration = plan.shots.reduce((sum, s) => sum + s.duration, 0);
     expect(Math.abs(totalShotDuration - brief.duration)).toBeLessThanOrEqual(0.5);

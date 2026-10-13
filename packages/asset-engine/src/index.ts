@@ -1,40 +1,104 @@
-/**
- * @printsync/asset-engine
- * Asset intelligence and management for Virtue Studio.
- *
- * This package will handle:
- * - Asset registration and cataloging
- * - Footage analysis (duration, fps, resolution, shots, etc.)
- * - Asset search and retrieval
- * - Asset usage tracking
- * - Service-based asset organization
- */
+// Asset Engine – determines asset requirements from shots
+import { Shot, AssetRequirement } from "@printsync/common";
 
-export const ASSET_ENGINE_VERSION = '0.1.0';
+const ASSET_BASE = 'file:///assets';
+
+function assetUrl(path: string): string {
+  return `${ASSET_BASE}/${path}`;
+}
+
+export interface AssetEngineOptions {
+  includeStock?: boolean;
+  include3D?: boolean;
+  includeBrand?: boolean;
+}
 
 export class AssetEngine {
   /**
-   * Scan and register all assets.
+   * Analyze shots and determine required assets.
    */
-  async scanAssets(_path: string) {
-    // TODO: Implement asset scanning
-    return { assets: [], count: 0 };
-  }
+  async analyzeAssets(shots: Shot[], options: AssetEngineOptions = {}): Promise<AssetRequirement[]> {
+    const { includeStock = true, include3D = false, includeBrand = true } = options;
+    const assets: AssetRequirement[] = [];
 
-  /**
-   * Analyze a video file.
-   */
-  async analyzeVideo(_path: string) {
-    // TODO: Implement video analysis
-    return { duration: 0, fps: 0, resolution: {}, shots: [] };
-  }
+    // Brand assets (always needed for PrintSync)
+    if (includeBrand) {
+      assets.push(
+        { type: 'brand_mark', url: assetUrl('brand/printsync/logo.svg'), description: 'PrintSync primary logo' },
+        { type: 'brand_guidelines', url: assetUrl('brand/printsync/guidelines.pdf'), description: 'Brand usage guidelines' },
+        { type: 'color_palette', url: assetUrl('brand/printsync/palette.json'), description: 'Brand color tokens' },
+      );
+    }
 
-  /**
-   * Search assets by criteria.
-   */
-  async searchAssets(_query: unknown) {
-    // TODO: Implement asset search
-    return [];
+    // Per-shot assets
+    for (const shot of shots) {
+      // Typography assets
+      if (shot.typography) {
+        assets.push({
+          type: 'typography',
+          url: assetUrl(`typography/${shot.typography}.json`),
+          description: `Typography preset: ${shot.typography}`,
+        });
+      }
+
+      // VFX assets
+      if (shot.vfx) {
+        assets.push({
+          type: 'vfx_preset',
+          url: assetUrl(`vfx/${shot.vfx}.json`),
+          description: `VFX preset: ${shot.vfx}`,
+        });
+      }
+
+      // 3D assets for 3D-requiring modes
+      if (include3D && (shot.camera.type === 'ESTABLISHING' || shot.camera.type === 'HERO')) {
+        assets.push({
+          type: 'model',
+          url: assetUrl(`models/scene-${shot.id}.glb`),
+          description: `3D scene for ${shot.purpose} shot`,
+        });
+      }
+
+      // Stock footage for live-action modes
+      if (includeStock && shot.environment) {
+        assets.push({
+          type: 'footage',
+          url: assetUrl(`stock/${shot.environment.toLowerCase().replace(/\s+/g, '-')}.mp4`),
+          description: `Stock footage: ${shot.environment}`,
+        });
+      }
+
+      // Audio assets
+      if (shot.audio?.includes('voiceover')) {
+        assets.push({
+          type: 'voiceover',
+          url: assetUrl(`audio/voiceover-${shot.id}.wav`),
+          description: `Voiceover for shot ${shot.id}`,
+        });
+      }
+      if (shot.audio?.includes('music')) {
+        assets.push({
+          type: 'music',
+          url: assetUrl('audio/brand-theme.wav'),
+          description: 'Brand music theme',
+        });
+      }
+      if (shot.audio?.includes('sfx')) {
+        assets.push({
+          type: 'sfx',
+          url: assetUrl(`audio/sfx-${shot.vfx || 'transition'}.wav`),
+          description: `Sound effect for ${shot.vfx || 'transition'}`,
+        });
+      }
+    }
+
+    // Deduplicate by URL
+    const seen = new Set<string>();
+    return assets.filter(a => {
+      if (seen.has(a.url)) return false;
+      seen.add(a.url);
+      return true;
+    });
   }
 }
 

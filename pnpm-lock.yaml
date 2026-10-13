@@ -321,6 +321,9 @@ importers:
 
   packages/asset-engine:
     dependencies:
+      '@printsync/common':
+        specifier: workspace:*
+        version: link:../common
       '@printsync/shared':
         specifier: workspace:*
         version: link:../shared
@@ -334,6 +337,9 @@ importers:
 
   packages/audio-engine:
     dependencies:
+      '@printsync/common':
+        specifier: workspace:*
+        version: link:../common
       '@printsync/shared':
         specifier: workspace:*
         version: link:../shared
@@ -416,6 +422,22 @@ importers:
         specifier: ^5.0.4
         version: 5.0.4(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
 
+  packages/edit-engine:
+    dependencies:
+      '@printsync/common':
+        specifier: workspace:*
+        version: link:../common
+      '@printsync/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.4
+        version: 5.0.4(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
+
   packages/export-engine:
     dependencies:
       '@printsync/shared':
@@ -470,12 +492,24 @@ importers:
 
   packages/production-orchestrator:
     dependencies:
+      '@printsync/asset-engine':
+        specifier: workspace:*
+        version: link:../asset-engine
+      '@printsync/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
       '@printsync/common':
         specifier: workspace:*
         version: link:../common
+      '@printsync/edit-engine':
+        specifier: workspace:*
+        version: link:../edit-engine
       '@printsync/motion-engine':
         specifier: workspace:*
         version: link:../motion-engine
+      '@printsync/qa-engine':
+        specifier: workspace:*
+        version: link:../qa-engine
       '@printsync/scene-graph-engine':
         specifier: workspace:*
         version: link:../scene-graph-engine
@@ -494,6 +528,12 @@ importers:
       '@printsync/subject-engine':
         specifier: workspace:*
         version: link:../subject-engine
+      '@printsync/typography-engine':
+        specifier: workspace:*
+        version: link:../typography-engine
+      '@printsync/vfx-engine':
+        specifier: workspace:*
+        version: link:../vfx-engine
       '@printsync/visual-grammar-engine':
         specifier: workspace:*
         version: link:../visual-grammar-engine
@@ -507,6 +547,9 @@ importers:
 
   packages/qa-engine:
     dependencies:
+      '@printsync/common':
+        specifier: workspace:*
+        version: link:../common
       '@printsync/shared':
         specifier: workspace:*
         version: link:../shared
@@ -617,6 +660,25 @@ importers:
 
   packages/typography-engine:
     dependencies:
+      '@printsync/common':
+        specifier: workspace:*
+        version: link:../common
+      '@printsync/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.4
+        version: 5.0.4(@types/node@26.6.5)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2))
+
+  packages/vfx-engine:
+    dependencies:
+      '@printsync/common':
+        specifier: workspace:*
+        version: link:../common
       '@printsync/shared':
         specifier: workspace:*
         version: link:../shared

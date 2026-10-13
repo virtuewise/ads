@@ -10,7 +10,8 @@
     "test": "vitest run --root ../.. asset-engine"
   },
   "dependencies": {
-    "@printsync/shared": "workspace:*"
+    "@printsync/shared": "workspace:*",
+    "@printsync/common": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

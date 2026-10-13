@@ -56,13 +56,39 @@ export const ScriptSchema = z.object({
   steps: z.array(ScriptStepSchema),
 });
 
-/** Storyboard – a higher level representation of shots. */
-export interface StoryOutline {
-  outline: string[];
+/** Storybeat – a single narrative beat in a story outline. */
+export interface StoryBeat {
+  id: string;
+  label: string;
+  purpose: 'HOOK' | 'PROBLEM' | 'SOLUTION' | 'PROOF' | 'BENEFIT' | 'CTA' | 'BRAND' | 'EDUCATION';
+  durationRatio: number;
+  entities: Array<{ name: string; type: string }>;
+  visualHint: string;
 }
 
+/** Storyboard – a higher level representation of shots. */
+export interface StoryOutline {
+  beats: StoryBeat[];
+  structure: 'THREE_ACT' | 'PROBLEM_SOLUTION' | 'BEFORE_AFTER' | 'DETECTIVE' | 'EDUCATIONAL' | 'HERO_JOURNEY';
+  totalBeats: number;
+  /** @deprecated Use beats instead. Kept for backward compatibility. */
+  outline?: string[];
+}
+
+export const StoryBeatSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  purpose: z.enum(['HOOK', 'PROBLEM', 'SOLUTION', 'PROOF', 'BENEFIT', 'CTA', 'BRAND', 'EDUCATION']),
+  durationRatio: z.number().positive(),
+  entities: z.array(z.object({ name: z.string(), type: z.string() })),
+  visualHint: z.string(),
+});
+
 export const StoryOutlineSchema = z.object({
-  outline: z.array(z.string()),
+  beats: z.array(StoryBeatSchema),
+  structure: z.enum(['THREE_ACT', 'PROBLEM_SOLUTION', 'BEFORE_AFTER', 'DETECTIVE', 'EDUCATIONAL', 'HERO_JOURNEY']),
+  totalBeats: z.number().int().positive(),
+  outline: z.array(z.string()).optional(),
 });
 export interface Storyboard {
   shots: Shot[];

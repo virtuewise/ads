@@ -36,10 +36,10 @@ describe('buildCityRenderInputs', () => {
     expect(() => RenderInputsSchema.parse(buildCityRenderInputs(brief))).not.toThrow();
   });
 
-  it('targets the living city with a travelling camera', () => {
+  it('targets the living city with a showcase camera path', () => {
     const inputs = buildCityRenderInputs(brief);
     expect(inputs.composition).toBe('PrintSyncLivingCity');
-    expect(inputs.cameraPath).toBe('dolly');
+    expect(inputs.cameraPath).toBe('showcase');
     expect(inputs.city?.timeOfDay).toBe('night');
     expect(inputs.city?.route).toBe(true);
   });

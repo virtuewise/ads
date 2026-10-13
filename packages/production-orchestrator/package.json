@@ -17,7 +17,13 @@
     "@printsync/visual-grammar-engine": "workspace:*",
     "@printsync/storyboard-engine": "workspace:*",
     "@printsync/shot-engine": "workspace:*",
-    "@printsync/scene-graph-engine": "workspace:*"
+    "@printsync/scene-graph-engine": "workspace:*",
+    "@printsync/asset-engine": "workspace:*",
+    "@printsync/typography-engine": "workspace:*",
+    "@printsync/vfx-engine": "workspace:*",
+    "@printsync/audio-engine": "workspace:*",
+    "@printsync/edit-engine": "workspace:*",
+    "@printsync/qa-engine": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

@@ -6,14 +6,22 @@ import {
   RenderInputs,
   RenderInputsSchema,
   VisualGrammar,
+  Shot,
 } from '@printsync/common';
-import { PRINT_ITEMS_HERO_ANIMATIONS, PRINT_ITEMS_HERO_IDS } from '@printsync/motion-engine';import { SubjectEngine } from '@printsync/subject-engine';
+import { PRINT_ITEMS_HERO_ANIMATIONS, PRINT_ITEMS_HERO_IDS } from '@printsync/motion-engine';
+import { SubjectEngine } from '@printsync/subject-engine';
 import { StoryEngine } from '@printsync/story-engine';
 import { selectVisualGrammar } from '@printsync/visual-grammar-engine';
 import { ScriptEngine } from '@printsync/script-engine';
 import { StoryboardEngine } from '@printsync/storyboard-engine';
 import { ShotEngine } from '@printsync/shot-engine';
 import { SceneGraphEngine } from '@printsync/scene-graph-engine';
+import { AssetEngine } from '@printsync/asset-engine';
+import { TypographyEngine } from '@printsync/typography-engine';
+import { VFXEngine } from '@printsync/vfx-engine';
+import { AudioEngine } from '@printsync/audio-engine';
+import { EditEngine } from '@printsync/edit-engine';
+import { QAEngine } from '@printsync/qa-engine';
 
 /** Options for building a production plan */
 export interface OrchestratorOptions {
@@ -21,6 +29,39 @@ export interface OrchestratorOptions {
   seed?: string;
   /** If true, perform full Zod validation and throw on failure */
   validate?: boolean;
+  /** QA strictness level */
+  qaStrictness?: 'LENIENT' | 'STANDARD' | 'STRICT';
+  /** Audio options */
+  audio?: { voice?: string; musicStyle?: string };
+}
+
+/** Local motion planning engine for production pipeline (not to be confused with the 3D rendering motion-engine) */
+class MotionPlanningEngine {
+  async planMotion(shots: Shot[], options: { mode?: string; fps?: number } = {}): Promise<{
+    tracks: string[];
+    templates: string[];
+  }> {
+    const { mode = 'EXPLAINER' } = options;
+    const tracks: string[] = [];
+
+    for (const shot of shots) {
+      const trackId = `track:${shot.id}`;
+      tracks.push(trackId);
+    }
+
+    if (mode.includes('3D') || mode.includes('VFX')) {
+      tracks.push('track:global_camera_orbit');
+      tracks.push('track:global_light_sweep');
+    }
+    if (mode.includes('TYPOGRAPHIC') || mode.includes('POSTER')) {
+      tracks.push('track:global_typography_reveal');
+    }
+
+    return {
+      tracks,
+      templates: ['CAMERA_PUSH_IN', 'CAMERA_ORBIT', 'OBJECT_REVEAL', 'LIGHT_SWEEP', 'PARTICLE_BURST', 'TYPOGRAPHY_REVEAL'],
+    };
+  }
 }
 
 /**
@@ -80,7 +121,7 @@ export function buildCityRenderInputs(
       ink: '#141414',
     },
     items: [...PRINT_ITEMS_HERO_IDS],
-    cameraPath: 'dolly',
+    cameraPath: 'showcase',
     city: {
       seed: options.seed ?? brief.id ?? 'printsync-city-01',
       timeOfDay: options.timeOfDay ?? 'night',
@@ -94,7 +135,7 @@ export function buildCityRenderInputs(
 
 /**
  * Orchestrates the full production pipeline.
- * Returns a ProductionPlan with `productionStatus` set to "PLANNING".
+ * Returns a ProductionPlan with all sections populated and `productionStatus` set to "COMPLETE".
  */
 export async function buildProductionPlan(
   brief: CreativeBrief,
@@ -134,39 +175,77 @@ export async function buildProductionPlan(
     briefDuration: brief.duration,
   });
 
-  // 7️⃣ Scene‑graph construction
+  // 7️⃣ Scene-graph construction
   const sceneGraphEngine = new SceneGraphEngine();
   const sceneGraph = await sceneGraphEngine.buildGraph(shots);
 
-  // Assemble the plan. Sections that are not yet wired to dedicated engines are
-  // populated with deterministic values derived from the brief/shots so the plan
-  // always satisfies ProductionPlanSchema (placeholder sections, not empty).
+  // 8️⃣ Asset requirements
+  const assetEngine = new AssetEngine();
+  const assets = await assetEngine.analyzeAssets(shots, {
+    includeBrand: true,
+    include3D: brief.mode.includes('3D') || brief.mode.includes('VFX'),
+    includeStock: !brief.mode.includes('TYPOGRAPHIC') && !brief.mode.includes('POSTER'),
+  });
+
+  // 9️⃣ Typography plan
+  const typographyEngine = new TypographyEngine();
+  const typography = await typographyEngine.planTypography(shots, {
+    mode: brief.mode,
+    brandPrimary: '#C8001C',
+    brandAccent: '#00A8E0',
+  });
+
+  // 🔟 Motion planning
+  const motionPlanningEngine = new MotionPlanningEngine();
+  const motion = await motionPlanningEngine.planMotion(shots, {
+    mode: brief.mode,
+    fps: 30,
+  });
+
+  // 1️⃣1️⃣ VFX planning
+  const vfxEngine = new VFXEngine();
+  const vfx = await vfxEngine.planVFX(shots, {
+    mode: brief.mode,
+    budget: brief.duration > 60 ? 'HIGH' : brief.duration > 30 ? 'MEDIUM' : 'LOW',
+  });
+
+  // 1️⃣2️⃣ Audio planning
+  const audioEngine = new AudioEngine();
+  const audio = await audioEngine.planAudio(shots, {
+    mode: brief.mode,
+    voice: brief.voice,
+    musicStyle: brief.mode.includes('CINEMATIC') ? 'CINEMATIC' : undefined,
+  });
+
+  // 1️⃣3️⃣ Edit planning
+  const editEngine = new EditEngine();
+  const edit = await editEngine.planEdit(shots, {
+    mode: brief.mode,
+    pace: brief.mode.includes('FAST') || brief.mode.includes('SOCIAL') ? 'FAST' :
+          brief.mode.includes('CINEMATIC') || brief.mode.includes('BRAND') ? 'SLOW' : 'MEDIUM',
+  });
+
+  // 1️⃣4️⃣ QA planning
+  const qaEngine = new QAEngine();
+  const qa = await qaEngine.planQA(shots, {
+    mode: brief.mode,
+    strictness: 'STANDARD',
+  });
+
+  // Assemble the complete plan with all sections populated
   const plan: ProductionPlan = {
     id: randomUUID(),
     brief,
     script,
     storyboard,
     shots,
-    assets: [],
-    typography: {
-      style: brief.mode.toLowerCase(),
-      animations: ['KINETIC_TITLE', 'KINETIC_CTA'],
-    },
-    motion: {
-      tracks: shots.map((s) => `track:${s.id}`),
-    },
-    vfx: {
-      effects: shots.map((s) => s.vfx).filter((v): v is string => Boolean(v)),
-    },
-    audio: {
-      clips: brief.voice ? [`voiceover:${brief.voice.toLowerCase()}`] : [],
-    },
-    edit: {
-      cuts: shots.map((s) => `cut@${Math.round(s.start + s.duration / 2)}s`),
-    },
-    qa: {
-      checks: ['BRAND_QA', 'BRAND_TYPOGRAPHY', 'RESOLUTION', 'CONTENT_REVIEW'],
-    },
+    assets,
+    typography,
+    motion,
+    vfx,
+    audio,
+    edit,
+    qa,
     output: {
       format: 'mp4',
       resolution: '1920x1080',
@@ -174,7 +253,7 @@ export async function buildProductionPlan(
     },
     visualGrammar,
     sceneGraph,
-    productionStatus: "PLANNING",
+    productionStatus: "COMPLETE",
   };
 
   if (options.validate !== false) {
@@ -183,3 +262,16 @@ export async function buildProductionPlan(
 
   return plan;
 }
+
+/**
+ * Run automated QA checks against a completed render.
+ */
+export async function runQA(
+  plan: ProductionPlan,
+  renderOutput: { format: string; width: number; height: number; bitrate: number; codec: string; duration: number }
+) {
+  const qaEngine = new QAEngine();
+  return qaEngine.runAutomatedChecks(renderOutput, plan.qa.checks);
+}
+
+export default { buildProductionPlan, buildRenderInputs, buildCityRenderInputs, runQA };
