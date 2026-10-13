@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getPrintItem, PRINT_ITEMS } from './print-items.js';
+import { getPrintItem, PRINT_ITEMS, PRINT_ITEMS_HERO_ANIMATIONS, PRINT_ITEMS_HERO_IDS, heroPrintItems, resolveChoreography } from './print-items.js';
 import {
   buildArtworkSpec,
   DEFAULT_BRAND_TOKENS,
@@ -91,5 +91,86 @@ describe('buildArtworkSpec', () => {
   it('produces a different seed per item', () => {
     const seeds = new Set(PRINT_ITEMS.map((i) => buildArtworkSpec(i).barcodeSeed));
     expect(seeds.size).toBe(PRINT_ITEMS.length);
+  });
+});
+
+describe('PRINT_ITEMS_HERO_IDS', () => {
+  it('references only real catalogue items', () => {
+    for (const id of PRINT_ITEMS_HERO_IDS) {
+      expect(getPrintItem(id)).toBeDefined();
+    }
+  });
+
+  it('has no duplicates', () => {
+    expect(new Set(PRINT_ITEMS_HERO_IDS).size).toBe(PRINT_ITEMS_HERO_IDS.length);
+  });
+
+  it('spans every catalogue category', () => {
+    const categories = new Set(
+      PRINT_ITEMS_HERO_IDS.map((id) => getPrintItem(id)?.category).filter(
+        (c) => c !== undefined,
+      ),
+    );
+    expect([...categories].sort()).toEqual(['banner', 'box', 'container', 'flat']);
+  });
+
+  it('resolves to specs in curated order', () => {
+    const items = heroPrintItems();
+    expect(items.map((i) => i.id)).toEqual([...PRINT_ITEMS_HERO_IDS]);
+  });
+
+  it('matches the curated animation list length', () => {
+    expect(PRINT_ITEMS_HERO_ANIMATIONS).toHaveLength(PRINT_ITEMS_HERO_IDS.length);
+  });
+});
+
+describe('resolveChoreography', () => {
+  it('uses the curated animation for each hero item', () => {
+    const resolved = resolveChoreography(PRINT_ITEMS_HERO_IDS);
+    expect(resolved.map((r) => r.id)).toEqual([...PRINT_ITEMS_HERO_IDS]);
+    expect(resolved[0]?.animation).toBe(PRINT_ITEMS_HERO_ANIMATIONS[0]);
+    expect(resolved[3]?.animation).toBe('orbit');
+  });
+
+  it('stagger phases by index by default', () => {
+    const resolved = resolveChoreography(PRINT_ITEMS_HERO_IDS);
+    resolved.forEach((entry, index) => {
+      expect(entry.phase).toBe(index * 7);
+    });
+  });
+
+  it('honours explicit animation and phase overrides', () => {
+    const resolved = resolveChoreography(['can-330'], [
+      { id: 'can-330', animation: 'spin', phase: 42 },
+    ]);
+    expect(resolved[0]?.animation).toBe('spin');
+    expect(resolved[0]?.phase).toBe(42);
+  });
+
+  it('ignores unknown animation names and falls back to the default', () => {
+    const resolved = resolveChoreography(['can-330'], [
+      { id: 'can-330', animation: 'does-not-exist' },
+    ]);
+    // can-330 is index 0 out of context, so the curated first move applies.
+    expect(resolved[0]?.animation).toBe(PRINT_ITEMS_HERO_ANIMATIONS[0]);
+  });
+
+  it('ignores negative phases', () => {
+    const resolved = resolveChoreography(['tube-50'], [{ id: 'tube-50', phase: -5 }]);
+    expect(resolved[0]?.phase).toBe(0);
+  });
+
+  it('drops unknown item ids and overrides for other items', () => {
+    const resolved = resolveChoreography(
+      ['business-card', 'not-a-real-item'],
+      [{ id: 'not-a-real-item', animation: 'spin' }],
+    );
+    expect(resolved.map((r) => r.id)).toEqual(['business-card']);
+  });
+
+  it('maps ids outside the curated set onto the curated animations', () => {
+    const resolved = resolveChoreography(['tumbler-350', 'sticker-round-60']);
+    expect(resolved[0]?.animation).toBe(PRINT_ITEMS_HERO_ANIMATIONS[0]);
+    expect(resolved[1]?.animation).toBe(PRINT_ITEMS_HERO_ANIMATIONS[1]);
   });
 });

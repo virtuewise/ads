@@ -473,6 +473,9 @@ importers:
       '@printsync/common':
         specifier: workspace:*
         version: link:../common
+      '@printsync/motion-engine':
+        specifier: workspace:*
+        version: link:../motion-engine
       '@printsync/scene-graph-engine':
         specifier: workspace:*
         version: link:../scene-graph-engine

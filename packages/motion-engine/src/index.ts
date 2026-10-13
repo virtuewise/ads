@@ -16,6 +16,8 @@ export const MOTION_ENGINE_VERSION = '0.1.0';
 export * from './print-items.js';
 export * from './artwork.js';
 export * from './choreography.js';
+export * from './camera.js';
+export * from './render-inputs.js';
 
 import {
   animatePrintObject,

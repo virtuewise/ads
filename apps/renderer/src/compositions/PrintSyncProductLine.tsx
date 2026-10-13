@@ -2,83 +2,48 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remo
 import { ThreeCanvas } from '@remotion/three';
 import {
   animatePrintObject,
-  DEFAULT_BRAND_TOKENS,
-  getPrintItem,
   printItemBoundingRadius,
-  type PrintItemSpec,
-  type PrintObjectAnimation,
+  resolveCameraPlan,
+  resolveProductLineInputs,
+  type ProductLineInputs,
 } from '@printsync/motion-engine';
 import { PrintItem } from '../models/PrintItem';
+import { CameraRig } from '../models/CameraRig';
 import { Studio } from '../models/Studio';
-
-/** Curated hero set — all items share real-world millimetre dimensions. */
-const FEATURED = [
-  'business-card',
-  'greeting-card-a5',
-  'folding-carton',
-  'cereal-carton',
-  'rigid-box',
-  'coffee-pouch',
-  'bottle-500',
-  'wine-bottle-750',
-  'jam-jar-250',
-  'can-330',
-  'tube-50',
-  'rollup-850',
-];
-
-const ITEMS = FEATURED.map((id) => getPrintItem(id)).filter(
-  (item): item is PrintItemSpec => item !== undefined
-);
-
-/** Per-item choreography — each item gets a distinct, spec-driven animation. */
-const ITEM_ANIMATIONS: PrintObjectAnimation[] = [
-  'reveal',   // business-card
-  'rise',     // greeting-card-a5
-  'float',    // folding-carton
-  'orbit',    // cereal-carton
-  'reveal',   // rigid-box
-  'float',    // coffee-pouch
-  'float',    // bottle-500
-  'orbit',    // wine-bottle-750
-  'rise',     // jam-jar-250
-  'orbit',    // can-330
-  'rise',     // tube-50
-  'reveal',   // rollup-850
-];
 
 const RING_RADIUS = 3.1;
 /** Every item is normalised to the same display radius for a consistent set. */
 const DISPLAY_RADIUS = 0.55;
 const BRAND = '#c8001c';
+const TAU = Math.PI * 2;
 
-type ProductLineProps = {
-  title: string;
-  tagline: string;
-  brand?: typeof DEFAULT_BRAND_TOKENS;
-};
+type ProductLineProps = Partial<ProductLineInputs>;
 
 /**
- * PrintSync Product Line — a slow turntable of the catalogue. Items are built
- * from exact millimetre specs via the shared model library, then framed to a
- * consistent display size and animated through spec-driven choreography via the
- * shared studio rig. Brand artwork is drawn procedurally onto each surface.
+ * PrintSync Product Line — a slow turntable of the catalogue.
+ *
+ * Everything on screen is driven by render inputs (title, tagline, brand,
+ * items, choreography and camera path) resolved through
+ * `@printsync/motion-engine`: items are built from exact millimetre specs via
+ * the shared model library, framed to a consistent display size, and animated
+ * through spec-driven choreography inside the shared studio rig. Brand artwork
+ * is drawn procedurally onto each surface.
  */
-export const PrintSyncProductLine: React.FC<ProductLineProps> = ({
-  title,
-  tagline,
-  brand = DEFAULT_BRAND_TOKENS,
-}) => {
+export const PrintSyncProductLine: React.FC<ProductLineProps> = (props) => {
   const frame = useCurrentFrame();
   const { width, height, durationInFrames, fps } = useVideoConfig();
 
-  const count = ITEMS.length;
-  const progress = frame / durationInFrames;
-  const angle = progress * Math.PI * 2;
-  const activeIndex = Math.min(count - 1, Math.floor(progress * count));
-  const active = ITEMS[activeIndex];
+  const { title, tagline, brand, specs, choreography, cameraPath } =
+    resolveProductLineInputs(props);
 
-  const segmentLength = durationInFrames / count;
+  const count = specs.length;
+  const progress = durationInFrames > 0 ? frame / durationInFrames : 0;
+  const cameraPlan = resolveCameraPlan(cameraPath, progress, RING_RADIUS);
+  const angle = progress * TAU * cameraPlan.worldSpin;
+  const activeIndex = count > 0 ? Math.min(count - 1, Math.floor(progress * count)) : 0;
+  const active = specs[activeIndex];
+
+  const segmentLength = count > 0 ? durationInFrames / count : durationInFrames;
   const captionOpacity = interpolate(frame - activeIndex * segmentLength, [0, 8], [0, 1], {
     extrapolateRight: 'clamp',
   });
@@ -98,19 +63,29 @@ export const PrintSyncProductLine: React.FC<ProductLineProps> = ({
         gl={{ antialias: true }}
       >
         <Studio />
+        <CameraRig path={cameraPath} progress={progress} radius={RING_RADIUS} />
         <group rotation={[0, angle, 0]}>
-          {ITEMS.map((item, index) => {
-            const itemAngle = -(index / count) * Math.PI * 2;
+          {specs.map((item, index) => {
+            const itemAngle = -(index / count) * TAU;
             const x = Math.sin(itemAngle) * RING_RADIUS;
             const z = Math.cos(itemAngle) * RING_RADIUS;
             const scale = DISPLAY_RADIUS / printItemBoundingRadius(item);
-            const animation = ITEM_ANIMATIONS[index] ?? 'float';
-            const transform = animatePrintObject(item, animation, frame, fps, index * 7);
+            const animation = choreography[index]?.animation ?? 'float';
+            const phase = choreography[index]?.phase ?? index * 7;
+            const transform = animatePrintObject(item, animation, frame, fps, phase);
             return (
               <group
                 key={item.id}
-                position={[x + transform.position[0], transform.position[1], z + transform.position[2]]}
-                rotation={[transform.rotation[0], itemAngle + transform.rotation[1], transform.rotation[2]]}
+                position={[
+                  x + transform.position[0],
+                  transform.position[1],
+                  z + transform.position[2],
+                ]}
+                rotation={[
+                  transform.rotation[0],
+                  itemAngle + transform.rotation[1],
+                  transform.rotation[2],
+                ]}
                 scale={scale * transform.scale}
               >
                 <PrintItem spec={item} brand={brand} />
@@ -230,7 +205,7 @@ export const PrintSyncProductLine: React.FC<ProductLineProps> = ({
             display: 'flex',
           }}
         >
-          {ITEMS.map((item, index) => (
+          {specs.map((item, index) => (
             <div
               key={item.id}
               style={{
@@ -253,7 +228,7 @@ export const PrintSyncProductLine: React.FC<ProductLineProps> = ({
             fontFamily: 'JetBrains Mono, monospace',
           }}
         >
-          {String(activeIndex + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
+          {String(activeIndex + 1).padStart(2, '0')} / {String(Math.max(1, count)).padStart(2, '0')}
         </div>
       </AbsoluteFill>
     </AbsoluteFill>

@@ -23,6 +23,8 @@
 
 export type PrintItemCategory = 'flat' | 'label' | 'box' | 'container' | 'banner';
 
+import type { PrintObjectAnimation } from './choreography.js';
+
 export type PrintItemKind =
   | 'slab'
   | 'disk'
@@ -447,6 +449,34 @@ export const PRINT_ITEMS: readonly PrintItemSpec[] = [
   },
 ];
 
+/**
+ * Curated hero set — the subset shown in the product-line film.
+ *
+ * This is the single source of truth for the hero set: the renderer and the
+ * orchestrator both derive from it, so neither can drift or go stale.
+ */
+export const PRINT_ITEMS_HERO_IDS: readonly string[] = [
+  'business-card',
+  'greeting-card-a5',
+  'folding-carton',
+  'cereal-carton',
+  'rigid-box',
+  'coffee-pouch',
+  'bottle-500',
+  'wine-bottle-750',
+  'jam-jar-250',
+  'can-330',
+  'tube-50',
+  'rollup-850',
+];
+
+/** Resolve the curated hero set to catalogue specs, in curated order. */
+export function heroPrintItems(): PrintItemSpec[] {
+  return PRINT_ITEMS_HERO_IDS.map((id) => getPrintItem(id)).filter(
+    (item): item is PrintItemSpec => item !== undefined,
+  );
+}
+
 /** Look up a catalogue item by id. */
 export function getPrintItem(id: string): PrintItemSpec | undefined {
   return PRINT_ITEMS.find((item) => item.id === id);
@@ -605,3 +635,79 @@ export function printItemWrapBand(spec: PrintItemSpec): WrapBand | null {
 
 /** Brand accent colour shared by all catalogue items. */
 export const PRINT_ITEM_ACCENT = BRAND_ACCENT;
+
+/**
+ * Default choreography for the curated hero set, index-aligned with
+ * `PRINT_ITEMS_HERO_IDS`. Each hero item gets a distinct, spec-driven move so
+ * the turntable never feels repetitive.
+ */
+export const PRINT_ITEMS_HERO_ANIMATIONS: readonly PrintObjectAnimation[] = [
+  'reveal', // business-card
+  'rise', // greeting-card-a5
+  'float', // folding-carton
+  'orbit', // cereal-carton
+  'reveal', // rigid-box
+  'float', // coffee-pouch
+  'float', // bottle-500
+  'orbit', // wine-bottle-750
+  'rise', // jam-jar-250
+  'orbit', // can-330
+  'rise', // tube-50
+  'reveal', // rollup-850
+];
+
+/** A choreography request merged with its default, ready for the renderer. */
+export interface ResolvedChoreography {
+  readonly id: string;
+  readonly animation: PrintObjectAnimation;
+  /** Frame offset applied to the animation, so items never move in lockstep. */
+  readonly phase: number;
+}
+
+const CHOREOGRAPHY_ANIMATIONS: readonly PrintObjectAnimation[] = [
+  'rise',
+  'float',
+  'orbit',
+  'spin',
+  'reveal',
+  'fold',
+  'drop',
+  'reset',
+];
+
+/** Narrow an arbitrary string to a known animation, or `undefined`. */
+function coerceAnimation(value: string | undefined): PrintObjectAnimation | undefined {
+  if (value === undefined) return undefined;
+  return CHOREOGRAPHY_ANIMATIONS.find((animation) => animation === value);
+}
+
+/**
+ * Merge per-item overrides from a render input onto the default choreography.
+ *
+ * Unknown item ids are dropped (render inputs arrive from untrusted backends),
+ * unknown animation names fall back to the default, and a non-negative `phase`
+ * defaults to a staggered index offset so items desynchronize even when
+ * unconfigured.
+ */
+export function resolveChoreography(
+  itemIds: readonly string[],
+  overrides: readonly { id: string; animation?: string; phase?: number }[] = [],
+  defaults: readonly PrintObjectAnimation[] = PRINT_ITEMS_HERO_ANIMATIONS,
+  phaseStep = 7,
+): ResolvedChoreography[] {
+  const byId = new Map(overrides.map((entry) => [entry.id, entry]));
+
+  return itemIds
+    .filter((id) => getPrintItem(id) !== undefined)
+    .map((id, index) => {
+      const override = byId.get(id);
+      const animation =
+        coerceAnimation(override?.animation) ?? defaults[index] ?? 'float';
+      const requestedPhase = override?.phase;
+      const phase =
+        typeof requestedPhase === 'number' && requestedPhase >= 0
+          ? requestedPhase
+          : index * phaseStep;
+      return { id, animation, phase };
+    });
+}

@@ -6,7 +6,8 @@ import {
   RenderInputs,
   RenderInputsSchema,
   VisualGrammar,
-} from '@printsync/common';import { SubjectEngine } from '@printsync/subject-engine';
+} from '@printsync/common';
+import { PRINT_ITEMS_HERO_ANIMATIONS, PRINT_ITEMS_HERO_IDS } from '@printsync/motion-engine';import { SubjectEngine } from '@printsync/subject-engine';
 import { StoryEngine } from '@printsync/story-engine';
 import { selectVisualGrammar } from '@printsync/visual-grammar-engine';
 import { ScriptEngine } from '@printsync/script-engine';
@@ -26,6 +27,10 @@ export interface OrchestratorOptions {
  * Derive validated render inputs for the Remotion renderer from a creative
  * brief. This bridges the production pipeline to the render engine — the
  * renderer consumes exactly what this function produces.
+ *
+ * The hero set and its choreography are owned by `@printsync/motion-engine`, so
+ * this function only supplies the *brief-derived* decisions (brand, camera
+ * path, timeline, output) and can never drift from what the renderer models.
  */
 export function buildRenderInputs(brief: CreativeBrief): RenderInputs {
   return RenderInputsSchema.parse({
@@ -39,18 +44,12 @@ export function buildRenderInputs(brief: CreativeBrief): RenderInputs {
       paper: '#F5F1EA',
       ink: '#141414',
     },
-    items: [
-      'business-card',
-      'postcard-a6',
-      'folding-carton',
-      'mailer-box',
-      'rigid-box',
-      'bottle-500',
-      'can-330',
-      'tube-50',
-      'coffee-pouch',
-      'rollup-850',
-    ],
+    items: [...PRINT_ITEMS_HERO_IDS],
+    itemAnimations: PRINT_ITEMS_HERO_IDS.map((id, index) => ({
+      id,
+      animation: PRINT_ITEMS_HERO_ANIMATIONS[index] ?? 'float',
+      phase: index * 7,
+    })),
     cameraPath: 'turntable',
     timeline: { fps: 30, durationInFrames: 450 },
     output: { format: 'mp4', width: 1920, height: 1080 },

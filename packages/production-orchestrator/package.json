@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@printsync/common": "workspace:*",
+    "@printsync/motion-engine": "workspace:*",
     "@printsync/subject-engine": "workspace:*",
     "@printsync/story-engine": "workspace:*",
     "@printsync/script-engine": "workspace:*",
