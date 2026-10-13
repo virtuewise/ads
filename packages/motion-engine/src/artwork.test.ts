@@ -3,12 +3,14 @@ import { getPrintItem, PRINT_ITEMS } from './print-items.js';
 import {
   buildArtworkSpec,
   DEFAULT_BRAND_TOKENS,
+  resolveArtworkShape,
   resolveArtworkVariant,
   type BrandTokens,
 } from './artwork.js';
 
 const BOTTLE = getPrintItem('bottle-500')!;
 const CARD = getPrintItem('business-card')!;
+const STICKER = getPrintItem('sticker-round-60')!;
 const CUSTOM_BRAND: BrandTokens = {
   wordmark: 'ACME',
   tagline: 'Built different',
@@ -28,9 +30,7 @@ describe('resolveArtworkVariant', () => {
   });
 
   it('is deterministic for the same id', () => {
-    expect(resolveArtworkVariant('bottle-500')).toBe(
-      resolveArtworkVariant('bottle-500'),
-    );
+    expect(resolveArtworkVariant('bottle-500')).toBe(resolveArtworkVariant('bottle-500'));
   });
 
   it('varies across the catalogue', () => {
@@ -39,10 +39,22 @@ describe('resolveArtworkVariant', () => {
   });
 });
 
+describe('resolveArtworkShape', () => {
+  it('maps each kind to a physical surface shape', () => {
+    expect(resolveArtworkShape('revolve')).toBe('band');
+    expect(resolveArtworkShape('disk')).toBe('circle');
+    expect(resolveArtworkShape('slab')).toBe('rect');
+    expect(resolveArtworkShape('carton')).toBe('rect');
+    expect(resolveArtworkShape('pouch')).toBe('rect');
+    expect(resolveArtworkShape('rollup')).toBe('rect');
+  });
+});
+
 describe('buildArtworkSpec', () => {
-  it('uses wrap mode for revolve items and label mode for flat items', () => {
-    expect(buildArtworkSpec(BOTTLE).mode).toBe('wrap');
-    expect(buildArtworkSpec(CARD).mode).toBe('label');
+  it('matches the printed surface to the item kind', () => {
+    expect(buildArtworkSpec(BOTTLE).shape).toBe('band');
+    expect(buildArtworkSpec(STICKER).shape).toBe('circle');
+    expect(buildArtworkSpec(CARD).shape).toBe('rect');
   });
 
   it('inherits brand tokens', () => {
@@ -73,9 +85,7 @@ describe('buildArtworkSpec', () => {
   });
 
   it('is deterministic per item', () => {
-    const a = buildArtworkSpec(BOTTLE);
-    const b = buildArtworkSpec(BOTTLE);
-    expect(a).toEqual(b);
+    expect(buildArtworkSpec(BOTTLE)).toEqual(buildArtworkSpec(BOTTLE));
   });
 
   it('produces a different seed per item', () => {

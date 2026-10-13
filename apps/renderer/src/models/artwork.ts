@@ -2,25 +2,34 @@
 import type { ArtworkSpec } from '@printsync/motion-engine';
 
 const SIZE = 1024;
+const FONT = "'Arial Black', 'Helvetica Neue', Arial, sans-serif";
+const FONT_TEXT = "Arial, 'Helvetica Neue', sans-serif";
 
 /**
- * Procedurally draw brand artwork for a catalogue item onto an offscreen
- * canvas and return it as a CanvasTexture. Deterministic — same ArtworkSpec
- * always produces the same pixels.
+ * Procedurally draw brand artwork for a catalogue item onto an offscreen canvas
+ * and return it as a CanvasTexture. Deterministic — the same ArtworkSpec always
+ * produces the same pixels, so the same item always prints the same artwork.
+ *
+ * The canvas is transparent outside the printed form, so the item's material
+ * (kraft, metal, plastic...) shows through around the label.
  */
 export function createArtworkTexture(spec: ArtworkSpec): CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
   const ctx = canvas.getContext('2d')!;
-
-  // Transparent background — the item material shows through
   ctx.clearRect(0, 0, SIZE, SIZE);
 
-  if (spec.mode === 'wrap') {
-    drawWrapLabel(ctx, spec);
-  } else {
-    drawLabel(ctx, spec);
+  switch (spec.shape) {
+    case 'circle':
+      drawCircle(ctx, spec);
+      break;
+    case 'band':
+      drawBand(ctx, spec);
+      break;
+    default:
+      drawRect(ctx, spec);
+      break;
   }
 
   const texture = new CanvasTexture(canvas);
@@ -29,92 +38,22 @@ export function createArtworkTexture(spec: ArtworkSpec): CanvasTexture {
   return texture;
 }
 
-function drawLabel(ctx: CanvasRenderingContext2D, spec: ArtworkSpec): void {
-  const w = SIZE;
-  const h = SIZE;
-  const margin = 60;
-  const labelW = w - margin * 2;
-  const labelH = h - margin * 2;
-  const radius = 24;
+// --- Shared primitives -----------------------------------------------------
 
-  // Label background
-  ctx.fillStyle = spec.paper;
-  roundRect(ctx, margin, margin, labelW, labelH, radius);
-  ctx.fill();
-
-  // Primary color header band
-  ctx.fillStyle = spec.primary;
-  roundRect(ctx, margin, margin, labelW, 180, radius);
-  ctx.fill();
-  ctx.fillRect(margin, margin + 180 - radius, labelW, radius);
-
-  // Wordmark in header
-  ctx.fillStyle = spec.paper;
-  ctx.font = `900 ${spec.layout === 'landscape' ? 88 : 72}px 'Inter', 'Arial Black', sans-serif`;
-  ctx.textAlign = 'center';
+function drawWordmark(
+  ctx: CanvasRenderingContext2D,
+  spec: ArtworkSpec,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+  align: CanvasTextAlign = 'center',
+): void {
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
   ctx.textBaseline = 'middle';
-  ctx.fillText(spec.wordmark, w / 2, margin + 90);
-
-  // Accent stripe
-  ctx.fillStyle = spec.accent;
-  ctx.fillRect(margin, margin + 180, labelW, 8);
-
-  // Index number
-  ctx.fillStyle = spec.secondary;
-  ctx.font = `900 200px 'Inter', 'Arial Black', sans-serif`;
-  ctx.textAlign = 'left';
-  ctx.fillText(String(spec.index).padStart(2, '0'), margin + 40, margin + 420);
-
-  // Tagline
-  ctx.fillStyle = spec.ink;
-  ctx.font = `400 36px 'Inter', Arial, sans-serif`;
-  ctx.textAlign = 'center';
-  wrapText(ctx, spec.tagline, w / 2, margin + 560, labelW - 80, 44);
-
-  // Barcode strip
-  drawBarcode(ctx, spec, margin + 40, h - margin - 120, labelW - 80, 80);
-
-  // Registration marks
-  drawRegistrationMarks(ctx, spec, margin, margin, labelW, labelH);
-}
-
-function drawWrapLabel(ctx: CanvasRenderingContext2D, spec: ArtworkSpec): void {
-  const w = SIZE;
-  const h = SIZE;
-  const bandTop = h * 0.3;
-  const bandH = h * 0.4;
-
-  // Semi-transparent wrap band
-  ctx.fillStyle = spec.paper;
-  ctx.globalAlpha = 0.92;
-  ctx.fillRect(0, bandTop, w, bandH);
-  ctx.globalAlpha = 1;
-
-  // Primary band at top of wrap
-  ctx.fillStyle = spec.primary;
-  ctx.fillRect(0, bandTop, w, 60);
-
-  // Wordmark
-  ctx.fillStyle = spec.paper;
-  ctx.font = `900 64px 'Inter', 'Arial Black', sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(spec.wordmark, w / 2, bandTop + 30);
-
-  // Index
-  ctx.fillStyle = spec.secondary;
-  ctx.font = `900 160px 'Inter', 'Arial Black', sans-serif`;
-  ctx.textAlign = 'left';
-  ctx.fillText(String(spec.index).padStart(2, '0'), 40, bandTop + bandH / 2 + 20);
-
-  // Tagline
-  ctx.fillStyle = spec.ink;
-  ctx.font = `400 32px 'Inter', Arial, sans-serif`;
-  ctx.textAlign = 'center';
-  wrapText(ctx, spec.tagline, w / 2, bandTop + bandH / 2 + 40, w - 80, 40);
-
-  // Barcode
-  drawBarcode(ctx, spec, 40, bandTop + bandH - 100, w - 80, 60);
+  ctx.font = `900 ${size}px ${FONT}`;
+  ctx.fillText(spec.wordmark, x, y);
 }
 
 function drawBarcode(
@@ -124,8 +63,9 @@ function drawBarcode(
   y: number,
   w: number,
   h: number,
+  color: string,
 ): void {
-  ctx.fillStyle = spec.ink;
+  ctx.fillStyle = color;
   let cx = x;
   let seed = spec.barcodeSeed;
   while (cx < x + w - 4) {
@@ -136,36 +76,28 @@ function drawBarcode(
   }
 }
 
-function drawRegistrationMarks(
+function wrapText(
   ctx: CanvasRenderingContext2D,
-  spec: ArtworkSpec,
-  lx: number,
-  ly: number,
-  w: number,
-  h: number,
+  text: string,
+  x: number,
+  y: number,
+  maxW: number,
+  lineH: number,
 ): void {
-  const size = 16;
-  const off = 24;
-  ctx.strokeStyle = spec.secondary;
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.5;
-  // top-left
-  ctx.strokeRect(lx - off, ly - off, size, size);
-  ctx.beginPath();
-  ctx.moveTo(lx - off + size / 2, ly - off);
-  ctx.lineTo(lx - off + size / 2, ly - off + size);
-  ctx.moveTo(lx - off, ly - off + size / 2);
-  ctx.lineTo(lx - off + size, ly - off + size / 2);
-  ctx.stroke();
-  // bottom-right
-  ctx.strokeRect(lx + w + off - size, ly + h + off - size, size, size);
-  ctx.beginPath();
-  ctx.moveTo(lx + w + off - size / 2, ly + h + off - size);
-  ctx.lineTo(lx + w + off - size / 2, ly + h + off);
-  ctx.moveTo(lx + w + off - size, ly + h + off - size / 2);
-  ctx.lineTo(lx + w + off, ly + h + off - size / 2);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  const words = text.split(' ');
+  let line = '';
+  let cy = y;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, x, cy);
+      line = word;
+      cy += lineH;
+    } else {
+      line = test;
+    }
+  }
+  if (line) ctx.fillText(line, x, cy);
 }
 
 function roundRect(
@@ -189,26 +121,257 @@ function roundRect(
   ctx.closePath();
 }
 
-function wrapText(
+function registrationMark(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, color: string): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size / 2, 0, Math.PI * 2);
+  ctx.moveTo(cx - size, cy);
+  ctx.lineTo(cx + size, cy);
+  ctx.moveTo(cx, cy - size);
+  ctx.lineTo(cx, cy + size);
+  ctx.stroke();
+}
+
+// --- Surface shapes --------------------------------------------------------
+
+function drawRect(ctx: CanvasRenderingContext2D, spec: ArtworkSpec): void {
+  const margin = 56;
+  const w = SIZE - margin * 2;
+  const h = SIZE - margin * 2;
+  const x = margin;
+  const y = margin;
+  const radius = 26;
+
+  ctx.fillStyle = spec.paper;
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.fill();
+
+  switch (spec.variant) {
+    case 'banner':
+      drawRectBanner(ctx, spec, x, y, w, h, radius);
+      break;
+    case 'monogram':
+      drawRectMonogram(ctx, spec, x, y, w, h);
+      break;
+    case 'grid':
+      drawRectGrid(ctx, spec, x, y, w, h);
+      break;
+    default:
+      drawRectEditorial(ctx, spec, x, y, w, h, radius);
+      break;
+  }
+
+  registrationMark(ctx, x + 34, y + 34, 12, spec.secondary);
+  registrationMark(ctx, x + w - 34, y + h - 34, 12, spec.secondary);
+}
+
+function drawRectEditorial(
   ctx: CanvasRenderingContext2D,
-  text: string,
+  spec: ArtworkSpec,
   x: number,
   y: number,
-  maxW: number,
-  lineH: number,
+  w: number,
+  h: number,
+  radius: number,
 ): void {
-  const words = text.split(' ');
-  let line = '';
-  let cy = y;
-  for (const word of words) {
-    const test = line ? line + ' ' + word : word;
-    if (ctx.measureText(test).width > maxW && line) {
-      ctx.fillText(line, x, cy);
-      line = word;
-      cy += lineH;
-    } else {
-      line = test;
+  ctx.fillStyle = spec.primary;
+  roundRect(ctx, x, y, w, 190, radius);
+  ctx.fill();
+  ctx.fillRect(x, y + 190 - radius, w, radius);
+  drawWordmark(ctx, spec, x + w / 2, y + 95, 84, spec.paper);
+
+  ctx.fillStyle = spec.accent;
+  ctx.fillRect(x, y + 190, w, 8);
+
+  ctx.fillStyle = spec.secondary;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `900 230px ${FONT}`;
+  ctx.fillText(String(spec.index).padStart(2, '0'), x + 44, y + 470);
+
+  ctx.fillStyle = spec.ink;
+  ctx.textAlign = 'center';
+  ctx.font = `400 34px ${FONT_TEXT}`;
+  wrapText(ctx, spec.tagline, x + w / 2, y + 560, w - 80, 42);
+
+  drawBarcode(ctx, spec, x + 44, y + h - 130, w - 88, 74, spec.ink);
+}
+
+function drawRectBanner(
+  ctx: CanvasRenderingContext2D,
+  spec: ArtworkSpec,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+): void {
+  ctx.save();
+  roundRect(ctx, x, y, w, h, radius);
+  ctx.clip();
+  ctx.fillStyle = spec.primary;
+  ctx.beginPath();
+  ctx.moveTo(x, y + h * 0.62);
+  ctx.lineTo(x + w, y + h * 0.34);
+  ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x, y + h);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  drawWordmark(ctx, spec, x + w / 2, y + h * 0.26, 78, spec.secondary);
+
+  ctx.fillStyle = spec.secondary;
+  ctx.textAlign = 'center';
+  ctx.font = `400 36px ${FONT_TEXT}`;
+  wrapText(ctx, spec.tagline, x + w / 2, y + h * 0.37, w - 100, 44);
+
+  ctx.fillStyle = spec.paper;
+  ctx.textAlign = 'left';
+  ctx.font = `900 150px ${FONT}`;
+  ctx.fillText(String(spec.index).padStart(2, '0'), x + 44, y + h - 150);
+
+  drawBarcode(ctx, spec, x + w * 0.45, y + h - 150, w * 0.5 - 44, 70, spec.paper);
+}
+
+function drawRectMonogram(
+  ctx: CanvasRenderingContext2D,
+  spec: ArtworkSpec,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  const cx = x + w / 2;
+  const cy = y + h * 0.4;
+  const r = Math.min(w, h) * 0.24;
+
+  ctx.fillStyle = spec.primary;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = spec.paper;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `900 ${r * 1.05}px ${FONT}`;
+  ctx.fillText(spec.wordmark.slice(0, 1), cx, cy + r * 0.06);
+
+  drawWordmark(ctx, spec, cx, y + h * 0.72, 62, spec.secondary);
+
+  ctx.fillStyle = spec.ink;
+  ctx.textAlign = 'center';
+  ctx.font = `400 32px ${FONT_TEXT}`;
+  wrapText(ctx, spec.tagline, cx, y + h * 0.82, w - 100, 40);
+
+  drawBarcode(ctx, spec, x + w * 0.28, y + h - 120, w * 0.44, 58, spec.ink);
+}
+
+function drawRectGrid(
+  ctx: CanvasRenderingContext2D,
+  spec: ArtworkSpec,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  const cols = 7;
+  const rows = 4;
+  const dot = 10;
+  ctx.fillStyle = spec.primary;
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      const px = x + 70 + (c * (w - 140)) / (cols - 1);
+      const py = y + 80 + (r * (h * 0.42)) / (rows - 1);
+      ctx.beginPath();
+      ctx.arc(px, py, dot, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
-  if (line) ctx.fillText(line, x, cy);
+
+  ctx.fillStyle = spec.secondary;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `900 120px ${FONT}`;
+  ctx.fillText(spec.wordmark, x + w / 2, y + h * 0.72);
+
+  ctx.fillStyle = spec.accent;
+  ctx.fillRect(x + 80, y + h * 0.75, w - 160, 6);
+
+  ctx.fillStyle = spec.ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `400 30px ${FONT_TEXT}`;
+  wrapText(ctx, spec.tagline, x + w / 2, y + h * 0.86, w - 120, 38);
+}
+
+function drawCircle(ctx: CanvasRenderingContext2D, spec: ArtworkSpec): void {
+  const cx = SIZE / 2;
+  const cy = SIZE / 2;
+  const r = SIZE * 0.47;
+
+  ctx.fillStyle = spec.paper;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+
+  ctx.fillStyle = spec.primary;
+  ctx.fillRect(cx - r, cy + r * 0.36, r * 2, r * 0.9);
+
+  ctx.strokeStyle = spec.primary;
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.82, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  drawWordmark(ctx, spec, cx, cy - r * 0.28, 88, spec.secondary);
+
+  ctx.fillStyle = spec.ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `400 30px ${FONT_TEXT}`;
+  wrapText(ctx, spec.tagline, cx, cy + r * 0.05, r * 1.3, 36);
+
+  ctx.fillStyle = spec.paper;
+  ctx.textAlign = 'center';
+  ctx.font = `900 120px ${FONT}`;
+  ctx.fillText(String(spec.index).padStart(2, '0'), cx, cy + r * 0.66);
+}
+
+function drawBand(ctx: CanvasRenderingContext2D, spec: ArtworkSpec): void {
+  const w = SIZE;
+  const bandTop = SIZE * 0.3;
+  const bandH = SIZE * 0.4;
+
+  ctx.fillStyle = spec.paper;
+  ctx.globalAlpha = 0.94;
+  ctx.fillRect(0, bandTop, w, bandH);
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = spec.primary;
+  ctx.fillRect(0, bandTop, w, 64);
+  drawWordmark(ctx, spec, w / 2, bandTop + 32, 62, spec.paper);
+
+  ctx.fillStyle = spec.secondary;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = `900 150px ${FONT}`;
+  ctx.fillText(String(spec.index).padStart(2, '0'), 40, bandTop + bandH / 2 + 10);
+
+  ctx.fillStyle = spec.ink;
+  ctx.textAlign = 'center';
+  ctx.font = `400 32px ${FONT_TEXT}`;
+  wrapText(ctx, spec.tagline, w / 2, bandTop + bandH / 2 + 30, w - 100, 40);
+
+  ctx.fillStyle = spec.accent;
+  ctx.fillRect(0, bandTop + bandH - 6, w, 6);
+
+  drawBarcode(ctx, spec, 40, bandTop + bandH - 96, w - 80, 58, spec.ink);
 }

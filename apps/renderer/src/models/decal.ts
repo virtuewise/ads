@@ -1,71 +1,50 @@
-import { CylinderGeometry, PlaneGeometry, type BufferGeometry } from 'three';
-import { toSceneUnits, type PrintItemSpec, type ProfilePoint } from '@printsync/motion-engine';
-
-/** Interpolate the profile radius at a normalised height t. */
-function profileRadiusAt(profile: readonly ProfilePoint[], t: number): number {
-  for (let i = 0; i < profile.length - 1; i++) {
-    const a = profile[i]!;
-    const b = profile[i + 1]!;
-    if (t >= a.t && t <= b.t) {
-      const span = b.t - a.t || 1;
-      const f = (t - a.t) / span;
-      return a.r + (b.r - a.r) * f;
-    }
-  }
-  return profile[profile.length - 1]?.r ?? 0;
-}
+import { CircleGeometry, CylinderGeometry, PlaneGeometry, type BufferGeometry } from 'three';
+import {
+  toSceneUnits,
+  printItemDecalRect,
+  printItemWrapBand,
+  type PrintItemSpec,
+} from '@printsync/motion-engine';
 
 /**
- * Create a decal geometry for the printed artwork on an item.
+ * Create the decal geometry the printed artwork is mapped onto.
  *
- * Flat items (slab, disk, roundedBox, pouch, rollup) get a plane on the +Z
- * face. Revolve items (bottle, can, tube) get a partial cylinder that hugs
- * the body at ~40% height — a curved wrap label.
+ * The placement comes from the shared, unit-tested `printItemDecalRect` /
+ * `printItemWrapBand` helpers in `@printsync/motion-engine`, so the artwork is
+ * always locked to the modelled surface — even as shapes gain flaps, seals,
+ * cassette bases and closures.
+ *
+ * - Flat / box / carton / pouch / roll-up items: a plane on the front face.
+ * - Round labels: a circle, matched to the die-cut diameter.
+ * - Revolved containers: a partial cylinder wrapped around the body.
  */
 export function createItemDecal(spec: PrintItemSpec): BufferGeometry | null {
-  const { width, height, depth } = spec.dimensions;
-
-  switch (spec.kind) {
-    case 'slab':
-    case 'roundedBox':
-    case 'pouch':
-    case 'rollup': {
-      const plane = new PlaneGeometry(toSceneUnits(width), toSceneUnits(height));
-      plane.translate(0, toSceneUnits(height) / 2, toSceneUnits(depth) / 2 + 0.0002);
-      return plane;
-    }
-
-    case 'disk': {
-      const plane = new PlaneGeometry(toSceneUnits(width), toSceneUnits(height));
-      plane.translate(0, toSceneUnits(height) / 2, toSceneUnits(depth) / 2 + 0.0002);
-      return plane;
-    }
-
-    case 'revolve': {
-      if (!spec.profile) return null;
-      const t = 0.4;
-      const bodyRadius = profileRadiusAt(spec.profile, t);
-      const labelRadius = toSceneUnits(bodyRadius + 0.3);
-      const labelHeight = toSceneUnits(height * 0.45);
-      const thetaLength = Math.min(
-        Math.PI * 0.55,
-        (toSceneUnits(width) * 1.1) / labelRadius,
-      );
-      const geo = new CylinderGeometry(
-        labelRadius,
-        labelRadius,
-        labelHeight,
-        spec.radialSegments ?? 48,
-        1,
-        true,
-        -thetaLength / 2,
-        thetaLength,
-      );
-      geo.translate(0, toSceneUnits(height * t), 0);
-      return geo;
-    }
-
-    default:
-      return null;
+  if (spec.kind === 'disk') {
+    const geometry = new CircleGeometry(toSceneUnits(spec.dimensions.width / 2), spec.radialSegments ?? 96);
+    geometry.translate(0, toSceneUnits(spec.dimensions.height / 2), toSceneUnits(spec.dimensions.depth / 2 + 0.2));
+    return geometry;
   }
+
+  if (spec.kind === 'revolve') {
+    const band = printItemWrapBand(spec);
+    if (!band) return null;
+    const geometry = new CylinderGeometry(
+      toSceneUnits(band.radius),
+      toSceneUnits(band.radius),
+      toSceneUnits(band.height),
+      spec.radialSegments ?? 48,
+      1,
+      true,
+      -band.thetaLength / 2,
+      band.thetaLength,
+    );
+    geometry.translate(0, toSceneUnits(band.centerY), 0);
+    return geometry;
+  }
+
+  const rect = printItemDecalRect(spec);
+  if (!rect) return null;
+  const geometry = new PlaneGeometry(toSceneUnits(rect.width), toSceneUnits(rect.height));
+  geometry.translate(0, toSceneUnits(rect.centerY), toSceneUnits(rect.z + 0.2));
+  return geometry;
 }

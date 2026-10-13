@@ -11,11 +11,12 @@ export interface BrandTokens {
 }
 
 export type ArtworkVariant = 'editorial' | 'banner' | 'monogram' | 'grid';
-export type ArtworkMode = 'label' | 'wrap';
+/** Physical shape of the printed surface the artwork is mapped onto. */
+export type ArtworkShape = 'rect' | 'circle' | 'band';
 
 export interface ArtworkSpec {
   variant: ArtworkVariant;
-  mode: ArtworkMode;
+  shape: ArtworkShape;
   wordmark: string;
   tagline: string;
   primary: string;
@@ -51,6 +52,18 @@ function hashId(id: string): number {
 
 const VARIANTS: readonly ArtworkVariant[] = ['editorial', 'banner', 'monogram', 'grid'];
 
+/** Map a catalogue item's kind to the physical shape of its printed surface. */
+export function resolveArtworkShape(kind: PrintItemSpec['kind']): ArtworkShape {
+  switch (kind) {
+    case 'revolve':
+      return 'band';
+    case 'disk':
+      return 'circle';
+    default:
+      return 'rect';
+  }
+}
+
 /** Map a catalogue item id to a stable artwork layout variant. */
 export function resolveArtworkVariant(itemId: string): ArtworkVariant {
   return VARIANTS[hashId(itemId) % VARIANTS.length] ?? 'editorial';
@@ -68,7 +81,7 @@ export function buildArtworkSpec(
   const h = hashId(item.id);
   return {
     variant: resolveArtworkVariant(item.id),
-    mode: item.kind === 'revolve' ? 'wrap' : 'label',
+    shape: resolveArtworkShape(item.kind),
     wordmark: brand.wordmark,
     tagline: brand.tagline,
     primary: brand.primary,

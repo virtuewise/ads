@@ -14,14 +14,16 @@ import { Studio } from '../models/Studio';
 /** Curated hero set — all items share real-world millimetre dimensions. */
 const FEATURED = [
   'business-card',
-  'postcard-a6',
+  'greeting-card-a5',
   'folding-carton',
-  'mailer-box',
+  'cereal-carton',
   'rigid-box',
+  'coffee-pouch',
   'bottle-500',
+  'wine-bottle-750',
+  'jam-jar-250',
   'can-330',
   'tube-50',
-  'coffee-pouch',
   'rollup-850',
 ];
 
@@ -32,14 +34,16 @@ const ITEMS = FEATURED.map((id) => getPrintItem(id)).filter(
 /** Per-item choreography — each item gets a distinct, spec-driven animation. */
 const ITEM_ANIMATIONS: PrintObjectAnimation[] = [
   'reveal',   // business-card
-  'rise',     // postcard-a6
+  'rise',     // greeting-card-a5
   'float',    // folding-carton
-  'orbit',    // mailer-box
+  'orbit',    // cereal-carton
   'reveal',   // rigid-box
+  'float',    // coffee-pouch
   'float',    // bottle-500
+  'orbit',    // wine-bottle-750
+  'rise',     // jam-jar-250
   'orbit',    // can-330
   'rise',     // tube-50
-  'float',    // coffee-pouch
   'reveal',   // rollup-850
 ];
 

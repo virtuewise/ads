@@ -7,6 +7,10 @@ export const BRAND = '#c8001c';
  * A single, consistent material vocabulary for every catalogue item. Keeping
  * these values centralised is what makes the whole product line feel like one
  * coherent set rather than a collection of unrelated objects.
+ *
+ * Every preset describes a real print-finishing stock: uncoated and gloss
+ * paper, kraft, soft-touch laminate, corrugated board, hot foil, lacquer,
+ * brushed metal, polished chrome and moulded plastic.
  */
 export interface MaterialConfig {
   readonly color: string;
@@ -17,6 +21,8 @@ export interface MaterialConfig {
   readonly sheen: number;
   readonly sheenColor: string;
   readonly ior: number;
+  /** Scalar used to boost/soften image-based reflections. */
+  readonly envMapIntensity: number;
 }
 
 const PRESETS: Record<MaterialPreset, MaterialConfig> = {
@@ -30,6 +36,7 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
     sheen: 0.45,
     sheenColor: '#ffffff',
     ior: 1.5,
+    envMapIntensity: 0.5,
   },
   // Gloss-laminated board: crisp highlight, low roughness.
   paperGloss: {
@@ -41,8 +48,9 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
     sheen: 0.2,
     sheenColor: '#ffffff',
     ior: 1.5,
+    envMapIntensity: 0.9,
   },
-  // Natural kraft / corrugated: warm, very matte.
+  // Natural kraft / recycled board: warm, very matte.
   kraft: {
     color: '#b08b57',
     metalness: 0,
@@ -52,6 +60,7 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
     sheen: 0.5,
     sheenColor: '#e8d6b0',
     ior: 1.5,
+    envMapIntensity: 0.5,
   },
   // Hot-foil stamp: fully metallic with a tight highlight.
   foil: {
@@ -63,6 +72,7 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
     sheen: 0,
     sheenColor: '#ffffff',
     ior: 1.5,
+    envMapIntensity: 1.2,
   },
   // Brand-coloured lacquer: rich, glossy red.
   paint: {
@@ -74,8 +84,9 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
     sheen: 0,
     sheenColor: '#ffffff',
     ior: 1.5,
+    envMapIntensity: 1,
   },
-  // Brushed / polished metal (cans, banner cassette).
+  // Brushed / anodised metal (cans, banner cassette).
   metal: {
     color: '#c9ccd1',
     metalness: 0.95,
@@ -85,6 +96,7 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
     sheen: 0,
     sheenColor: '#ffffff',
     ior: 1.5,
+    envMapIntensity: 1.2,
   },
   // Moulded / laminate plastic (bottles, tubes).
   plastic: {
@@ -96,6 +108,55 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
     sheen: 0,
     sheenColor: '#ffffff',
     ior: 1.5,
+    envMapIntensity: 1,
+  },
+  // Soft-touch matte laminate: velvety, barely reflective.
+  softTouch: {
+    color: '#f6f4f0',
+    metalness: 0,
+    roughness: 1,
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.6,
+    sheen: 0.55,
+    sheenColor: '#ffffff',
+    ior: 1.5,
+    envMapIntensity: 0.35,
+  },
+  // Corrugated kraft board: warm, matte, with a visible board tone.
+  corrugated: {
+    color: '#c2a175',
+    metalness: 0,
+    roughness: 0.92,
+    clearcoat: 0,
+    clearcoatRoughness: 1,
+    sheen: 0.4,
+    sheenColor: '#e8d6b0',
+    ior: 1.5,
+    envMapIntensity: 0.45,
+  },
+  // Polished chrome (caps, lids): mirror-like, near-zero roughness.
+  chrome: {
+    color: '#e6e8eb',
+    metalness: 1,
+    roughness: 0.06,
+    clearcoat: 0.3,
+    clearcoatRoughness: 0.05,
+    sheen: 0,
+    sheenColor: '#ffffff',
+    ior: 1.5,
+    envMapIntensity: 1.5,
+  },
+  // Uncoated GC1 folding board: bright, smooth, faintly matte.
+  board: {
+    color: '#f2ede4',
+    metalness: 0,
+    roughness: 0.85,
+    clearcoat: 0.06,
+    clearcoatRoughness: 0.9,
+    sheen: 0.35,
+    sheenColor: '#ffffff',
+    ior: 1.5,
+    envMapIntensity: 0.5,
   },
 };
 
@@ -103,3 +164,6 @@ const PRESETS: Record<MaterialPreset, MaterialConfig> = {
 export function materialConfig(preset: MaterialPreset): MaterialConfig {
   return PRESETS[preset];
 }
+
+/** Every preset, in catalogue order — handy for tooling and tests. */
+export const MATERIAL_PRESETS = Object.keys(PRESETS) as MaterialPreset[];
