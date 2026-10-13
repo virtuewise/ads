@@ -76,6 +76,12 @@ export interface CityBillboard {
   readonly itemId?: string;
   /** Index into the digital playlist. */
   readonly playlistIndex: number;
+  /**
+   * The building a rooftop or facade panel is fixed to. Street furniture stands
+   * on its own, so this is absent for kerb units. Resolution needs it: a wall
+   * panel and a shopfront can want the same stretch of frontage.
+   */
+  readonly buildingId?: string;
 }
 
 export interface CitySign {
@@ -266,6 +272,7 @@ export function generateCityLayout(options: CityOptions): CityLayout {
             rotationY: facingY,
             mount: 'rooftop',
             playlistIndex: billboardIndex % 5,
+            buildingId: id,
             ...(itemId !== undefined ? { itemId } : {}),
           });
           billboardIndex++;
@@ -290,6 +297,7 @@ export function generateCityLayout(options: CityOptions): CityLayout {
             rotationY: facingY,
             mount: 'facade',
             playlistIndex: billboardIndex % 5,
+            buildingId: id,
             ...(itemId !== undefined ? { itemId } : {}),
           });
           billboardIndex++;

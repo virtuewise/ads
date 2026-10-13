@@ -33,9 +33,11 @@ placeholder logic intended to be replaced by richer implementations / LLMs later
 
 | Package | Role | Key exports |
 |---|---|---|
-| `@printsync/motion-engine` | Deterministic motion and 3D scene specification: camera plans, a millimetre-exact print-item catalogue, a frame-addressable animation library, procedural printed artwork, and the living-city scene generators (layout, route, road signage, out-of-home formats). | `resolveCameraPlan`, `resolveCityCameraPlan`, `animatePrintObject`, `PRINT_ITEMS`, `generateCityLayout`, `resolveCityInputs` |
+| `@printsync/motion-engine` | Deterministic motion and 3D scene specification: camera plans and a cinematic shot list, a millimetre-exact print-item catalogue, a frame-addressable animation library, procedural printed artwork, and the living-city scene generators (layout, route, traffic, street furniture, trading shopfronts, road signage, out-of-home formats). | `resolveCameraPlan`, `resolveCityCameraPlan`, `SHOWCASE_SHOTS`, `animatePrintObject`, `PRINT_ITEMS`, `generateCityLayout`, `resolveCityInputs` |
+| `@printsync/render-farm` | Enterprise rendering: pure, resumable render plans (shard a film into worker jobs), a lazily-loaded Remotion Lambda driver, and FFmpeg `argv` builders for stitch / mux / transcode / thumbnails. | `buildRenderPlan`, `frameRangeArg`, `createLambdaRenderer`, `ffmpegMuxArgs`, `runBinary` |
 
-See [Motion & Renderer](Motion-and-Renderer) for the full picture.
+See [Motion & Renderer](Motion-and-Renderer) for the full picture, and
+[Enterprise Rendering](Enterprise-Rendering) for the farm.
 
 ## Production engines (Phase 5, mostly stubs)
 

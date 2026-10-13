@@ -50,6 +50,7 @@ There are no standalone static deliverables — see [Creative System](Creative-S
 | Use the programmatic API | [API Reference](API-Reference) |
 | Understand the brand rules | [Brand](Brand) |
 | Understand the motion engine and 3D renderer | [Motion & Renderer](Motion-and-Renderer) |
+| Render at scale (AWS Lambda, FFmpeg delivery) | [Enterprise Rendering](Enterprise-Rendering) |
 | Understand concept generation & scoring | [Creative System](Creative-System) |
 | Follow brief → production plan | [Production Pipeline](Production-Pipeline) |
 | Contribute | [Contributing](Contributing) |
@@ -68,8 +69,12 @@ There are no standalone static deliverables — see [Creative System](Creative-S
 - **Phase 4 — Motion:** substantially implemented. The motion engine owns a millimetre-exact
   print-item catalogue, a frame-addressable animation library, procedural printed artwork, real
   signage and out-of-home formats, and a deterministic 3D city — all rendered by the Remotion app
-  (see [Motion & Renderer](Motion-and-Renderer)).
-- **Phases 5–8 (Video, QA execution, Daily production, Studio):** mostly planned.
+  (see [Motion & Renderer](Motion-and-Renderer)). The living-city film is cut as a **shot list**:
+  a travelling pass, then hard-cutting close-ups on the PrintSync shopfront, a digital screen and a
+  road-safety sign.
+- **Phases 5–8 (Video, QA execution, Daily production, Studio):** mostly planned, except the
+  **enterprise rendering** path: `@printsync/render-farm` plans shards, can drive Remotion Lambda,
+  and builds the FFmpeg delivery commands (see [Enterprise Rendering](Enterprise-Rendering)).
 
 See [Roadmap & Status](Roadmap) for the honest per-area breakdown.
 

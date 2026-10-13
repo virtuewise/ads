@@ -6,15 +6,21 @@ import {
   type OohArtworkSpec,
   type RoadSignKind,
   type RoadSignSpec,
+  type ShopfrontBackWall,
+  type ShopfrontFasciaKind,
+  type ShopfrontWindowKind,
+  type TimeOfDay,
 } from '@printsync/motion-engine';
 import {
   ARTWORK_FONT,
   ARTWORK_FONT_TEXT,
   canvasTexture,
   createCanvas,
+  drawBrandMark,
   drawLabel,
   roundRect,
   wrapText,
+  type BrandMarkOptions,
 } from '../artwork';
 
 /** Window emissive variants the city can draw from. */
@@ -100,15 +106,221 @@ export function createFacadeTextures(
   return { map: canvasTexture(albedo.canvas), emissive: canvasTexture(emissive.canvas) };
 }
 
-/** A vertical sky gradient for the dome: zenith to city-glow horizon. */
-export function createSkyTexture(palette: CityPalette): CanvasTexture {
-  const { canvas, ctx } = createCanvas(8, 512);
-  const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+/** Horizontal pixels in the sky dome texture. */
+const SKY_WIDTH = 1024;
+/** Vertical pixels in the sky dome texture. */
+const SKY_HEIGHT = 512;
+/**
+ * Canvas row of the dome's true horizon. The dome is a sphere, so the equator
+ * sits at UV v = 0.5; with the texture's default `flipY` that is the middle row.
+ * The gradient is aligned to it so the horizon glow lands where the geometry
+ * actually meets the eye.
+ */
+const SKY_HORIZON_ROW = SKY_HEIGHT * 0.5;
+
+/**
+ * The sky dome: a vertical gradient from zenith to horizon, carrying a warm
+ * city light-dome just above the horizon, stars and a moon at night, and a hazy
+ * sun by day.
+ *
+ * The texture is wider than the old single-column gradient so it can hold
+ * point features (stars, moon, sun) at their correct places on the dome. It is
+ * deterministic: the same palette always paints the same sky.
+ */
+export function createSkyTexture(palette: CityPalette, timeOfDay: TimeOfDay = 'night'): CanvasTexture {
+  const { canvas, ctx } = createCanvas(SKY_WIDTH, SKY_HEIGHT);
+  const rand = mulberry32(0x5ee1 ^ Math.round(palette.sunIntensity * 1000));
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, SKY_HEIGHT);
   gradient.addColorStop(0, palette.skyTop);
-  gradient.addColorStop(0.66, palette.skyHorizon);
+  gradient.addColorStop(0.5, palette.skyHorizon);
+  gradient.addColorStop(0.62, palette.fog);
   gradient.addColorStop(1, palette.fog);
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 8, 512);
+  ctx.fillRect(0, 0, SKY_WIDTH, SKY_HEIGHT);
+
+  // City light-dome: warm haze rising off the rooftops, strongest at the
+  // horizon. This is what makes a night skyline read as a living city.
+  const dome = ctx.createLinearGradient(0, SKY_HORIZON_ROW - SKY_HEIGHT * 0.34, 0, SKY_HORIZON_ROW);
+  dome.addColorStop(0, 'rgba(0,0,0,0)');
+  dome.addColorStop(0.55, timeOfDay === 'day' ? 'rgba(255,255,255,0.06)' : 'rgba(255,176,102,0.16)');
+  dome.addColorStop(1, timeOfDay === 'day' ? 'rgba(255,255,255,0.02)' : 'rgba(255,150,86,0.05)');
+  ctx.fillStyle = dome;
+  ctx.fillRect(0, SKY_HORIZON_ROW - SKY_HEIGHT * 0.34, SKY_WIDTH, SKY_HEIGHT * 0.34);
+
+  if (timeOfDay !== 'day') {
+    // Stars thin out towards the horizon, as they do in a real sky.
+    const starCount = timeOfDay === 'night' ? 520 : 170;
+    for (let i = 0; i < starCount; i++) {
+      const x = rand() * SKY_WIDTH;
+      const elevation = rand() ** 1.6;
+      const y = elevation * SKY_HORIZON_ROW * 0.94;
+      const fade = 1 - y / (SKY_HORIZON_ROW * 0.94);
+      const alpha = (0.18 + rand() * 0.72) * (0.35 + fade * 0.65);
+      const radius = 0.6 + rand() * 1.1;
+      const warm = rand() < 0.24;
+      ctx.fillStyle = warm
+        ? `rgba(255,236,206,${alpha.toFixed(3)})`
+        : `rgba(226,236,255,${alpha.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // The moon, with a soft halo so it reads through the haze.
+    const moonX = SKY_WIDTH * 0.68;
+    const moonY = SKY_HORIZON_ROW * 0.26;
+    const moonR = 13;
+    const halo = ctx.createRadialGradient(moonX, moonY, moonR * 0.6, moonX, moonY, moonR * 3.6);
+    halo.addColorStop(0, 'rgba(226,236,255,0.5)');
+    halo.addColorStop(1, 'rgba(226,236,255,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(moonX - moonR * 4, moonY - moonR * 4, moonR * 8, moonR * 8);
+    ctx.fillStyle = 'rgba(244,247,255,0.96)';
+    ctx.beginPath();
+    ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+    ctx.fill();
+    // A hint of maria so it is not a flat disc.
+    ctx.fillStyle = 'rgba(206,214,232,0.5)';
+    for (const [ox, oy, r] of [
+      [-4, -3, 3.4],
+      [3, 2, 2.6],
+      [1, -5, 1.9],
+    ] as const) {
+      ctx.beginPath();
+      ctx.arc(moonX + ox, moonY + oy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    // Daytime sun, hazed so it does not read as a hard disc.
+    const sunX = SKY_WIDTH * 0.24;
+    const sunY = SKY_HORIZON_ROW * 0.2;
+    const glow = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, SKY_HEIGHT * 0.4);
+    glow.addColorStop(0, 'rgba(255,250,232,0.95)');
+    glow.addColorStop(0.14, 'rgba(255,240,205,0.35)');
+    glow.addColorStop(1, 'rgba(255,240,205,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, SKY_WIDTH, SKY_HEIGHT);
+  }
+
+  return canvasTexture(canvas);
+}
+
+// --- Street surfaces and light ---------------------------------------------
+
+/**
+ * Worn zebra crossing bars, as a transparent overlay for the carriageway: off
+ * white with ragged edges, because road paint is never pristine.
+ */
+export function createCrossingTexture(seed = 3): CanvasTexture {
+  const W = 512;
+  const H = 128;
+  const { canvas, ctx } = createCanvas(W, H);
+  const rand = mulberry32(seed);
+  const bars = 11;
+  const barWidth = W / (bars * 2 - 1);
+
+  for (let i = 0; i < bars; i++) {
+    const x = i * barWidth * 2;
+    ctx.fillStyle = 'rgba(236,236,230,0.86)';
+    ctx.fillRect(x, H * 0.06, barWidth, H * 0.88);
+    // Scuff the paint so it reads as worn rather than printed.
+    for (let s = 0; s < 26; s++) {
+      const sx = x + rand() * barWidth;
+      const sy = H * 0.06 + rand() * H * 0.88;
+      ctx.clearRect(sx, sy, 1 + rand() * 3, 1 + rand() * 2);
+    }
+  }
+
+  return canvasTexture(canvas);
+}
+
+/**
+ * A radial pool of warm lamp light, faded to nothing at the rim. Drawn as an
+ * additive overlay on the road, it gives the carriageway its pools of light
+ * without a light source per lamp.
+ */
+export function createLightPoolTexture(colour = '#fff1d6'): CanvasTexture {
+  const size = 256;
+  const { canvas, ctx } = createCanvas(size, size);
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, `${colour}`);
+  gradient.addColorStop(0.42, `${colour}66`);
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return canvasTexture(canvas);
+}
+
+/** A soft round glow for lamp heads, used as an additive sprite. */
+export function createGlowTexture(colour = '#fff4e2'): CanvasTexture {
+  const size = 128;
+  const { canvas, ctx } = createCanvas(size, size);
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(0.22, colour);
+  gradient.addColorStop(0.6, `${colour}33`);
+  gradient.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return canvasTexture(canvas);
+}
+
+/** `'aabbcc'` + alpha to `'rgba(a,b,c,alpha)'`, for gradients that need alpha. */
+function withAlpha(hex: string, alpha: number): string {
+  const value = hex.replace('#', '');
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+}
+
+/**
+ * The face of a PrintSync building sign: the real roundel locked up with the
+ * wordmark. Roof signs are individual channel letters on a dark plate; fascia
+ * signs are a solid brand plate with reversed artwork — the two ways brand
+ * signage is actually made.
+ */
+export function createBrandSignTexture(
+  wordmark: string,
+  primary: string,
+  paper: string,
+  mount: 'roof' | 'facade',
+): CanvasTexture {
+  const W = 768;
+  const H = 256;
+  const { canvas, ctx } = createCanvas(W, H);
+  const lockupSize = H * 0.6;
+  const pad = H * 0.2;
+
+  if (mount === 'facade') {
+    ctx.fillStyle = primary;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = withAlpha('#000000', 0.18);
+    ctx.fillRect(0, H - 10, W, 10);
+  } else {
+    ctx.fillStyle = '#0d0f13';
+    ctx.fillRect(0, 0, W, H);
+    // Mounting rails, so the panel reads as fabricated.
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillRect(0, 0, W, 6);
+    ctx.fillRect(0, H - 6, W, 6);
+  }
+
+  const markX = pad + lockupSize / 2;
+  drawBrandMark(ctx, markX, H / 2, {
+    size: lockupSize,
+    colours: mount === 'facade'
+      ? { primary: paper, secondary: paper, ink: paper }
+      : { primary, secondary: paper, ink: paper },
+  });
+
+  ctx.fillStyle = paper;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = `900 ${H * 0.44}px ${ARTWORK_FONT}`;
+  ctx.fillText(wordmark, markX + lockupSize * 0.72, H / 2 + H * 0.02);
+
   return canvasTexture(canvas);
 }
 
@@ -245,10 +457,20 @@ export function createOohTexture(spec: OohArtworkSpec): CanvasTexture {
   ctx.fillStyle = spec.paper;
   ctx.fillRect(0, 0, W, H);
 
-  // Top brand bar.
+  // Top brand bar: the real roundel, reversed, beside the wordmark.
+  const barMark = Math.min(W, H) * 0.082;
   ctx.fillStyle = spec.primary;
   ctx.fillRect(0, 0, W, H * 0.13);
-  drawLabel(ctx, spec.wordmark, W - pad, H * 0.065, Math.min(W, H) * 0.052, spec.paper, 'right');
+  drawBrandMark(ctx, W - pad - barMark / 2, H * 0.065, { size: barMark, flatten: spec.paper });
+  drawLabel(
+    ctx,
+    spec.wordmark,
+    W - pad - barMark - Math.min(W, H) * 0.022,
+    H * 0.065,
+    Math.min(W, H) * 0.052,
+    spec.paper,
+    'right',
+  );
   drawLabel(ctx, spec.kicker.toUpperCase(), pad, H * 0.065, Math.min(W, H) * 0.032, spec.paper, 'left', 700, ARTWORK_FONT_TEXT);
 
   // Headline block.
@@ -356,7 +578,18 @@ export function createDigitalTexture(spec: OohArtworkSpec): CanvasTexture {
   ctx.font = `400 ${Math.min(W, H) * 0.04}px ${ARTWORK_FONT_TEXT}`;
   wrapText(ctx, spec.body, pad, cy + headlineSize * 1.25, W - pad * 2, Math.min(W, H) * 0.052);
 
-  drawLabel(ctx, spec.wordmark, W - pad, H - pad, Math.min(W, H) * 0.05, spec.paper, 'right');
+  // Signed off with the real mark, reversed for the LED surface.
+  const footerMark = Math.min(W, H) * 0.09;
+  drawBrandMark(ctx, W - pad - footerMark / 2, H - pad, { size: footerMark, flatten: spec.paper });
+  drawLabel(
+    ctx,
+    spec.wordmark,
+    W - pad - footerMark - Math.min(W, H) * 0.024,
+    H - pad,
+    Math.min(W, H) * 0.05,
+    spec.paper,
+    'right',
+  );
 
   // LED pixel grid.
   ctx.fillStyle = 'rgba(0,0,0,0.34)';
@@ -579,6 +812,405 @@ export function createRouteRibbonTexture(): CanvasTexture {
 
 // --- Shared textures -------------------------------------------------------------
 
+// --- Shopfronts ------------------------------------------------------------
+
+/** A shopfront fascia's face plus its glow map, so lit signage reads at night. */
+export interface FasciaTextures {
+  readonly map: CanvasTexture;
+  readonly emissive: CanvasTexture;
+}
+
+const FASCIA_W = 1536;
+const FASCIA_H = 128;
+const VINYL_W = 1024;
+const VINYL_H = 360;
+const WALL_W = 1024;
+const WALL_H = 360;
+const ABOARD_W = 384;
+const ABOARD_H = 560;
+
+/**
+ * The face of a shopfront fascia, fabricated one of the three ways shopfronts
+ * really are: a solid printed panel, individual illuminated channel letters on a
+ * tray, or an internally lit lightbox.
+ *
+ * Returns an albedo *and* an emissive map, because what glows differs by
+ * fabrication — a lightbox glows across its whole face, channel letters glow
+ * only where the letters are, a printed panel is merely floodlit. That is the
+ * same split the building facades use, and for the same reason.
+ */
+export function createFasciaTextures(
+  name: string,
+  accent: string,
+  kind: ShopfrontFasciaKind,
+  isPrintSync: boolean,
+  wordmark: string,
+): FasciaTextures {
+  const albedo = createCanvas(FASCIA_W, FASCIA_H);
+  const glow = createCanvas(FASCIA_W, FASCIA_H);
+  const label = isPrintSync ? wordmark : name;
+  const markSize = FASCIA_H * 0.62;
+  const pad = FASCIA_H * 0.4;
+  const textX = isPrintSync ? pad + markSize * 1.32 : pad;
+  const maxTextWidth = FASCIA_W - textX - pad;
+
+  const paint = (c: CanvasRenderingContext2D, lit: boolean): void => {
+    if (lit) {
+      c.fillStyle = '#000000';
+      c.fillRect(0, 0, FASCIA_W, FASCIA_H);
+      if (kind === 'panel' || kind === 'lightbox') {
+        const inset = kind === 'lightbox' ? 9 : 0;
+        c.fillStyle = withAlpha(accent, kind === 'lightbox' ? 0.9 : 0.5);
+        c.fillRect(inset, inset, FASCIA_W - inset * 2, FASCIA_H - inset * 2);
+      }
+    } else if (kind === 'panel') {
+      c.fillStyle = accent;
+      c.fillRect(0, 0, FASCIA_W, FASCIA_H);
+      c.fillStyle = withAlpha('#000000', 0.22);
+      c.fillRect(0, 0, FASCIA_W, 6);
+      c.fillRect(0, FASCIA_H - 6, FASCIA_W, 6);
+    } else if (kind === 'lightbox') {
+      c.fillStyle = '#0f1116';
+      c.fillRect(0, 0, FASCIA_W, FASCIA_H);
+      c.fillStyle = accent;
+      c.fillRect(9, 9, FASCIA_W - 18, FASCIA_H - 18);
+      c.fillStyle = withAlpha('#ffffff', 0.14);
+      c.fillRect(9, 9, FASCIA_W - 18, 14);
+    } else {
+      // Channel letters on a dark tray, the letters themselves doing the work.
+      c.fillStyle = '#0a0c10';
+      c.fillRect(0, 0, FASCIA_W, FASCIA_H);
+      c.fillStyle = 'rgba(255,255,255,0.05)';
+      c.fillRect(0, 0, FASCIA_W, 5);
+      c.fillRect(0, FASCIA_H - 5, FASCIA_W, 5);
+    }
+
+    if (isPrintSync) {
+      const markOptions: BrandMarkOptions = lit
+        ? { size: markSize, flatten: '#ffffff' }
+        : { size: markSize };
+      drawBrandMark(c, pad + markSize / 2, FASCIA_H / 2, markOptions);
+    }
+
+    c.textAlign = 'left';
+    c.textBaseline = 'middle';
+    let fontPx = FASCIA_H * 0.52;
+    c.font = `900 ${fontPx}px ${ARTWORK_FONT}`;
+    const textWidth = c.measureText(label).width;
+    if (textWidth > maxTextWidth) {
+      fontPx *= maxTextWidth / textWidth;
+      c.font = `900 ${fontPx}px ${ARTWORK_FONT}`;
+    }
+    c.fillStyle = lit || kind !== 'letters' ? '#ffffff' : accent;
+    c.fillText(label, textX, FASCIA_H / 2 + FASCIA_H * 0.02);
+  };
+
+  paint(albedo.ctx, false);
+  paint(glow.ctx, true);
+  return { map: canvasTexture(albedo.canvas), emissive: canvasTexture(glow.canvas) };
+}
+
+/**
+ * Printed window vinyl as a transparent overlay on the glazing — the four
+ * treatments that are actually specified: clear glass with just an etched
+ * opening-hours strip, a frosted band across the middle, perforated one-way
+ * vision film, or a full printed graphic.
+ */
+export function createWindowVinylTexture(
+  kind: ShopfrontWindowKind,
+  name: string,
+  accent: string,
+  seed: number,
+): CanvasTexture {
+  const { canvas, ctx } = createCanvas(VINYL_W, VINYL_H);
+  ctx.clearRect(0, 0, VINYL_W, VINYL_H);
+  const rand = mulberry32(seed >>> 0 || 1);
+
+  if (kind === 'perforated') {
+    ctx.fillStyle = withAlpha(accent, 0.88);
+    ctx.fillRect(0, 0, VINYL_W, VINYL_H);
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000000';
+    for (let y = 12; y < VINYL_H; y += 22) {
+      for (let x = 12; x < VINYL_W; x += 22) {
+        ctx.beginPath();
+        ctx.arc(x, y, 4.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  } else if (kind === 'vinyl') {
+    ctx.fillStyle = withAlpha(accent, 0.95);
+    ctx.fillRect(0, 0, VINYL_W, VINYL_H);
+  } else if (kind === 'band') {
+    ctx.fillStyle = withAlpha('#ffffff', 0.9);
+    ctx.fillRect(0, VINYL_H * 0.32, VINYL_W, VINYL_H * 0.22);
+    ctx.fillStyle = withAlpha('#000000', 0.12);
+    ctx.fillRect(0, VINYL_H * 0.32, VINYL_W, 3);
+    ctx.fillRect(0, VINYL_H * 0.54 - 3, VINYL_W, 3);
+  }
+
+  const banded = kind === 'band';
+  const ink = banded ? '#111418' : '#ffffff';
+
+  if (kind !== 'clear') {
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const size = (banded ? 0.13 : 0.17) * VINYL_H;
+    const label = name.toUpperCase();
+    ctx.font = `900 ${size}px ${ARTWORK_FONT}`;
+    ctx.fillStyle = ink;
+    const cx = VINYL_W * 0.06;
+    const cy = banded ? VINYL_H * 0.43 : VINYL_H * 0.4;
+    ctx.fillText(label, cx, cy);
+    const textWidth = ctx.measureText(label).width;
+    ctx.fillStyle = banded ? withAlpha('#111418', 0.55) : withAlpha('#ffffff', 0.75);
+    ctx.fillRect(cx, cy + size * 0.8, Math.min(textWidth, VINYL_W * 0.72), Math.max(3, size * 0.09));
+  }
+
+  // Opening hours and a founding date etched along the base of the glass.
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = `700 ${VINYL_H * 0.055}px ${ARTWORK_FONT_TEXT}`;
+  ctx.fillStyle = withAlpha('#ffffff', kind === 'clear' ? 0.62 : 0.9);
+  ctx.fillText(banded ? 'MON–SAT 9–6' : 'OPEN 7 DAYS', VINYL_W * 0.06, VINYL_H * 0.94);
+  ctx.textAlign = 'right';
+  ctx.fillText(`EST. ${1965 + Math.floor(rand() * 55)}`, VINYL_W * 0.94, VINYL_H * 0.94);
+
+  return canvasTexture(canvas);
+}
+
+/**
+ * The interior's street-facing back wall — the largest printed surface inside a
+ * shop, and the one that makes an interior read as *branded* rather than merely
+ * furnished. Three real treatments: a printed colour mural, a gallery wall of
+ * framed prints, or a panelled wall with a printed signage band.
+ */
+export function createInteriorWallTexture(
+  name: string,
+  accent: string,
+  backWall: ShopfrontBackWall,
+  seed: number,
+): CanvasTexture {
+  const { canvas, ctx } = createCanvas(WALL_W, WALL_H);
+  const rand = mulberry32(seed >>> 0 || 1);
+
+  if (backWall === 'mural') {
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, WALL_W, WALL_H);
+    ctx.fillStyle = withAlpha('#ffffff', 0.1);
+    for (let i = 0; i < 90; i++) {
+      ctx.beginPath();
+      ctx.arc(rand() * WALL_W, rand() * WALL_H, 6 + rand() * 26, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = withAlpha('#ffffff', 0.92);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = `900 ${WALL_H * 0.32}px ${ARTWORK_FONT}`;
+    ctx.fillText(name.toUpperCase(), WALL_W * 0.06, WALL_H * 0.46);
+  } else if (backWall === 'poster') {
+    ctx.fillStyle = '#e9e6df';
+    ctx.fillRect(0, 0, WALL_W, WALL_H);
+    const cols = 5;
+    const rows = 2;
+    const gap = 22;
+    const cw = (WALL_W - gap * (cols + 1)) / cols;
+    const ch = (WALL_H - gap * (rows + 1)) / rows;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = gap + c * (cw + gap);
+        const y = gap + r * (ch + gap);
+        ctx.fillStyle = '#fbfaf7';
+        ctx.fillRect(x, y, cw, ch);
+        ctx.strokeStyle = 'rgba(0,0,0,0.32)';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(x + 4, y + 4, cw - 8, ch - 8);
+        const tone = (r * cols + c) % 4;
+        ctx.fillStyle = tone === 0 ? accent : withAlpha('#111418', 0.82);
+        if (tone === 0) {
+          ctx.beginPath();
+          ctx.arc(x + cw / 2, y + ch * 0.44, Math.min(cw, ch) * 0.24, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (tone === 1) {
+          ctx.fillRect(x + cw * 0.16, y + ch * 0.22, cw * 0.68, ch * 0.3);
+        } else if (tone === 2) {
+          ctx.beginPath();
+          ctx.moveTo(x + cw * 0.5, y + ch * 0.16);
+          ctx.lineTo(x + cw * 0.84, y + ch * 0.62);
+          ctx.lineTo(x + cw * 0.16, y + ch * 0.62);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.fillRect(x + cw * 0.16, y + ch * 0.22, cw * 0.68, ch * 0.13);
+          ctx.fillRect(x + cw * 0.16, y + ch * 0.44, cw * 0.46, ch * 0.13);
+        }
+      }
+    }
+  } else {
+    ctx.fillStyle = '#d9d3c8';
+    ctx.fillRect(0, 0, WALL_W, WALL_H);
+    ctx.fillStyle = withAlpha('#000000', 0.08);
+    for (let x = 0; x < WALL_W; x += 96) ctx.fillRect(x, 0, 3, WALL_H);
+    ctx.fillStyle = withAlpha('#000000', 0.05);
+    ctx.fillRect(0, 0, WALL_W, 26);
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, WALL_H * 0.3, WALL_W, WALL_H * 0.24);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `900 ${WALL_H * 0.15}px ${ARTWORK_FONT}`;
+    ctx.fillText(name.toUpperCase(), WALL_W / 2, WALL_H * 0.42);
+  }
+
+  return canvasTexture(canvas);
+}
+
+/** The printed front of a shop counter: the name in the trade accent. */
+export function createCounterFrontTexture(
+  name: string,
+  accent: string,
+  lines: readonly string[],
+): CanvasTexture {
+  const W = 512;
+  const H = 160;
+  const { canvas, ctx } = createCanvas(W, H);
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = withAlpha('#000000', 0.2);
+  ctx.fillRect(0, H - 8, W, 8);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `900 ${H * 0.3}px ${ARTWORK_FONT}`;
+  ctx.fillText(name.toUpperCase(), W * 0.06, H * 0.38);
+  ctx.font = `600 ${H * 0.14}px ${ARTWORK_FONT_TEXT}`;
+  ctx.fillStyle = withAlpha('#ffffff', 0.85);
+  ctx.fillText(lines[0] ?? '', W * 0.06, H * 0.72);
+  return canvasTexture(canvas);
+}
+
+/**
+ * A thin printed strip: shelf-edge labels inside, and the valance along an
+ * awning outside. Both are the same product — a continuous printed band — so
+ * they share one painter.
+ */
+export function createStripTexture(name: string, accent: string, height = 48): CanvasTexture {
+  const W = 1024;
+  const { canvas, ctx } = createCanvas(W, height);
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, W, height);
+  ctx.fillStyle = withAlpha('#ffffff', 0.9);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = `800 ${height * 0.42}px ${ARTWORK_FONT}`;
+  const label = name.toUpperCase();
+  const step = ctx.measureText(label).width + height * 1.1;
+  for (let x = height * 0.5; x < W; x += step) {
+    ctx.fillText(label, x, height / 2);
+    ctx.beginPath();
+    ctx.arc(x + step - height * 0.5, height / 2, height * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  return canvasTexture(canvas, [1, 1]);
+}
+
+/** A printed banner hung under a shop's ceiling: slogan above, name below. */
+export function createBannerTexture(text: string, name: string, accent: string): CanvasTexture {
+  const W = 1024;
+  const H = 128;
+  const { canvas, ctx } = createCanvas(W, H);
+  ctx.fillStyle = accent;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = withAlpha('#000000', 0.14);
+  ctx.fillRect(0, 0, W, 6);
+  ctx.fillRect(0, H - 6, W, 6);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `900 ${H * 0.4}px ${ARTWORK_FONT}`;
+  ctx.fillText(text.toUpperCase(), W / 2, H * 0.4);
+  ctx.font = `700 ${H * 0.16}px ${ARTWORK_FONT_TEXT}`;
+  ctx.fillStyle = withAlpha('#ffffff', 0.85);
+  ctx.fillText(name.toUpperCase(), W / 2, H * 0.76);
+  return canvasTexture(canvas);
+}
+
+/** The face of the A-board on the pavement outside. */
+export function createAboardTexture(
+  name: string,
+  accent: string,
+  lines: readonly string[],
+  isPrintSync: boolean,
+  wordmark: string,
+): CanvasTexture {
+  const { canvas, ctx } = createCanvas(ABOARD_W, ABOARD_H);
+  const pad = ABOARD_W * 0.08;
+  ctx.fillStyle = '#f4f1ea';
+  ctx.fillRect(0, 0, ABOARD_W, ABOARD_H);
+  ctx.fillStyle = accent;
+  ctx.fillRect(pad, pad, ABOARD_W - pad * 2, ABOARD_H * 0.19);
+
+  ctx.textBaseline = 'middle';
+  if (isPrintSync) {
+    const markSize = ABOARD_H * 0.11;
+    drawBrandMark(ctx, pad + markSize * 0.9, pad + ABOARD_H * 0.095, { size: markSize });
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${ABOARD_H * 0.095}px ${ARTWORK_FONT}`;
+    ctx.fillText(wordmark, pad + markSize * 1.8, pad + ABOARD_H * 0.095);
+  } else {
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${ABOARD_H * 0.092}px ${ARTWORK_FONT}`;
+    ctx.fillText(name.toUpperCase(), ABOARD_W / 2, pad + ABOARD_H * 0.095);
+  }
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#1a1c20';
+  ctx.font = `700 ${ABOARD_H * 0.06}px ${ARTWORK_FONT_TEXT}`;
+  let y = ABOARD_H * 0.4;
+  for (const line of lines.slice(0, 4)) {
+    ctx.fillText(line, pad, y);
+    y += ABOARD_H * 0.082;
+  }
+
+  ctx.fillStyle = withAlpha('#000000', 0.16);
+  ctx.fillRect(pad, y + ABOARD_H * 0.02, ABOARD_W - pad * 2, 3);
+
+  ctx.fillStyle = accent;
+  ctx.font = `900 ${ABOARD_H * 0.07}px ${ARTWORK_FONT}`;
+  ctx.fillText('10% OFF', pad, y + ABOARD_H * 0.12);
+  ctx.fillStyle = withAlpha('#1a1c20', 0.6);
+  ctx.font = `600 ${ABOARD_H * 0.045}px ${ARTWORK_FONT_TEXT}`;
+  wrapText(
+    ctx,
+    'Show this board in store. One per customer.',
+    pad,
+    y + ABOARD_H * 0.19,
+    ABOARD_W - pad * 2,
+    ABOARD_H * 0.058,
+  );
+
+  return canvasTexture(canvas);
+}
+
+/** Striped awning canvas. Tiles along the frontage. */
+export function createAwningFabricTexture(accent: string): CanvasTexture {
+  const W = 256;
+  const H = 64;
+  const { canvas, ctx } = createCanvas(W, H);
+  ctx.fillStyle = '#efece4';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = accent;
+  const stripe = W / 8;
+  for (let i = 0; i < 8; i += 2) ctx.fillRect(i * stripe, 0, stripe, H);
+  ctx.fillStyle = withAlpha('#000000', 0.05);
+  for (let y = 0; y < H; y += 4) ctx.fillRect(0, y, W, 1);
+  return canvasTexture(canvas, [1, 1]);
+}
+
 const FACADE_CACHE = new Map<string, FacadeTextures>();
 
 /**
@@ -608,5 +1240,42 @@ export function cloneWithRepeat(
   texture.wrapT = RepeatWrapping;
   texture.repeat.set(Math.max(0.5, repeatX), Math.max(0.5, repeatY));
   texture.needsUpdate = true;
+  return texture;
+}
+
+const LIGHT_POOL_CACHE = new Map<string, CanvasTexture>();
+const GLOW_CACHE = new Map<string, CanvasTexture>();
+const CROSSING_CACHE = new Map<number, CanvasTexture>();
+
+/**
+ * The shared additive light pool for a lamp colour. One canvas is reused by
+ * every lamp in the city — the pools only differ by scale and opacity.
+ */
+export function getLightPoolTexture(colour: string): CanvasTexture {
+  let texture = LIGHT_POOL_CACHE.get(colour);
+  if (!texture) {
+    texture = createLightPoolTexture(colour);
+    LIGHT_POOL_CACHE.set(colour, texture);
+  }
+  return texture;
+}
+
+/** The shared additive glow sprite for a lamp colour. */
+export function getGlowTexture(colour: string): CanvasTexture {
+  let texture = GLOW_CACHE.get(colour);
+  if (!texture) {
+    texture = createGlowTexture(colour);
+    GLOW_CACHE.set(colour, texture);
+  }
+  return texture;
+}
+
+/** The shared worn zebra crossing overlay. */
+export function getCrossingTexture(seed = 3): CanvasTexture {
+  let texture = CROSSING_CACHE.get(seed);
+  if (!texture) {
+    texture = createCrossingTexture(seed);
+    CROSSING_CACHE.set(seed, texture);
+  }
   return texture;
 }

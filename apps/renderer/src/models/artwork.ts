@@ -1,5 +1,11 @@
 ﻿import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
-import type { ArtworkSpec } from '@printsync/motion-engine';
+import {
+  DEFAULT_BRAND_TOKENS,
+  PRINTSYNC_MARK,
+  type ArtworkSpec,
+  type BrandMark,
+  type BrandMarkTone,
+} from '@printsync/motion-engine';
 
 const SIZE = 1024;
 export const ARTWORK_FONT = "'Arial Black', 'Helvetica Neue', Arial, sans-serif";
@@ -99,6 +105,54 @@ export function drawWordmark(
   align: CanvasTextAlign = 'center',
 ): void {
   drawLabel(ctx, spec.wordmark, x, y, size, color, align);
+}
+
+export interface BrandMarkOptions {
+  /** Side length of the square mark, in canvas pixels. */
+  size: number;
+  /** Colour per brand tone. Defaults to the canonical brand tokens. */
+  colours?: Partial<Record<BrandMarkTone, string>>;
+  /**
+   * Flatten every layer to one colour — for reversals on dark ink, or for the
+   * single spot colour a packaging job is printed in.
+   */
+  flatten?: string;
+}
+
+/**
+ * Paint the PrintSync roundel with `(x, y)` at its centre.
+ *
+ * The mark is real vector data (`@printsync/motion-engine`), painted through a
+ * `Path2D`, so product artwork carries the actual logo rather than a drawn
+ * approximation — and it stays crisp at any print resolution because it is
+ * resolved at paint time, not embedded as a bitmap.
+ */
+export function drawBrandMark(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  options: BrandMarkOptions,
+  mark: BrandMark = PRINTSYNC_MARK,
+): void {
+  const { size } = options;
+  const colours: Record<BrandMarkTone, string> = {
+    primary: DEFAULT_BRAND_TOKENS.primary,
+    secondary: DEFAULT_BRAND_TOKENS.secondary,
+    ink: DEFAULT_BRAND_TOKENS.ink,
+    ...options.colours,
+  };
+  const scale = size / mark.viewBox;
+
+  ctx.save();
+  ctx.translate(x - size / 2, y - size / 2);
+  ctx.scale(scale, scale);
+  for (const layer of mark.layers) {
+    ctx.fillStyle = options.flatten ?? colours[layer.tone];
+    // The fill rule travels with the layer: the ring needs evenodd to keep its
+    // counter, the mark needs nonzero.
+    ctx.fill(new Path2D(layer.d), layer.fillRule);
+  }
+  ctx.restore();
 }
 
 export function drawBarcode(
@@ -224,7 +278,9 @@ function drawRectEditorial(
   roundRect(ctx, x, y, w, 190, radius);
   ctx.fill();
   ctx.fillRect(x, y + 190 - radius, w, radius);
-  drawWordmark(ctx, spec, x + w / 2, y + 95, 84, spec.paper);
+  // Reversed lockup: the roundel flattened to paper, above the wordmark.
+  drawBrandMark(ctx, x + w / 2, y + 62, { size: 72, flatten: spec.paper });
+  drawWordmark(ctx, spec, x + w / 2, y + 150, 56, spec.paper);
 
   ctx.fillStyle = spec.accent;
   ctx.fillRect(x, y + 190, w, 8);
@@ -265,7 +321,13 @@ function drawRectBanner(
   ctx.fill();
   ctx.restore();
 
-  drawWordmark(ctx, spec, x + w / 2, y + h * 0.26, 78, spec.secondary);
+  // Full-colour roundel above the wordmark, on the paper upper half.
+  drawBrandMark(ctx, x + w / 2, y + h * 0.19, {
+    size: 92,
+    colours: { primary: spec.primary, secondary: spec.secondary },
+  });
+
+  drawWordmark(ctx, spec, x + w / 2, y + h * 0.285, 62, spec.secondary);
 
   ctx.fillStyle = spec.secondary;
   ctx.textAlign = 'center';
@@ -292,16 +354,11 @@ function drawRectMonogram(
   const cy = y + h * 0.4;
   const r = Math.min(w, h) * 0.24;
 
-  ctx.fillStyle = spec.primary;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = spec.paper;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `900 ${r * 1.05}px ${FONT}`;
-  ctx.fillText(spec.wordmark.slice(0, 1), cx, cy + r * 0.06);
+  // The monogram *is* the roundel — the real mark, at label scale.
+  drawBrandMark(ctx, cx, cy, {
+    size: r * 2,
+    colours: { primary: spec.primary, secondary: spec.secondary },
+  });
 
   drawWordmark(ctx, spec, cx, y + h * 0.72, 62, spec.secondary);
 
@@ -328,12 +385,18 @@ function drawRectGrid(
   for (let c = 0; c < cols; c++) {
     for (let r = 0; r < rows; r++) {
       const px = x + 70 + (c * (w - 140)) / (cols - 1);
-      const py = y + 80 + (r * (h * 0.42)) / (rows - 1);
+      const py = y + 80 + (r * (h * 0.34)) / (rows - 1);
       ctx.beginPath();
       ctx.arc(px, py, dot, 0, Math.PI * 2);
       ctx.fill();
     }
   }
+
+  // The roundel anchors the grid, closing the composition above the wordmark.
+  drawBrandMark(ctx, x + w / 2, y + h * 0.53, {
+    size: 132,
+    colours: { primary: spec.primary, secondary: spec.secondary },
+  });
 
   ctx.fillStyle = spec.secondary;
   ctx.textAlign = 'center';
@@ -402,7 +465,8 @@ function drawBand(ctx: CanvasRenderingContext2D, spec: ArtworkSpec): void {
 
   ctx.fillStyle = spec.primary;
   ctx.fillRect(0, bandTop, w, 64);
-  drawWordmark(ctx, spec, w / 2, bandTop + 32, 62, spec.paper);
+  drawBrandMark(ctx, 78, bandTop + 32, { size: 48, flatten: spec.paper });
+  drawWordmark(ctx, spec, w / 2 + 24, bandTop + 32, 58, spec.paper);
 
   ctx.fillStyle = spec.secondary;
   ctx.textAlign = 'left';

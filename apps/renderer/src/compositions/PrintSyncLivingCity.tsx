@@ -1,19 +1,26 @@
+import { useMemo } from 'react';
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { ThreeCanvas } from '@remotion/three';
 import {
   cityPalette,
   resolveCityCameraPlan,
   resolveCityInputs,
+  shopfrontCopy,
   type CityInputs,
 } from '@printsync/motion-engine';
 import { CameraRig } from '../models/CameraRig';
 import { Billboard } from '../models/city/Billboard';
+import { BrandSign } from '../models/city/BrandSign';
 import { Building } from '../models/city/Building';
 import { CityEnvironment } from '../models/city/CityEnvironment';
+import { Crossing, useCrossingTexture } from '../models/city/Crossing';
 import { RoadSign } from '../models/city/RoadSign';
 import { RouteLine } from '../models/city/RouteLine';
+import { Shopfront } from '../models/city/Shopfront';
 import { Street } from '../models/city/Street';
+import { StreetProp } from '../models/city/StreetProp';
 import { STREET_LIGHT_HEIGHT, StreetLight } from '../models/city/StreetLight';
+import { Vehicle } from '../models/city/Vehicle';
 
 type LivingCityProps = Partial<CityInputs>;
 
@@ -39,12 +46,35 @@ export const PrintSyncLivingCity: React.FC<LivingCityProps> = (props) => {
   const frame = useCurrentFrame();
   const { width, height, durationInFrames, fps } = useVideoConfig();
 
-  const { title, tagline, brand, layout, route, billboards, signs, playlist, cameraPath } =
-    resolveCityInputs(props);
+  const {
+    title,
+    tagline,
+    brand,
+    layout,
+    route,
+    billboards,
+    signs,
+    vehicles,
+    props: streetProps,
+    crossings,
+    brandSigns,
+    shopfronts,
+    shotSubjects,
+    playlist,
+    cameraPath,
+  } = resolveCityInputs(props);
 
   const progress = durationInFrames > 0 ? frame / durationInFrames : 0;
-  const pose = resolveCityCameraPlan(cameraPath, progress, layout.extent).pose;
+  const pose = resolveCityCameraPlan(cameraPath, progress, layout.extent, shotSubjects).pose;
   const palette = cityPalette(layout.timeOfDay);
+  const crossingTexture = useCrossingTexture();
+  /** Seconds into the film: traffic motion is a pure function of this. */
+  const seconds = fps > 0 ? frame / fps : 0;
+  /** Shopfronts by the building they occupy, so a block can open its ground floor. */
+  const shopfrontByBuilding = useMemo(
+    () => new Map(shopfronts.map((shop) => [shop.buildingId, shop] as const)),
+    [shopfronts],
+  );
 
   const activeIndex = playlist.length > 0 ? Math.floor(frame / (fps * AD_SECONDS)) % playlist.length : 0;
   const active = playlist[activeIndex];
@@ -70,10 +100,15 @@ export const PrintSyncLivingCity: React.FC<LivingCityProps> = (props) => {
         camera={{ position: [0, 6, layout.extent * 0.6], fov: 52, near: 0.4, far: 2000 }}
         gl={{ antialias: true }}
       >
-        <CityEnvironment palette={palette} extent={layout.extent} />
+        <CityEnvironment palette={palette} timeOfDay={layout.timeOfDay} extent={layout.extent} />
         <CameraRig pose={pose} />
 
         <Street roads={layout.roads} palette={palette} />
+
+        {/* Zebra crossings on the junction approaches, painted on the tarmac. */}
+        {crossings.map((crossing) => (
+          <Crossing key={crossing.id} crossing={crossing} texture={crossingTexture} />
+        ))}
 
         {/* Carriageway light, anchored to the real street lamps: every second
             lamp gets a physical point light, so the pools of light line up with
@@ -109,8 +144,29 @@ export const PrintSyncLivingCity: React.FC<LivingCityProps> = (props) => {
 
         {route && <RouteLine route={route} progress={routeProgress} />}
 
-        {layout.buildings.map((building) => (
-          <Building key={building.id} building={building} palette={palette} />
+        {layout.buildings.map((building) => {
+          const shopfront = shopfrontByBuilding.get(building.id);
+          return (
+            <Building
+              key={building.id}
+              building={building}
+              palette={palette}
+              {...(shopfront ? { shopfront } : {})}
+            />
+          );
+        })}
+
+        {/* Retail shopfronts, with everything printed for them: fascia, window
+            vinyl, awning, A-board, and the branded interior behind the glass. */}
+        {shopfronts.map((shop) => (
+          <Shopfront
+            key={shop.id}
+            shopfront={shop}
+            palette={palette}
+            lines={shopfrontCopy(shop.trade)}
+            wordmark={brand.wordmark}
+            primary={brand.primary}
+          />
         ))}
 
         {billboards.map((entry) => (
@@ -128,8 +184,37 @@ export const PrintSyncLivingCity: React.FC<LivingCityProps> = (props) => {
           <RoadSign key={entry.slot.id} slot={entry.slot} sign={entry.sign} palette={palette} />
         ))}
 
+        {/* PrintSync signage on the buildings: roof signs on the towers, fascia
+            signs over the entrances. */}
+        {brandSigns.map((sign) => (
+          <BrandSign
+            key={sign.id}
+            sign={sign}
+            palette={palette}
+            wordmark={brand.wordmark}
+            primary={brand.primary}
+            paper={brand.paper}
+          />
+        ))}
+
+        {/* Public realm: bollards, bins, benches, planters, signals, a shelter. */}
+        {streetProps.map((prop) => (
+          <StreetProp key={prop.id} prop={prop} palette={palette} />
+        ))}
+
         {layout.streetLights.map((light) => (
           <StreetLight key={light.id} light={light} palette={palette} />
+        ))}
+
+        {/* Traffic, moving and parked, positioned purely from the frame time. */}
+        {vehicles.map((vehicle) => (
+          <Vehicle
+            key={vehicle.id}
+            vehicle={vehicle}
+            seconds={seconds}
+            palette={palette}
+            brandPrimary={brand.primary}
+          />
         ))}
       </ThreeCanvas>
 

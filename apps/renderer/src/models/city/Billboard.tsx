@@ -71,8 +71,9 @@ export const Billboard: React.FC<BillboardProps> = ({
       position={[slot.position[0], slot.position[1], slot.position[2]]}
       rotation={[0, slot.rotationY, 0]}
     >
-      {/* Frame / bezel. */}
-      <mesh position={[0, 0, -0.16]}>
+      {/* Frame / bezel. Its front face sits 2 cm behind the panel plane: put it
+          flush and the two coplanar surfaces z-fight, and the frame wins. */}
+      <mesh position={[0, 0, -0.18]}>
         <boxGeometry args={[width + 0.6, height + 0.6, 0.32]} />
         <meshStandardMaterial color="#2a2d33" metalness={0.5} roughness={0.55} />
       </mesh>

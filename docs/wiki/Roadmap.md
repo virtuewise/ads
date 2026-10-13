@@ -62,6 +62,11 @@ See [Production Pipeline](Production-Pipeline) for the exact stage-by-stage stat
 - [x] Spec-driven animation library — eight frame-addressable print-object animations
 - [x] Technical graphics — TSRGD road signage and real out-of-home formats
 - [x] A generated, deterministic 3D city (`PrintSyncLivingCity`)
+- [x] Cinematic shot list — a travelling pass plus hard-cut close-ups on the shopfront, a digital
+      screen and a safety sign (`showcase`), driven by the same camera vocabulary as the product films
+- [x] Traffic and public realm — real-dimension vehicles and street furniture, all frame-addressable
+- [x] Trading shopfronts, with printed fascia, window vinyl, awning, A-board and branded interiors
+- [x] Image-based lighting from real CC0 HDRI skies (`apps/renderer/public/hdri`)
 - [ ] Kinetic typography execution (the `MotionEngine.createKineticType` stub is unimplemented)
 - [ ] Transitions
 - [ ] VFX
@@ -72,6 +77,9 @@ See [Production Pipeline](Production-Pipeline) for the exact stage-by-stage stat
 ## Phase 5 — Video Engine 🟡
 
 - [x] Programmatic motion rendering core (Remotion, headless export, audio-reactive signature film)
+- [x] Enterprise render plan — shard a film into resumable worker jobs (`@printsync/render-farm`)
+- [x] Remotion Lambda path and FFmpeg delivery/stitch/mux commands (see
+      [Enterprise Rendering](Enterprise-Rendering))
 - [ ] Footage analysis
 - [ ] AI video shots
 - [ ] Editing

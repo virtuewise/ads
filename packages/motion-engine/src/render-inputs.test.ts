@@ -14,8 +14,10 @@ import {
   PRINT_ITEMS_HERO_IDS,
   getPrintItem,
 } from './print-items.js';
-import { CAMERA_PATHS } from './camera.js';
+import { CAMERA_PATHS, SHOWCASE_SHOTS, resolveCityCameraPlan } from './camera.js';
 import { DEFAULT_BRAND_TOKENS } from './artwork.js';
+import { oohSceneHeight } from './ooh.js';
+import { CITY_LANES, VEHICLE_SIZES } from './vehicles.js';
 
 describe('DEFAULT_PRODUCT_LINE_INPUTS', () => {
   it('defaults to the curated hero set and the turntable path', () => {
@@ -52,13 +54,13 @@ describe('resolveProductLineInputs', () => {
     expect(resolved.tagline).toBe(DEFAULT_PRODUCT_LINE_INPUTS.tagline);
     expect(resolved.brand).toEqual(DEFAULT_BRAND_TOKENS);
     expect(resolved.specs).toHaveLength(PRINT_ITEMS_HERO_IDS.length);
-    expect(resolved.cameraPath).toBe('turntable');
+    expect(resolved.cameraPath).toBe(DEFAULT_PRODUCT_LINE_INPUTS.cameraPath);
   });
 
   it('uses defaults when given null-ish inputs', () => {
     const resolved = resolveProductLineInputs(undefined);
     expect(resolved.specs).toHaveLength(PRINT_ITEMS_HERO_IDS.length);
-    expect(resolved.cameraPath).toBe('turntable');
+    expect(resolved.cameraPath).toBe(DEFAULT_PRODUCT_LINE_INPUTS.cameraPath);
   });
 
   it('honours an explicit title, tagline and camera path', () => {
@@ -133,7 +135,7 @@ describe('resolveProductLineInputs', () => {
 describe('DEFAULT_CITY_INPUTS', () => {
   it('defaults to a night drive down the boulevard', () => {
     expect(DEFAULT_CITY_INPUTS.timeOfDay).toBe('night');
-    expect(DEFAULT_CITY_INPUTS.cameraPath).toBe('dolly');
+    expect(DEFAULT_CITY_INPUTS.cameraPath).toBe('showcase');
     expect(DEFAULT_CITY_INPUTS.seed).toBe(DEFAULT_CITY_SEED);
     expect(DEFAULT_CITY_INPUTS.route).toBe(true);
     expect(DEFAULT_CITY_INPUTS.density).toBeGreaterThan(0);
@@ -240,5 +242,122 @@ describe('resolveCityInputs', () => {
     expect(resolved.title).toBe(DEFAULT_CITY_INPUTS.title);
     expect(resolved.tagline).toBe(DEFAULT_CITY_INPUTS.tagline);
     expect(resolved.layout.timeOfDay).toBe('night');
+  });
+
+  it('resolves a showcase close-up for every printed subject', () => {
+    const resolved = resolveCityInputs();
+    expect(resolved.shotSubjects.map((subject) => subject.kind)).toEqual([
+      'shopfront',
+      'billboard',
+      'sign',
+    ]);
+    // The resolver has to honour the declared default, otherwise the film falls
+    // back to an orbit and never shows the close-ups at all.
+    expect(resolved.cameraPath).toBe(DEFAULT_CITY_INPUTS.cameraPath);
+    for (const subject of resolved.shotSubjects) {
+      expect(subject.position.every(Number.isFinite)).toBe(true);
+      expect(subject.size[0]).toBeGreaterThan(0);
+      expect(subject.size[1]).toBeGreaterThan(0);
+    }
+  });
+
+  it('aims the shopfront close-up at the PrintSync shop', () => {
+    const resolved = resolveCityInputs();
+    const hero = resolved.shopfronts.find((shop) => shop.isPrintSync);
+    expect(hero).toBeDefined();
+    const subject = resolved.shotSubjects.find((entry) => entry.kind === 'shopfront');
+    expect(subject?.position[0]).toBe(hero?.position[0]);
+    expect(subject?.position[2]).toBe(hero?.position[2]);
+    expect(subject?.size[0]).toBe(hero?.span);
+  });
+
+  it('leaves a clear stretch of kerb for every close-up lens', () => {
+    // Across seeds, not just the default: the close-ups are chosen
+    // geometrically, so no seed may hand the lens a parked vehicle to shoot
+    // through. The shopfront is exempt — that close-up rides above the traffic
+    // at fascia height, so a parked van in front of the shop is not a problem.
+    for (const seed of [DEFAULT_CITY_SEED, 'alpha', 'beta', 'gamma']) {
+      const resolved = resolveCityInputs({ seed });
+      for (const subject of resolved.shotSubjects) {
+        if (subject.kind === 'shopfront') continue;
+        const side = subject.position[0] > 0 ? 1 : -1;
+        let nearest = Number.POSITIVE_INFINITY;
+        for (const vehicle of resolved.vehicles) {
+          if (!vehicle.parked || Math.sign(vehicle.lane) !== side) continue;
+          const edge =
+            Math.abs(vehicle.z - subject.position[2]) -
+            VEHICLE_SIZES[vehicle.kind].length / 2;
+          if (edge < nearest) nearest = edge;
+        }
+        expect(nearest).toBeGreaterThanOrEqual(1.5);
+      }
+    }
+  });
+
+  it('rides every showcase close-up clear of the traffic', () => {
+    const resolved = resolveCityInputs();
+    const widest = Math.max(
+      ...Object.values(VEHICLE_SIZES).map((size) => size.width),
+    );
+    const tallest = Math.max(
+      ...Object.values(VEHICLE_SIZES).map((size) => size.height),
+    );
+    for (const subject of resolved.shotSubjects) {
+      const shot = SHOWCASE_SHOTS.find((entry) => entry.kind === subject.kind);
+      if (!shot) throw new Error(`showcase has no ${subject.kind} shot`);
+      const span = shot.to - shot.from;
+      for (let step = 0; step <= 12; step += 1) {
+        const pose = resolveCityCameraPlan(
+          'showcase',
+          shot.from + span * (step / 12),
+          resolved.layout.extent,
+          resolved.shotSubjects,
+        ).pose;
+        for (const lane of CITY_LANES) {
+          const lateral = Math.abs(pose.position[0] - lane.offset);
+          expect(lateral > widest / 2 + 0.2 || pose.position[1] > tallest + 0.2).toBe(
+            true,
+          );
+        }
+        for (const vehicle of resolved.vehicles) {
+          if (!vehicle.parked) continue;
+          const size = VEHICLE_SIZES[vehicle.kind];
+          const clear =
+            Math.abs(pose.position[0] - vehicle.lane) > size.width / 2 + 0.1 ||
+            Math.abs(pose.position[2] - vehicle.z) > size.length / 2 + 0.1 ||
+            pose.position[1] > size.height + 0.2;
+          expect(clear).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('rides a wall panel above a shopfront rather than through it', () => {
+    const resolved = resolveCityInputs();
+    const shops = new Map(
+      resolved.shopfronts.map((shop) => [shop.buildingId, shop] as const),
+    );
+    const buildings = new Map(
+      resolved.layout.buildings.map((building) => [building.id, building] as const),
+    );
+    let lifted = 0;
+    for (const entry of resolved.billboards) {
+      const buildingId = entry.slot.buildingId;
+      const shop =
+        entry.slot.mount === 'facade' && buildingId
+          ? shops.get(buildingId)
+          : undefined;
+      if (!shop) continue;
+      lifted += 1;
+      const height = oohSceneHeight(entry.format);
+      expect(entry.slot.position[1] - height / 2).toBeGreaterThanOrEqual(shop.height);
+      const building = buildingId ? buildings.get(buildingId) : undefined;
+      if (building) {
+        expect(entry.slot.position[1] + height / 2).toBeLessThan(building.height);
+      }
+    }
+    // The default city does have panels sharing frontage with a shop, so this
+    // test is not quietly skipping.
+    expect(lifted).toBeGreaterThan(0);
   });
 });

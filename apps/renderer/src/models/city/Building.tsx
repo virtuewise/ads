@@ -1,11 +1,17 @@
 import { useMemo } from 'react';
 import { MeshStandardMaterial, type Texture } from 'three';
-import type { CityBuilding, CityPalette } from '@printsync/motion-engine';
+import type { CityBuilding, CityPalette, CityShopfront } from '@printsync/motion-engine';
 import { cloneWithRepeat, getFacadeTextures, type WindowVariant } from './cityArtwork';
 
 interface BuildingProps {
   building: CityBuilding;
   palette: CityPalette;
+  /**
+   * The shopfront on this building's ground floor, if it has one. It opens the
+   * mass at street level and pushes a rear wall back behind the retail fit-out.
+   * The generator guarantees the opening fits with mass left above it.
+   */
+  shopfront?: CityShopfront;
 }
 
 /** Metres per window bay, so window sizes read consistently on every facade. */
@@ -26,16 +32,27 @@ function facadeVariant(tint: number): WindowVariant {
  * `BoxGeometry` has six material groups (+x, -x, +y, -y, +z, -z); the four wall
  * groups get their own cloned texture whose `repeat` matches that face's real
  * metres, while the roof and underside stay plain.
+ *
+ * When the block has a shopfront, the mass starts at the shopfront head height
+ * and a smaller rear box closes the ground floor behind the shop, so the retail
+ * unit is a real void in the building rather than a picture of a window.
  */
-export const Building: React.FC<BuildingProps> = ({ building, palette }) => {
+export const Building: React.FC<BuildingProps> = ({ building, palette, shopfront }) => {
   const { width, depth, height, style, tint, litRatio } = building;
+
+  // The generator only puts a shopfront on a block tall enough to take the
+  // opening with storeys left above it, so the mass starts exactly at the head
+  // height and the opening fits under it.
+  const shopH = shopfront ? shopfront.height : 0;
+  const shopDepth = shopfront ? shopfront.depth : 0;
+  const upperH = Math.max(1, height - shopH);
 
   const materials = useMemo(() => {
     const { map, emissive } = getFacadeTextures(facadeVariant(tint), palette);
-    const sideXMap = cloneWithRepeat(map, depth / BAY_METRES, height / FLOOR_METRES);
-    const sideXGlow = cloneWithRepeat(emissive, depth / BAY_METRES, height / FLOOR_METRES);
-    const sideZMap = cloneWithRepeat(map, width / BAY_METRES, height / FLOOR_METRES);
-    const sideZGlow = cloneWithRepeat(emissive, width / BAY_METRES, height / FLOOR_METRES);
+    const sideXMap = cloneWithRepeat(map, depth / BAY_METRES, upperH / FLOOR_METRES);
+    const sideXGlow = cloneWithRepeat(emissive, depth / BAY_METRES, upperH / FLOOR_METRES);
+    const sideZMap = cloneWithRepeat(map, width / BAY_METRES, upperH / FLOOR_METRES);
+    const sideZGlow = cloneWithRepeat(emissive, width / BAY_METRES, upperH / FLOOR_METRES);
 
     const wall = (mapTexture: Texture, glowTexture: Texture) =>
       new MeshStandardMaterial({
@@ -62,13 +79,22 @@ export const Building: React.FC<BuildingProps> = ({ building, palette }) => {
       wall(sideZMap, sideZGlow),
       wall(sideZMap, sideZGlow),
     ];
-  }, [width, depth, height, tint, litRatio, palette]);
+  }, [width, depth, upperH, tint, litRatio, palette]);
 
   return (
     <group position={[building.position[0], building.position[1], building.position[2]]}>
-      <mesh position={[0, height / 2, 0]} material={materials}>
-        <boxGeometry args={[width, height, depth]} />
+      <mesh position={[0, shopH + upperH / 2, 0]} material={materials}>
+        <boxGeometry args={[width, upperH, depth]} />
       </mesh>
+
+      {/* Behind a shopfront, a rear box closes the ground floor so the retail
+          unit reads as a void in the mass rather than a facade treatment. */}
+      {shopfront && (
+        <mesh position={[building.side * (shopDepth / 2), shopH / 2, 0]}>
+          <boxGeometry args={[Math.max(0.4, width - shopDepth), shopH, depth]} />
+          <meshStandardMaterial color={palette.facade} roughness={0.85} metalness={0.08} />
+        </mesh>
+      )}
 
       {/* Parapet. */}
       <mesh position={[0, height + 0.3, 0]}>
