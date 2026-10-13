@@ -99,13 +99,15 @@ seed should produce the same plan.
 
 ## Current limitations
 
-Treat this pipeline as **scaffolding**, not finished output:
+Treat the **planning pipeline** as **scaffolding**, not finished output:
 
 - Subject, story, and script stages return placeholder data; comments mark them as
   "can be replaced by LLM later".
 - `assets`, `typography`, `motion`, `vfx`, `audio`, `edit`, `qa`, and `output` are left empty.
 - `productionStatus` is always `"PLANNING"` for now (no transition to `"COMPLETE"`).
-- Most Phase 4–5 engine packages are stubs (see [Packages & Engines](Packages-and-Engines)).
+- Phase 4 (`@printsync/motion-engine`) and the render-farm (`@printsync/render-farm`) are
+  fully implemented; other Phase 4–5 engine packages remain stubs (see
+  [Packages & Engines](Packages-and-Engines)).
 
 The mature, working end-to-end path today is the **CLI creative flow** (`ads:create` / `ads:daily`),
 described in [Creative System](Creative-System) and [CLI Reference](CLI-Reference).
