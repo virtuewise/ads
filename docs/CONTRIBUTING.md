@@ -1,4 +1,4 @@
-# Contributing to PrintSync Creative OS
+# Contributing to Virtue Studio
 
 ## Development Setup
 

@@ -1,9 +1,40 @@
-﻿import { CanvasTexture, SRGBColorSpace } from 'three';
+﻿import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
 import type { ArtworkSpec } from '@printsync/motion-engine';
 
 const SIZE = 1024;
-const FONT = "'Arial Black', 'Helvetica Neue', Arial, sans-serif";
-const FONT_TEXT = "Arial, 'Helvetica Neue', sans-serif";
+export const ARTWORK_FONT = "'Arial Black', 'Helvetica Neue', Arial, sans-serif";
+export const ARTWORK_FONT_TEXT = "Arial, 'Helvetica Neue', sans-serif";
+const FONT = ARTWORK_FONT;
+const FONT_TEXT = ARTWORK_FONT_TEXT;
+
+/** Create an offscreen 2D canvas at the given pixel size. */
+export function createCanvas(
+  width: number,
+  height: number,
+): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D canvas context unavailable');
+  return { canvas, ctx };
+}
+
+/** Wrap a painted canvas as an sRGB CanvasTexture, optionally tiling. */
+export function canvasTexture(
+  canvas: HTMLCanvasElement,
+  repeat?: readonly [number, number],
+): CanvasTexture {
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  texture.anisotropy = 8;
+  if (repeat) {
+    texture.wrapS = RepeatWrapping;
+    texture.wrapT = RepeatWrapping;
+    texture.repeat.set(repeat[0], repeat[1]);
+  }
+  return texture;
+}
 
 /**
  * Procedurally draw brand artwork for a catalogue item onto an offscreen canvas
@@ -40,7 +71,25 @@ export function createArtworkTexture(spec: ArtworkSpec): CanvasTexture {
 
 // --- Shared primitives -----------------------------------------------------
 
-function drawWordmark(
+export function drawLabel(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+  align: CanvasTextAlign = 'center',
+  weight: number = 900,
+  font: string = ARTWORK_FONT,
+): void {
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.font = `${weight} ${size}px ${font}`;
+  ctx.fillText(text, x, y);
+}
+
+export function drawWordmark(
   ctx: CanvasRenderingContext2D,
   spec: ArtworkSpec,
   x: number,
@@ -49,14 +98,10 @@ function drawWordmark(
   color: string,
   align: CanvasTextAlign = 'center',
 ): void {
-  ctx.fillStyle = color;
-  ctx.textAlign = align;
-  ctx.textBaseline = 'middle';
-  ctx.font = `900 ${size}px ${FONT}`;
-  ctx.fillText(spec.wordmark, x, y);
+  drawLabel(ctx, spec.wordmark, x, y, size, color, align);
 }
 
-function drawBarcode(
+export function drawBarcode(
   ctx: CanvasRenderingContext2D,
   spec: ArtworkSpec,
   x: number,
@@ -76,7 +121,7 @@ function drawBarcode(
   }
 }
 
-function wrapText(
+export function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
   x: number,
@@ -100,7 +145,7 @@ function wrapText(
   if (line) ctx.fillText(line, x, cy);
 }
 
-function roundRect(
+export function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,

@@ -1,7 +1,7 @@
-# PrintSync Creative OS — Analyze Assets
+# Virtue Studio — Analyze Assets
 # Scans and analyzes all assets in the assets/ directory
 
-Write-Host "PrintSync Creative OS — Asset Analysis" -ForegroundColor Red
+Write-Host "Virtue Studio — Asset Analysis" -ForegroundColor Red
 Write-Host "========================================`n"
 
 $assetDirs = @("assets/footage", "assets/images", "assets/audio", "assets/fonts")

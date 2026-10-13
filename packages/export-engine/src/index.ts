@@ -1,6 +1,6 @@
 /**
  * @printsync/export-engine
- * Multi-format export engine for the PrintSync Creative OS.
+ * Multi-format export engine for Virtue Studio.
  *
  * This package will handle:
  * - Platform-specific exports (16:9, 9:16, 4:5, 1:1, A-series)

@@ -3,6 +3,7 @@ import {
   CAMERA_PATHS,
   clamp01,
   resolveCameraPlan,
+  resolveCityCameraPlan,
   type CameraPath,
 } from './camera.js';
 
@@ -113,5 +114,74 @@ describe('resolveCameraPlan', () => {
     const small = resolveCameraPlan('hero', 0, 1).pose.position;
     const large = resolveCameraPlan('hero', 0, 10).pose.position;
     expect(Math.hypot(large[0], large[2])).toBeGreaterThan(Math.hypot(small[0], small[2]));
+  });
+});
+
+describe('resolveCityCameraPlan', () => {
+  const EXTENT = 120;
+
+  it('supports every contract camera path at city scale', () => {
+    for (const path of CAMERA_PATHS) {
+      for (const progress of [0, 0.5, 1]) {
+        const plan = resolveCityCameraPlan(path, progress, EXTENT);
+        expect(plan.pose.position.every(Number.isFinite)).toBe(true);
+        expect(plan.pose.lookAt.every(Number.isFinite)).toBe(true);
+        // The city does not spin; the camera does all the work.
+        expect(plan.worldSpin).toBe(0);
+      }
+    }
+  });
+
+  it('never orbits the world at city scale', () => {
+    for (const path of CAMERA_PATHS) {
+      expect(resolveCityCameraPlan(path, 0.4, EXTENT).worldSpin).toBe(0);
+    }
+  });
+
+  it('clamps progress outside [0, 1]', () => {
+    const before = resolveCityCameraPlan('dolly', -2, EXTENT).pose.position;
+    const after = resolveCityCameraPlan('dolly', 5, EXTENT).pose.position;
+    expect(before).toEqual(resolveCityCameraPlan('dolly', 0, EXTENT).pose.position);
+    expect(after).toEqual(resolveCityCameraPlan('dolly', 1, EXTENT).pose.position);
+  });
+
+  it('travels down the boulevard for the dolly path', () => {
+    const start = resolveCityCameraPlan('dolly', 0, EXTENT).pose.position;
+    const end = resolveCityCameraPlan('dolly', 1, EXTENT).pose.position;
+    expect(end[2]).toBeLessThan(start[2]);
+    expect(end[1]).toBeGreaterThan(start[1]);
+  });
+
+  it('keeps the street-level camera above the ground', () => {
+    for (const path of CAMERA_PATHS) {
+      const { pose } = resolveCityCameraPlan(path, 0.5, EXTENT);
+      expect(pose.position[1]).toBeGreaterThan(1);
+    }
+  });
+
+  it('orbits the whole city when turntabling', () => {
+    const start = resolveCityCameraPlan('turntable', 0, EXTENT).pose.position;
+    const mid = resolveCityCameraPlan('turntable', 0.5, EXTENT).pose.position;
+    expect(mid[0]).toBeCloseTo(-start[0], 10);
+    expect(mid[2]).toBeCloseTo(-start[2], 10);
+  });
+
+  it('frames a wider orbit for turntable than for orbit', () => {
+    const turntable = resolveCityCameraPlan('turntable', 0.25, EXTENT).pose.position;
+    const orbit = resolveCityCameraPlan('orbit', 0.25, EXTENT).pose.position;
+    expect(Math.hypot(turntable[0], turntable[2])).toBeGreaterThan(
+      Math.hypot(orbit[0], orbit[2]),
+    );
+  });
+
+  it('scales the framing with the city extent', () => {
+    const small = resolveCityCameraPlan('hero', 0, 20).pose.position;
+    const large = resolveCityCameraPlan('hero', 0, 200).pose.position;
+    expect(large[2]).toBeGreaterThan(small[2]);
+  });
+
+  it('guards against a degenerate extent', () => {
+    const plan = resolveCityCameraPlan('turntable', 0.5, 0);
+    expect(plan.pose.position.every(Number.isFinite)).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 /**
  * @printsync/qa-engine
- * Quality assurance engine for the PrintSync Creative OS.
+ * Quality assurance engine for Virtue Studio.
  *
  * This package will handle:
  * - Brand QA (consistency, voice, visual standards)

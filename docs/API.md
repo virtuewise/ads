@@ -1,4 +1,4 @@
-# PrintSync Creative OS — API Reference
+# Virtue Studio — API Reference
 
 ## Packages
 

@@ -1,6 +1,6 @@
 /**
  * @printsync/asset-engine
- * Asset intelligence and management for the PrintSync Creative OS.
+ * Asset intelligence and management for Virtue Studio.
  *
  * This package will handle:
  * - Asset registration and cataloging

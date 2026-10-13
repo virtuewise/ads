@@ -1,6 +1,6 @@
 /**
  * @printsync/video-engine
- * Video composition and editing engine for the PrintSync Creative OS.
+ * Video composition and editing engine for Virtue Studio.
  *
  * This package will handle:
  * - Footage analysis

@@ -135,3 +135,79 @@ export function resolveCameraPlan(
     worldSpin: worldSpinFor(path),
   };
 }
+
+/**
+ * Resolve the same camera-path vocabulary at **city scale**.
+ *
+ * One vocabulary, two scene scales: the product line frames a 3-unit ring with
+ * `resolveCameraPlan`, while the living city frames a street hundreds of metres
+ * long with this. Reusing the contract's paths keeps a single source of truth
+ * for camera vocabulary.
+ *
+ * City readings:
+ * - `dolly`      travels the boulevard at street level (the hero travelling shot)
+ * - `turntable`  wide orbit around the whole city
+ * - `orbit`      closer orbit through the building line
+ * - `hero`       fixed elevated three-quarter vantage on the skyline
+ * - `none`       static street-level frame
+ *
+ * @param path Camera path id from the render-input contract.
+ * @param progress Normalised time through the composition, clamped to [0, 1].
+ * @param extent Half-length of the city, in metres.
+ */
+export function resolveCityCameraPlan(
+  path: CameraPath,
+  progress: number,
+  extent = 120,
+): CameraPlan {
+  const p = clamp01(progress);
+  const eased = easeInOut(p);
+  const e = Math.max(10, extent);
+
+  switch (path) {
+    case 'dolly': {
+      const z = e * 0.62 + (-e * 0.12 - e * 0.62) * eased;
+      const y = 2.8 + (9 - 2.8) * eased;
+      const x = Math.sin(p * Math.PI) * e * 0.05;
+      return {
+        pose: { position: [x, y, z], lookAt: [x * 0.5, 3.2 + eased * 2.6, z - 46] },
+        worldSpin: 0,
+      };
+    }
+    case 'turntable': {
+      const angle = p * TAU;
+      const distance = e * 1.35;
+      return {
+        pose: {
+          position: [Math.sin(angle) * distance, e * 0.42, Math.cos(angle) * distance],
+          lookAt: [0, e * 0.12, 0],
+        },
+        worldSpin: 0,
+      };
+    }
+    case 'orbit': {
+      const angle = p * TAU + 0.7;
+      const distance = e * 0.92;
+      return {
+        pose: {
+          position: [Math.sin(angle) * distance, e * 0.26, Math.cos(angle) * distance],
+          lookAt: [0, e * 0.1, 0],
+        },
+        worldSpin: 0,
+      };
+    }
+    case 'hero':
+      return {
+        pose: {
+          position: [e * 0.06, e * 0.17, e * 0.42],
+          lookAt: [0, e * 0.1, -e * 0.05],
+        },
+        worldSpin: 0,
+      };
+    default:
+      return {
+        pose: { position: [0, 4.4, e * 0.5], lookAt: [0, 3.8, -20] },
+        worldSpin: 0,
+      };
+  }
+}

@@ -29,13 +29,20 @@ placeholder logic intended to be replaced by richer implementations / LLMs later
 | `@printsync/shot-engine` | Plans timed shots against the brief duration. | `ShotEngine.planShots` |
 | `@printsync/scene-graph-engine` | Builds a relational `SceneGraph` (nodes/edges) from shots. | `SceneGraphEngine.buildGraph` |
 
-## Production engines (Phase 4–5, mostly stubs)
+## Motion & rendering (implemented)
 
-Single-file packages that currently expose minimal or placeholder logic:
+| Package | Role | Key exports |
+|---|---|---|
+| `@printsync/motion-engine` | Deterministic motion and 3D scene specification: camera plans, a millimetre-exact print-item catalogue, a frame-addressable animation library, procedural printed artwork, and the living-city scene generators (layout, route, road signage, out-of-home formats). | `resolveCameraPlan`, `resolveCityCameraPlan`, `animatePrintObject`, `PRINT_ITEMS`, `generateCityLayout`, `resolveCityInputs` |
+
+See [Motion & Renderer](Motion-and-Renderer) for the full picture.
+
+## Production engines (Phase 5, mostly stubs)
+
+Packages that currently expose minimal or placeholder logic:
 
 | Package | Intended role |
 |---|---|
-| `@printsync/motion-engine` | Motion primitives: kinetic typography, print objects, technical graphics, transitions, VFX |
 | `@printsync/video-engine` | Footage analysis, AI video shots, editing, composition |
 | `@printsync/image-engine` | Image generation and design — produces still keyframes / frame plates for motion-designed pieces (no standalone static output). |
 | `@printsync/typography-engine` | Kinetic typography |

@@ -23,7 +23,23 @@ export const CompositionIdSchema = z.enum([
   'PrintSyncSignatureFilm',
   'PrintSyncProductLine',
   'PrintSyncBrandFilm',
+  'PrintSyncLivingCity',
 ]);
+
+export const TimeOfDaySchema = z.enum(['night', 'dusk', 'day']);
+
+/**
+ * Optional living-city overrides. Everything else the city needs is derived
+ * from the shared inputs (brand, items, camera path); these steer the
+ * procedural street itself.
+ */
+export const CityInputsSchema = z.object({
+  seed: z.string().min(1).default('printsync-city-01'),
+  timeOfDay: TimeOfDaySchema.default('night'),
+  /** Building / street-furniture density, 0.4 (sparse) .. 2 (dense). */
+  density: z.number().positive().default(1),
+  route: z.boolean().default(true),
+});
 
 export const RenderOutputSchema = z.object({
   format: z.enum(['mp4', 'webm', 'png']),
@@ -50,6 +66,8 @@ export const RenderInputsSchema = z.object({
   items: z.array(z.string()).min(1),
   itemAnimations: z.array(RenderItemSchema).default([]),
   cameraPath: CameraPathSchema.default('turntable'),
+  /** Living-city steers; ignored by the other compositions. */
+  city: CityInputsSchema.optional(),
   audioSrc: z.string().optional(),
   timeline: z
     .object({
@@ -63,6 +81,8 @@ export const RenderInputsSchema = z.object({
 export type BrandTokens = z.infer<typeof BrandTokensSchema>;
 export type CameraPath = z.infer<typeof CameraPathSchema>;
 export type CompositionId = z.infer<typeof CompositionIdSchema>;
+export type CityInputs = z.infer<typeof CityInputsSchema>;
+export type TimeOfDay = z.infer<typeof TimeOfDaySchema>;
 export type RenderOutput = z.infer<typeof RenderOutputSchema>;
 export type RenderItem = z.infer<typeof RenderItemSchema>;
 export type RenderInputs = z.infer<typeof RenderInputsSchema>;

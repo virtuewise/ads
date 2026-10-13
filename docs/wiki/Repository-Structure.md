@@ -35,7 +35,7 @@ ads/
 | App | Package | Stack | Role |
 |---|---|---|---|
 | `apps/studio` | `@printsync/studio` | Next.js, React, `@printsync/*` engines | Creative Studio dashboard (concept/campaign UI) |
-| `apps/renderer` | `@printsync/renderer` | Remotion, React | Programmatic video compositions (e.g. `PrintSyncBrandFilm.tsx`) |
+| `apps/renderer` | `@printsync/renderer` | Remotion, React, React Three Fiber, Three.js | Programmatic video compositions: the brand and signature films, the 3D product line, and the `PrintSyncLivingCity` film (see [Motion & Renderer](Motion-and-Renderer)) |
 | `apps/dashboard` | `@printsync/dashboard` | Next.js, React, `@printsync/shared` | Analytics dashboard |
 | `apps/demo` | *(none)* | Node + `@printsync/production-orchestrator` | Reads a brief JSON, prints a validated `ProductionPlan` |
 

@@ -1,6 +1,6 @@
 /**
  * @printsync/creative-engine
- * Core creative intelligence for the PrintSync Creative OS.
+ * Core creative intelligence for Virtue Studio.
  * Handles concept generation, creative scoring, anti-generic detection,
  * and story grammar.
  */

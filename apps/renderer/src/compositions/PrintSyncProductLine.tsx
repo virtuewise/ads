@@ -63,7 +63,7 @@ export const PrintSyncProductLine: React.FC<ProductLineProps> = (props) => {
         gl={{ antialias: true }}
       >
         <Studio />
-        <CameraRig path={cameraPath} progress={progress} radius={RING_RADIUS} />
+        <CameraRig pose={cameraPlan.pose} />
         <group rotation={[0, angle, 0]}>
           {specs.map((item, index) => {
             const itemAngle = -(index / count) * TAU;

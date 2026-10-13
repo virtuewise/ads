@@ -53,29 +53,35 @@ The deterministic planning pipeline is wired and validated, but most stages retu
 
 See [Production Pipeline](Production-Pipeline) for the exact stage-by-stage state.
 
-## Phase 4 — Motion Engine ⬜ / 🟡
+## Phase 4 — Motion Engine 🟡
 
-- [ ] Remotion integration into the production pipeline (the renderer app exists separately)
-- [ ] Motion primitives
-- [ ] Kinetic typography execution
-- [ ] Print objects
-- [ ] Technical graphics
+- [x] Remotion renderer with React Three Fiber / Three.js 3D compositions (`apps/renderer`)
+- [x] Render-input bridge from the orchestrator to the renderer (`buildRenderInputs`)
+- [x] Motion primitives — the camera vocabulary, resolved camera plans, and the `CameraRig`
+- [x] Print objects — the millimetre-exact `PRINT_ITEMS` catalogue with procedural printed artwork
+- [x] Spec-driven animation library — eight frame-addressable print-object animations
+- [x] Technical graphics — TSRGD road signage and real out-of-home formats
+- [x] A generated, deterministic 3D city (`PrintSyncLivingCity`)
+- [ ] Kinetic typography execution (the `MotionEngine.createKineticType` stub is unimplemented)
 - [ ] Transitions
 - [ ] VFX
 
-`packages/motion-engine` and `packages/typography-engine` exist as single-file, minimal packages.
+`packages/motion-engine` is now a real engine (see [Motion & Renderer](Motion-and-Renderer));
+`packages/typography-engine` is still minimal.
 
-## Phase 5 — Video Engine ⬜ / 🟡
+## Phase 5 — Video Engine 🟡
 
+- [x] Programmatic motion rendering core (Remotion, headless export, audio-reactive signature film)
 - [ ] Footage analysis
 - [ ] AI video shots
 - [ ] Editing
-- [ ] Sound design
+- [ ] Sound design (an `analyzeFrequencyBands` primitive exists in `@printsync/audio-engine`)
 - [ ] Voiceover
 - [ ] Music
 
 `packages/video-engine`, `image-engine`, `audio-engine`, `asset-engine`, `export-engine`,
-`infographic-engine` exist as minimal packages.
+`infographic-engine` remain minimal packages; the working video path today is the
+Remotion renderer, not `video-engine`.
 
 ## Phase 6 — QA Engine ⬜ / 🟡
 

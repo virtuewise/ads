@@ -1,4 +1,4 @@
-# PrintSync Creative OS — Render Film
+# Virtue Studio — Render Film
 # Renders a PrintSync brand film using Remotion
 
 param(
@@ -6,7 +6,7 @@ param(
     [string]$Output = "renders/printsync-brand-film.mp4"
 )
 
-Write-Host "PrintSync Creative OS — Render Film" -ForegroundColor Red
+Write-Host "Virtue Studio — Render Film" -ForegroundColor Red
 Write-Host "=====================================`n"
 
 Write-Host "Composition: $Composition" -ForegroundColor Cyan

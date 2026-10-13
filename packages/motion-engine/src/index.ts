@@ -1,6 +1,6 @@
 /**
  * @printsync/motion-engine
- * Motion design engine for the PrintSync Creative OS.
+ * Motion design engine for Virtue Studio.
  *
  * This package will handle:
  * - Kinetic typography
@@ -18,6 +18,9 @@ export * from './artwork.js';
 export * from './choreography.js';
 export * from './camera.js';
 export * from './render-inputs.js';
+export * from './signage.js';
+export * from './ooh.js';
+export * from './city.js';
 
 import {
   animatePrintObject,

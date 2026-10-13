@@ -1,0 +1,282 @@
+# Motion & Renderer
+
+This page documents the motion-first half of Virtue Studio: the
+`@printsync/motion-engine` specification layer and the `@printsync/renderer`
+Remotion app that turns that specification into pixels.
+
+The dividing line is deliberate:
+
+- **`@printsync/motion-engine`** is pure, deterministic TypeScript. It owns every
+  number: sizes in millimetres, camera poses, animation transforms, palette data,
+  and the procedural generation of cities and printed artwork. It renders nothing
+  and has no dependency on React, Remotion, or Three.js.
+- **`@printsync/renderer`** is the presentation layer. It reads the specification
+  and draws it with React Three Fiber, Remotion, and Canvas 2D. It makes no design
+  decisions of its own.
+
+That split is what makes renders reproducible: given the same brief and the same
+seed, the engine produces the same numbers, so the renderer produces the same
+frames. A still rendered twice from the same props is byte-identical.
+
+---
+
+## Camera vocabulary
+
+Five named paths describe any camera move the system makes. The vocabulary is
+declared once, in `packages/motion-engine/src/camera.ts`:
+
+```ts
+export const CAMERA_PATHS = ['turntable', 'orbit', 'dolly', 'hero', 'none'] as const;
+```
+
+A path is resolved to a concrete `CameraPose` (a `position` and a `lookAt`) plus a
+`worldSpin` factor that tells the composition how far to rotate the subject
+instead. Two resolvers share the one vocabulary:
+
+| Resolver | Scale | Used by |
+|---|---|---|
+| `resolveCameraPlan(path, progress, radius)` | metres from a product on a turntable | `PrintSyncProductLine` |
+| `resolveCityCameraPlan(path, progress, extent)` | hundreds of metres across a city | `PrintSyncLivingCity` |
+
+`worldSpin` is what lets `turntable` mean "rotate the object" in the product
+composition and "orbit the city" in the city composition, without inventing new
+path names or new schema.
+
+The renderer only ever receives the resolved pose. `models/CameraRig.tsx` takes a
+`pose` prop and nothing else, so the rig is scene-agnostic — both compositions
+compute their own plan and hand over the result.
+
+---
+
+## The print-item catalogue
+
+`packages/motion-engine/src/print-items.ts` is the single source of truth for
+every physical printed product the system can model. Each `PrintItemSpec` carries
+**real millimetre dimensions** — a shipping carton really is 400 × 300 × 250 mm —
+and one unit scale converts them to scene units:
+
+```ts
+export const SCENE_UNITS_PER_MM = 0.001; // 1 mm = 0.001 scene units
+export function toSceneUnits(millimetres: number): number;
+```
+
+Every item is grounded at `y = 0` and faces `+Z`, so items can be placed side by
+side without per-item offset maths. The catalogue covers five categories:
+
+| Category | Examples |
+|---|---|
+| `flat` | business card, flyer, poster, folded leaflet |
+| `label` | bottle label (wraps a cylinder) |
+| `box` | folding carton (with flaps), rigid box |
+| `container` | bottle, jar, pouch, tube, roll-up banner |
+| `banner` | roll-up banner stand |
+
+Fidelity rules that are centralised as pure, tested helpers rather than repeated
+in JSX:
+
+- `dimensions.height` is the **overall envelope**, including closures — so a bottle
+  spec's height includes its cap, and `printItemBodyHeight(spec)` subtracts it.
+- `printItemDecalRect(spec)` and `printItemWrapBand(spec)` compute exactly where a
+  front decal or a wrap-around band lands on the item, including the roll-up
+  banner's 1045 mm decal centre.
+- `printItemBevelMm(spec)` derives bevel from corner radius so edges stay consistent.
+- `groundAssembly` grounds multi-part items (stand + graphic, body + cap) as one unit.
+- `revolveRadiusAt(profile, t)` samples a lathe profile, used for bottles, jars, tubes.
+
+Nothing about an item is hand-placed at the call site: `PRINT_ITEMS` is the only
+list, and `PRINT_ITEMS_HERO_IDS` names the six-item hero set used when a render
+input does not name its own items.
+
+---
+
+## Printed artwork
+
+Items have to read as *finished print*, not as coloured plastic. Artwork is drawn
+procedurally onto a `CanvasTexture` in `packages/motion-engine/src/artwork.ts` and
+the renderer's `models/artwork.ts` painters:
+
+- `buildArtworkSpec(itemId, brand, ...)` produces an `ArtworkSpec` with a layout
+  `variant` (`editorial` | `banner` | `monogram` | `grid`) and a `shape`
+  (`rect` | `circle` | `band`).
+- Both the variant and the layout are derived from an FNV-1a hash of the item id, so
+  a given item always gets the same design and the same text fits, deterministically.
+- The painting helpers (`drawWordmark`, `drawLabel`, `drawBarcode`, `wrapText`,
+  `roundRect`) give real print furniture: a wordmark, a label block, a barcode, a
+  wrap-around band, bleed-safe margins.
+
+`ArtworkSpec.shape` is what lets a printed decal follow a circular label or a band
+around a curved surface instead of being stretched across it.
+
+---
+
+## Animation library
+
+`packages/motion-engine/src/choreography.ts` provides frame-addressable animation:
+a pure function that returns the transform for *exactly one frame*, so any frame
+can be rendered independently and out of order (essential for parallel and
+distributed rendering).
+
+```ts
+export function animatePrintObject(
+  spec: PrintItemSpec,
+  animation: PrintObjectAnimation,
+  frame: number,
+  fps: number,
+  phase?: number,
+): Transform;
+```
+
+There are eight animations (hero items are mapped to a fixed subset via
+`PRINT_ITEMS_HERO_ANIMATIONS`), and `resolveChoreography(...)` applies per-item
+overrides. Because the function is pure and `Transform` is plain data, the
+renderer simply applies `position` / `rotation` / `scale` / `opacity` to the item
+group each frame — there is no animation state to synchronise.
+
+---
+
+## The living city
+
+`PrintSyncLivingCity` is a night drive through a working city that advertises
+PrintSync. It is not a background plate: every building, sign, and screen is
+generated to a real specification.
+
+### Scene generation (`packages/motion-engine/src/city.ts`)
+
+```ts
+generateCityLayout({ seed, density, timeOfDay }) // → buildings, roads, lights, billboards, signs
+generateCityRoute({ seed })                      // → a 96-point road route
+sampleCityRoute(route, t)                        // → position at fraction t (for the head marker)
+cityPalette(timeOfDay)                           // → presentation palette (pure data)
+```
+
+The layout is deterministic from `seed` and scales from a set of real-metre
+constants: `CITY_EXTENT_M` (120), `CITY_BOULEVARD_HALF_WIDTH` (12),
+`CITY_SIDEWALK_WIDTH` (4), `CITY_BUILDING_GAP` (3), `CITY_LOT_DEPTH` (16).
+Buildings, street lights, billboards, and signs are all placed along the boulevard
+at collision-free slots, so denser seeds add more city without overlaps.
+
+### Road signage (`signage.ts`)
+
+Nine signs from the UK TSRGD family (`safety`, `regulation`, `wayfinding`,
+`information`) with real face dimensions and real mounting heights, plus
+`roadSignOutlinePoints(kind)` — normalised polygon outlines used by **both** the
+physical geometry in the renderer and the printed legend, so a triangle sign's
+panel and its artwork can never disagree about shape.
+
+### Out-of-home (`ooh.ts`)
+
+Seven real formats — 6-sheet, 48-sheet, 96-sheet, 4-sheet portrait, roadside
+digital, mall digital, and a digital spectacular — with true dimensions (a 96-sheet
+really is 12.192 m wide). Paper formats are printed once from `buildOohArtworkSpec`
+and read as floodlit or backlit (lightbox); digital formats rotate `OOH_PLAYLIST`
+and read as self-lit LED.
+
+### Renderer components (`apps/renderer/src/models/city/`)
+
+| Component | Responsibility |
+|---|---|
+| `CityEnvironment` | Sky dome, fog, ambient/hemisphere/sun lights, ground |
+| `Building` | Mass with a window grid mapped per-face (windows never stretch), parapet, rooftop plant |
+| `Street` | Carriageway with painted lane markings, kerbs, pavements |
+| `StreetLight` | Column, arm, emissive luminaire |
+| `RoadSign` | Extruded panel in its exact outline + printed, retro-reflective face |
+| `Billboard` | Frame, panel, mount (rooftop/facade/kerb), paper or LED surface |
+| `RouteLine` | The self-drawing route ribbon and its head marker |
+| `cityArtwork.ts` | All Canvas 2D painters for the above |
+
+One detail worth calling out: the building facade is split into two textures — an
+albedo map and a separate emissive map. That is what lets one building look right
+at midnight (near-black cladding, warm glowing windows) and at midday (light
+concrete, cold glass) without the night-dark cladding ever multiplying the
+daytime building into a silhouette.
+
+### Composition (`apps/renderer/src/compositions/PrintSyncLivingCity.tsx`)
+
+The composition resolves its inputs through `resolveCityInputs(props)`, derives the
+camera pose, and draws the scene, lit by point lights anchored to the real street
+lamps so pools of light line up with the fittings.
+
+---
+
+## Render input contract
+
+`packages/common/src/render-input.ts` is the validated boundary between the
+orchestrator and the renderer:
+
+```ts
+export const CompositionIdSchema = z.enum([
+  'PrintSyncSignatureFilm',
+  'PrintSyncProductLine',
+  'PrintSyncBrandFilm',
+  'PrintSyncLivingCity',
+]);
+
+export const CityInputsSchema = z.object({
+  seed: z.string().min(1).default('printsync-city-01'),
+  timeOfDay: z.enum(['night', 'dusk', 'day']).default('night'),
+  density: z.number().positive().default(1),
+  route: z.boolean().default(true),
+});
+```
+
+`packages/production-orchestrator/src/index.ts` produces these inputs:
+
+- `buildRenderInputs(brief)` → `PrintSyncProductLine`
+- `buildCityRenderInputs(brief, { seed?, timeOfDay? })` → `PrintSyncLivingCity`,
+  with a seed derived from the brief id by default.
+
+Everything the city needs (layout, route, signage, out-of-home, palette) is
+generated inside the renderer from these few values, so nothing about the street is
+hard-coded in the orchestrator.
+
+---
+
+## Rendering
+
+`apps/renderer` sits outside the Turborepo `build` pipeline, so it is validated
+directly. Because it imports the engines from their built `dist`, build the
+workspace first after any engine change.
+
+```bash
+pnpm build                                             # build the engines
+pnpm --filter @printsync/renderer run typecheck         # type-check the renderer
+pnpm --filter @printsync/renderer run dev               # Remotion Studio (interactive)
+```
+
+Still frames and video, driven by a props file (PowerShell mangles inline JSON, so
+always pass a file):
+
+```bash
+pnpm --filter @printsync/renderer exec remotion still PrintSyncLivingCity out.png \
+  --frame=300 --props=props.json
+
+pnpm --filter @printsync/renderer exec remotion render PrintSyncLivingCity out.mp4 \
+  --frames=0-899 --props=props.json
+```
+
+A props file is any partial of `CityInputs` plus the presentation strings the
+composition reads:
+
+```json
+{
+  "seed": "printsync-city-01",
+  "timeOfDay": "night",
+  "density": 1.2,
+  "route": true,
+  "cameraPath": "dolly",
+  "title": "PrintSync City",
+  "tagline": "Every surface, printed to spec."
+}
+```
+
+---
+
+## Principles
+
+1. **Specification before pixels** — engines decide, the renderer draws.
+2. **Frame-addressable** — every animation can be evaluated at any frame, in any order.
+3. **Deterministic** — a seed and a brief fix the entire output; identical inputs give identical bytes.
+4. **One vocabulary, many scales** — the same camera paths and the same catalogue philosophy drive a 90 mm business card and a 12 m billboard.
+5. **Millimetre-true** — print products are modelled and generated at real sizes, because they are real products.
+
+See also: [Architecture](Architecture) · [Packages & Engines](Packages-and-Engines) · [Creative System](Creative-System) · [Roadmap & Status](Roadmap)

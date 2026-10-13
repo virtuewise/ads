@@ -1,6 +1,6 @@
 /**
  * @printsync/typography-engine
- * Kinetic typography engine for the PrintSync Creative OS.
+ * Kinetic typography engine for Virtue Studio.
  *
  * This package will handle:
  * - Kinetic type behaviors (SLAM, BUILD, SCAN, SLICE, EXPLODE, etc.)

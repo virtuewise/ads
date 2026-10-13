@@ -1,6 +1,6 @@
 /**
  * @printsync/audio-engine
- * Sound design and audio engine for the PrintSync Creative OS.
+ * Sound design and audio engine for Virtue Studio.
  *
  * This package will handle:
  * - Sound design (whooshes, impacts, mechanical sounds, paper sounds)

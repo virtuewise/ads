@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'PrintSync Dashboard',
-  description: 'PrintSync Creative OS — Analytics and insights',
+  description: 'Virtue Studio — Analytics and insights',
 };
 
 export default function RootLayout({

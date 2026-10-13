@@ -49,6 +49,7 @@ There are no standalone static deliverables — see [Creative System](Creative-S
 | Run the CLI | [CLI Reference](CLI-Reference) |
 | Use the programmatic API | [API Reference](API-Reference) |
 | Understand the brand rules | [Brand](Brand) |
+| Understand the motion engine and 3D renderer | [Motion & Renderer](Motion-and-Renderer) |
 | Understand concept generation & scoring | [Creative System](Creative-System) |
 | Follow brief → production plan | [Production Pipeline](Production-Pipeline) |
 | Contribute | [Contributing](Contributing) |
@@ -64,7 +65,11 @@ There are no standalone static deliverables — see [Creative System](Creative-S
 - **Phase 3 — Design + Production planning:** in progress. A deterministic pipeline
   (`buildProductionPlan`) now runs subject → story → visual grammar → script → storyboard → shots →
   scene graph. Many downstream engines are still stubs.
-- **Phases 4–8 (Motion, Video, QA execution, Daily production, Studio):** mostly planned.
+- **Phase 4 — Motion:** substantially implemented. The motion engine owns a millimetre-exact
+  print-item catalogue, a frame-addressable animation library, procedural printed artwork, real
+  signage and out-of-home formats, and a deterministic 3D city — all rendered by the Remotion app
+  (see [Motion & Renderer](Motion-and-Renderer)).
+- **Phases 5–8 (Video, QA execution, Daily production, Studio):** mostly planned.
 
 See [Roadmap & Status](Roadmap) for the honest per-area breakdown.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * PrintSync Creative OS — CLI
+ * Virtue Studio — CLI
  * Command-line interface for the PrintSync advertising engine.
  */
 

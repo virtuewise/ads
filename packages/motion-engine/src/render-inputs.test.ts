@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_PRODUCT_LINE_INPUTS,
+  DEFAULT_CITY_INPUTS,
+  DEFAULT_CITY_SEED,
   coerceCameraPath,
+  coerceTimeOfDay,
+  resolveCityInputs,
   resolveProductLineInputs,
 } from './render-inputs.js';
 import {
@@ -123,5 +127,118 @@ describe('resolveProductLineInputs', () => {
     const resolved = resolveProductLineInputs({ items: PRINT_ITEMS.map((i) => i.id) });
     expect(resolved.specs).toHaveLength(PRINT_ITEMS.length);
     expect(resolved.specs.every((spec) => getPrintItem(spec.id) === spec)).toBe(true);
+  });
+});
+
+describe('DEFAULT_CITY_INPUTS', () => {
+  it('defaults to a night drive down the boulevard', () => {
+    expect(DEFAULT_CITY_INPUTS.timeOfDay).toBe('night');
+    expect(DEFAULT_CITY_INPUTS.cameraPath).toBe('dolly');
+    expect(DEFAULT_CITY_INPUTS.seed).toBe(DEFAULT_CITY_SEED);
+    expect(DEFAULT_CITY_INPUTS.route).toBe(true);
+    expect(DEFAULT_CITY_INPUTS.density).toBeGreaterThan(0);
+  });
+
+  it('advertises the curated hero set by default', () => {
+    expect([...DEFAULT_CITY_INPUTS.items]).toEqual([...PRINT_ITEMS_HERO_IDS]);
+    expect(DEFAULT_CITY_INPUTS.brand).toEqual(DEFAULT_BRAND_TOKENS);
+  });
+});
+
+describe('coerceTimeOfDay', () => {
+  it('returns the value when valid', () => {
+    for (const value of ['night', 'dusk', 'day'] as const) {
+      expect(coerceTimeOfDay(value)).toBe(value);
+    }
+  });
+
+  it('falls back to night', () => {
+    expect(coerceTimeOfDay(undefined)).toBe('night');
+    expect(coerceTimeOfDay('midday')).toBe('night');
+  });
+});
+
+describe('resolveCityInputs', () => {
+  it('builds a full, deterministic city from defaults', () => {
+    const resolved = resolveCityInputs();
+    expect(resolved.layout.buildings.length).toBeGreaterThan(0);
+    expect(resolved.layout.billboards.length).toBeGreaterThan(0);
+    expect(resolved.layout.signs.length).toBeGreaterThan(0);
+    expect(resolved.layout.streetLights.length).toBeGreaterThan(0);
+    expect(resolved.route).toBeDefined();
+    expect(resolved.playlist.length).toBeGreaterThan(0);
+  });
+
+  it('is deterministic for the same inputs', () => {
+    expect(resolveCityInputs()).toEqual(resolveCityInputs());
+  });
+
+  it('produces different cities for different seeds', () => {
+    const a = resolveCityInputs({ seed: 'alpha' });
+    const b = resolveCityInputs({ seed: 'beta' });
+    expect(a.layout).not.toEqual(b.layout);
+  });
+
+  it('omits the route when it is switched off', () => {
+    expect(resolveCityInputs({ route: false }).route).toBeUndefined();
+  });
+
+  it('resolves every billboard against a real format', () => {
+    const resolved = resolveCityInputs();
+    expect(resolved.billboards.length).toBeGreaterThan(0);
+    for (const entry of resolved.billboards) {
+      expect(entry.format.id).toBe(entry.slot.formatId);
+      if (entry.slot.medium === 'paper' && entry.slot.itemId) {
+        expect(entry.item?.id).toBe(entry.slot.itemId);
+      }
+    }
+  });
+
+  it('resolves every sign against the signage catalogue', () => {
+    const resolved = resolveCityInputs();
+    expect(resolved.signs.length).toBeGreaterThan(0);
+    for (const entry of resolved.signs) {
+      expect(entry.sign.id).toBe(entry.slot.signId);
+    }
+  });
+
+  it('honours title, tagline, time of day and camera overrides', () => {
+    const resolved = resolveCityInputs({
+      title: 'Night Run',
+      tagline: 'Print, everywhere.',
+      timeOfDay: 'dusk',
+      cameraPath: 'hero',
+    });
+    expect(resolved.title).toBe('Night Run');
+    expect(resolved.tagline).toBe('Print, everywhere.');
+    expect(resolved.layout.timeOfDay).toBe('dusk');
+    expect(resolved.cameraPath).toBe('hero');
+  });
+
+  it('drops unknown item ids and keeps the catalogue content real', () => {
+    const resolved = resolveCityInputs({ items: ['nope', 'can-330'] });
+    expect(resolved.specs.map((s) => s.id)).toEqual(['can-330']);
+    for (const entry of resolved.billboards) {
+      if (entry.item) expect(entry.item.id).toBe('can-330');
+    }
+  });
+
+  it('falls back to the hero set when every requested item is unknown', () => {
+    const resolved = resolveCityInputs({ items: ['nope'] });
+    expect(resolved.specs.map((s) => s.id)).toEqual([...PRINT_ITEMS_HERO_IDS]);
+  });
+
+  it('falls back for a non-positive density and blank strings', () => {
+    const resolved = resolveCityInputs({
+      density: 0,
+      seed: '',
+      title: '',
+      tagline: '',
+      timeOfDay: 'whenever' as never,
+    });
+    expect(resolved.layout.seed).toBe(DEFAULT_CITY_SEED);
+    expect(resolved.title).toBe(DEFAULT_CITY_INPUTS.title);
+    expect(resolved.tagline).toBe(DEFAULT_CITY_INPUTS.tagline);
+    expect(resolved.layout.timeOfDay).toBe('night');
   });
 });

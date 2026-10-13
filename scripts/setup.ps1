@@ -1,7 +1,7 @@
-# PrintSync Creative OS — Setup Script
+# Virtue Studio — Setup Script
 # Run this script to set up the development environment
 
-Write-Host "PrintSync Creative OS — Setup" -ForegroundColor Red
+Write-Host "Virtue Studio — Setup" -ForegroundColor Red
 Write-Host "================================`n"
 
 # Check Node.js

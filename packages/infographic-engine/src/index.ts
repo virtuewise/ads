@@ -1,6 +1,6 @@
 /**
  * @printsync/infographic-engine
- * Data visualization and infographic engine for the PrintSync Creative OS.
+ * Data visualization and infographic engine for Virtue Studio.
  *
  * This package will handle:
  * - Animated infographics

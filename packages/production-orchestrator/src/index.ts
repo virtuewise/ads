@@ -57,6 +57,42 @@ export function buildRenderInputs(brief: CreativeBrief): RenderInputs {
 }
 
 /**
+ * Derive validated render inputs for the **living-city** film.
+ *
+ * Same contract as `buildRenderInputs`, but it targets `PrintSyncLivingCity` and
+ * supplies the city steers (a deterministic seed derived from the brief, time of
+ * day, density and the animated route). The street itself is generated inside
+ * the renderer from these values, so nothing about the layout is hard-coded here.
+ */
+export function buildCityRenderInputs(
+  brief: CreativeBrief,
+  options: { seed?: string; timeOfDay?: 'night' | 'dusk' | 'day' } = {},
+): RenderInputs {
+  return RenderInputsSchema.parse({
+    composition: 'PrintSyncLivingCity',
+    brand: {
+      wordmark: 'PRINTSYNC',
+      tagline: brief.objective || 'Every surface, printed to spec.',
+      primary: '#C8001C',
+      secondary: '#373435',
+      accent: '#00A8E0',
+      paper: '#F5F1EA',
+      ink: '#141414',
+    },
+    items: [...PRINT_ITEMS_HERO_IDS],
+    cameraPath: 'dolly',
+    city: {
+      seed: options.seed ?? brief.id ?? 'printsync-city-01',
+      timeOfDay: options.timeOfDay ?? 'night',
+      density: 1,
+      route: true,
+    },
+    timeline: { fps: 30, durationInFrames: 1200 },
+    output: { format: 'mp4', width: 1920, height: 1080 },
+  });
+}
+
+/**
  * Orchestrates the full production pipeline.
  * Returns a ProductionPlan with `productionStatus` set to "PLANNING".
  */
