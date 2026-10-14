@@ -17,7 +17,8 @@ export const VISUAL_METAPHORS: VisualMetaphor[] = [
     description: 'Print objects become buildings, structures, and spaces',
     services: ['large-format-printing', 'signage', 'displays'],
     territories: ['SCALE', 'TRANSFORMATION'],
-    visualDescription: 'A business card grows into a building. A poster becomes a wall. Print creates physical space.',
+    visualDescription:
+      'A business card grows into a building. A poster becomes a wall. Print creates physical space.',
   },
   {
     name: 'PRINT AS ENGINE',
@@ -87,7 +88,8 @@ export const VISUAL_METAPHORS: VisualMetaphor[] = [
     description: 'Print objects represent value and exchange',
     services: ['branding', 'packaging', 'corporate-stationery'],
     territories: ['HUMAN_IMPACT', 'PLAY'],
-    visualDescription: 'Business cards that open doors. Packaging that adds value. Print as investment.',
+    visualDescription:
+      'Business cards that open doors. Packaging that adds value. Print as investment.',
   },
   {
     name: 'PRINT AS STORY',
@@ -123,14 +125,14 @@ export const VISUAL_METAPHORS: VisualMetaphor[] = [
  * Get metaphors suitable for a service.
  */
 export function getMetaphorsForService(service: string): VisualMetaphor[] {
-  return VISUAL_METAPHORS.filter(m => m.services.includes(service));
+  return VISUAL_METAPHORS.filter((m) => m.services.includes(service));
 }
 
 /**
  * Get metaphors suitable for a territory.
  */
 export function getMetaphorsForTerritory(territory: string): VisualMetaphor[] {
-  return VISUAL_METAPHORS.filter(m => m.territories.includes(territory));
+  return VISUAL_METAPHORS.filter((m) => m.territories.includes(territory));
 }
 
 /**

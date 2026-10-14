@@ -5,20 +5,20 @@
  */
 
 import type {
-  CreativeBrief,
   Concept,
+  CreativeBrief,
+  CreativeHistoryEntry,
   CreativeMode,
-  VoiceMode,
-  NarrativeStructure,
   CreativeTerritory,
   Mood,
-  VisualStyle,
+  NarrativeStructure,
   Pace,
-  CreativeHistoryEntry,
+  VisualStyle,
+  VoiceMode,
 } from '@printsync/shared';
+import { checkAntiGeneric } from './anti-generic.js';
 import { CREATIVE_MODES } from './modes.js';
 import { getStoryTemplate } from './story-grammar.js';
-import { checkAntiGeneric } from './anti-generic.js';
 
 // ─── Concept Generation ──────────────────────────────────────────────────────
 
@@ -36,21 +36,26 @@ const CONCEPT_LIBRARY: Record<string, ConceptSeed[]> = {
       title: 'BIG IDEAS NEED BIG PRINT',
       logline: 'When your idea is too big for ordinary print, it needs PrintSync large format.',
       key_visual: 'A business card grows into a building-sized banner, transforming the cityscape.',
-      story_summary: 'Follow a single idea as it scales from a tiny business card to a massive building wrap, showing how PrintSync large-format printing transforms visibility.',
+      story_summary:
+        'Follow a single idea as it scales from a tiny business card to a massive building wrap, showing how PrintSync large-format printing transforms visibility.',
       cta: 'Go big with PrintSync',
     },
     {
       title: 'IMPOSSIBLE TO IGNORE',
       logline: 'Some brands blend in. PrintSync brands stand out.',
-      key_visual: 'A dull street transforms as vibrant large-format prints appear on every surface.',
-      story_summary: 'A monotonous urban environment comes alive as PrintSync large-format prints transform buildings, vehicles, and spaces into brand experiences.',
+      key_visual:
+        'A dull street transforms as vibrant large-format prints appear on every surface.',
+      story_summary:
+        'A monotonous urban environment comes alive as PrintSync large-format prints transform buildings, vehicles, and spaces into brand experiences.',
       cta: 'Transform your visibility',
     },
     {
       title: 'FROM SCREEN TO SOMETHING REAL',
       logline: 'Digital ambition meets physical impact.',
-      key_visual: 'A digital design on screen physically prints itself into a massive outdoor installation.',
-      story_summary: 'Watch a digital design journey from screen to physical reality through PrintSync large-format printing, becoming an impossible-to-miss outdoor installation.',
+      key_visual:
+        'A digital design on screen physically prints itself into a massive outdoor installation.',
+      story_summary:
+        'Watch a digital design journey from screen to physical reality through PrintSync large-format printing, becoming an impossible-to-miss outdoor installation.',
       cta: 'Make it real',
     },
   ],
@@ -59,69 +64,79 @@ const CONCEPT_LIBRARY: Record<string, ConceptSeed[]> = {
       title: 'EVERY COPY PERFECT',
       logline: '3,000 copies. Zero compromise.',
       key_visual: 'A production line of identical perfect prints, each one flawless.',
-      story_summary: 'A high-speed digital printing production line produces thousands of identical, perfect prints — each one meeting the same exacting standard.',
+      story_summary:
+        'A high-speed digital printing production line produces thousands of identical, perfect prints — each one meeting the same exacting standard.',
       cta: 'Start your print order',
     },
     {
       title: 'THE PRINT ENGINE',
       logline: 'Precision-engineered printing for brands that refuse to blend in.',
       key_visual: 'A mechanical engine made of print components — gears of paper, pistons of ink.',
-      story_summary: 'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
+      story_summary:
+        'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
       cta: 'Engineer your brand',
     },
   ],
-  'signage': [
+  signage: [
     {
       title: 'BE SEEN',
       logline: 'Signage that works as hard as you do.',
       key_visual: 'A dark street illuminated by a single, perfectly crafted sign.',
-      story_summary: 'A dark, quiet street is transformed by a single, perfectly crafted PrintSync sign — proving that great signage is impossible to ignore.',
+      story_summary:
+        'A dark, quiet street is transformed by a single, perfectly crafted PrintSync sign — proving that great signage is impossible to ignore.',
       cta: 'Get noticed',
     },
     {
       title: 'THE CASE OF THE INVISIBLE BRAND',
       logline: 'A detective investigates why a business is not being noticed.',
       key_visual: 'A detective examines faded, broken signage under a magnifying glass.',
-      story_summary: 'A print detective investigates why a business is invisible, discovering faded signage and weak branding — then reveals the PrintSync solution.',
+      story_summary:
+        'A print detective investigates why a business is invisible, discovering faded signage and weak branding — then reveals the PrintSync solution.',
       cta: 'Solve your visibility problem',
     },
   ],
-  'branding': [
+  branding: [
     {
       title: 'BRAND WITH PRECISION',
       logline: 'Identity that works. Every touchpoint. Every time.',
       key_visual: 'A brand identity system assembling itself across multiple touchpoints.',
-      story_summary: 'Watch a complete brand identity system assemble itself across stationery, signage, packaging, and digital — all perfectly consistent, all PrintSync precision.',
+      story_summary:
+        'Watch a complete brand identity system assemble itself across stationery, signage, packaging, and digital — all perfectly consistent, all PrintSync precision.',
       cta: 'Build your brand',
     },
     {
       title: 'YOUR VISION. OUR PRECISION.',
       logline: 'The core PrintSync promise, visualized.',
       key_visual: 'A vision (abstract light) being shaped into precise physical form.',
-      story_summary: 'An abstract vision of light and color is shaped, refined, and transformed into precise physical brand materials — the PrintSync promise made visible.',
+      story_summary:
+        'An abstract vision of light and color is shaped, refined, and transformed into precise physical brand materials — the PrintSync promise made visible.',
       cta: 'Start your brand',
     },
   ],
-  'default': [
+  default: [
     {
       title: 'IDEAS BECOMING PHYSICAL IMPACT',
       logline: 'The PrintSync visual principle, brought to life.',
-      key_visual: 'Abstract ideas (light, data, typography) transforming into physical print objects.',
-      story_summary: 'Abstract ideas — light, data, typography — transform into tangible print objects, showing how PrintSync turns concepts into physical brand experiences.',
+      key_visual:
+        'Abstract ideas (light, data, typography) transforming into physical print objects.',
+      story_summary:
+        'Abstract ideas — light, data, typography — transform into tangible print objects, showing how PrintSync turns concepts into physical brand experiences.',
       cta: 'Create with PrintSync',
     },
     {
       title: 'PRECISION IN MOTION',
       logline: 'Every movement intentional. Every detail perfect.',
       key_visual: 'A printing press in motion, each component moving with mechanical precision.',
-      story_summary: 'A printing press operates in perfect mechanical harmony, each component moving with precision — the PrintSync motion principle visualized.',
+      story_summary:
+        'A printing press operates in perfect mechanical harmony, each component moving with precision — the PrintSync motion principle visualized.',
       cta: 'Experience precision',
     },
     {
       title: 'FROM IDEA TO IMPACT',
       logline: 'The complete PrintSync journey.',
       key_visual: 'A single idea traveling through design, production, and installation.',
-      story_summary: 'Follow a single idea through the complete PrintSync journey — from digital design through precision production to real-world impact.',
+      story_summary:
+        'Follow a single idea through the complete PrintSync journey — from digital design through precision production to real-world impact.',
       cta: 'Start your journey',
     },
   ],
@@ -201,7 +216,7 @@ export class CreativeDirector {
    */
   selectTopConcepts(concepts: Concept[]): Concept[] {
     return concepts
-      .filter(c => c.score === undefined || c.score.status !== 'REJECT')
+      .filter((c) => c.score === undefined || c.score.status !== 'REJECT')
       .sort((a, b) => (b.score?.total ?? 0) - (a.score?.total ?? 0))
       .slice(0, 3);
   }
@@ -255,16 +270,22 @@ export class CreativeDirector {
 
     const modes = Object.keys(CREATIVE_MODES) as CreativeMode[];
     // Rotate through modes based on history to avoid repetition
-    const recentModes = this.history.slice(-3).map(h => h.creative_mode);
-    const available = modes.filter(m => !recentModes.includes(m));
+    const recentModes = this.history.slice(-3).map((h) => h.creative_mode);
+    const available = modes.filter((m) => !recentModes.includes(m));
     return available[index % available.length] ?? modes[index % modes.length]!;
   }
 
   private selectTerritory(brief: CreativeBrief, index: number): CreativeTerritory {
     if (brief.territory) return brief.territory;
 
-    const territories: CreativeTerritory[] = ['PRECISION', 'TRANSFORMATION', 'SCALE', 'HUMAN_IMPACT', 'PLAY'];
-    const recentTerritories = this.history.slice(-3).map(h => h.territory);
+    const territories: CreativeTerritory[] = [
+      'PRECISION',
+      'TRANSFORMATION',
+      'SCALE',
+      'HUMAN_IMPACT',
+      'PLAY',
+    ];
+    const recentTerritories = this.history.slice(-3).map((h) => h.territory);
     const available = territories.filter((t: CreativeTerritory) => !recentTerritories.includes(t));
     return available[index % available.length] ?? territories[index % territories.length]!;
   }
@@ -273,8 +294,8 @@ export class CreativeDirector {
     if (brief.mood) return brief.mood;
 
     const moods: Mood[] = ['cinematic', 'playful', 'technical', 'minimal', 'dramatic'];
-    const recentMoods = this.history.slice(-3).map(h => h.mood);
-    const available = moods.filter(m => !recentMoods.includes(m));
+    const recentMoods = this.history.slice(-3).map((h) => h.mood);
+    const available = moods.filter((m) => !recentMoods.includes(m));
     return available[index % available.length] ?? moods[index % moods.length]!;
   }
 
@@ -282,8 +303,8 @@ export class CreativeDirector {
     if (brief.visual_style) return brief.visual_style;
 
     const styles: VisualStyle[] = ['typography', 'product', 'vfx', 'live_action', 'mixed'];
-    const recentStyles = this.history.slice(-3).map(h => h.visual_style as string);
-    const available = styles.filter(s => !recentStyles.includes(s));
+    const recentStyles = this.history.slice(-3).map((h) => h.visual_style as string);
+    const available = styles.filter((s) => !recentStyles.includes(s));
     return available[index % available.length] ?? styles[index % styles.length]!;
   }
 
@@ -311,7 +332,7 @@ export class CreativeDirector {
       'BORING_PRINTSYNC_TRANSFORMATION',
       'DIGITAL_PHYSICAL_EXPERIENCE',
     ];
-    const recentStructures = this.history.slice(-3).map(h => h.narrative_structure);
+    const recentStructures = this.history.slice(-3).map((h) => h.narrative_structure);
     const available = structures.filter((s: NarrativeStructure) => !recentStructures.includes(s));
     return available[index % available.length] ?? structures[index % structures.length]!;
   }

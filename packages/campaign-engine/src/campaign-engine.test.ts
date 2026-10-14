@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { InMemoryCampaignRepository } from './repository.js';
-import { generateCreativeGenome } from './genome.js';
-import { calculateCreativeSimilarity, areTooSimilar } from './similarity.js';
-import { detectCreativeFatigue, getUnderusedDimensions, getOverusedDimensions } from './fatigue.js';
-import { identifyCreativeOpportunities } from './opportunity.js';
 import type { Campaign, Concept, CreativeGenome } from '@printsync/shared';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { detectCreativeFatigue, getOverusedDimensions, getUnderusedDimensions } from './fatigue.js';
+import { generateCreativeGenome } from './genome.js';
+import { identifyCreativeOpportunities } from './opportunity.js';
+import { InMemoryCampaignRepository } from './repository.js';
+import { areTooSimilar, calculateCreativeSimilarity } from './similarity.js';
 
 describe('CampaignEngine', () => {
   let repository: InMemoryCampaignRepository;
@@ -173,8 +173,10 @@ describe('CampaignEngine', () => {
       visual_style: 'typography',
       pace: 'rhythmic',
       voice_mode: 'TYPOGRAPHY_ONLY',
-      key_visual: 'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
-      story_summary: 'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
+      key_visual:
+        'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
+      story_summary:
+        'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
       target_duration_seconds: 20,
       formats: ['16:9', '9:16', '1:1'],
       cta: 'Engineer your brand',
@@ -317,7 +319,11 @@ describe('CampaignEngine', () => {
     it('identifies opportunities', () => {
       const genomes: CreativeGenome[] = [];
       const fatigueReports = detectCreativeFatigue(genomes);
-      const opportunities = identifyCreativeOpportunities(genomes, fatigueReports, ['branding', 'packaging', 'signage']);
+      const opportunities = identifyCreativeOpportunities(genomes, fatigueReports, [
+        'branding',
+        'packaging',
+        'signage',
+      ]);
       expect(opportunities.length).toBeGreaterThan(0);
     });
 

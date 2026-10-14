@@ -1,10 +1,10 @@
-import { CircleGeometry, CylinderGeometry, PlaneGeometry, type BufferGeometry } from 'three';
 import {
-  toSceneUnits,
+  type PrintItemSpec,
   printItemDecalRect,
   printItemWrapBand,
-  type PrintItemSpec,
+  toSceneUnits,
 } from '@printsync/motion-engine';
+import { type BufferGeometry, CircleGeometry, CylinderGeometry, PlaneGeometry } from 'three';
 
 /**
  * Create the decal geometry the printed artwork is mapped onto.
@@ -20,8 +20,15 @@ import {
  */
 export function createItemDecal(spec: PrintItemSpec): BufferGeometry | null {
   if (spec.kind === 'disk') {
-    const geometry = new CircleGeometry(toSceneUnits(spec.dimensions.width / 2), spec.radialSegments ?? 96);
-    geometry.translate(0, toSceneUnits(spec.dimensions.height / 2), toSceneUnits(spec.dimensions.depth / 2 + 0.2));
+    const geometry = new CircleGeometry(
+      toSceneUnits(spec.dimensions.width / 2),
+      spec.radialSegments ?? 96,
+    );
+    geometry.translate(
+      0,
+      toSceneUnits(spec.dimensions.height / 2),
+      toSceneUnits(spec.dimensions.depth / 2 + 0.2),
+    );
     return geometry;
   }
 

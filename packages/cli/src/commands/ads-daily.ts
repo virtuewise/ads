@@ -18,9 +18,9 @@
  * 14. Save campaign memory
  */
 
-import chalk from 'chalk';
 import { runDailyCreativeEngine } from '@printsync/creative-engine';
 import type { CreativeHistoryEntry } from '@printsync/shared';
+import chalk from 'chalk';
 
 const DAILY_ROTATION = [
   { day: 0, mode: 'CINEMATIC_BRAND_FILM', label: 'Premium Brand Statement' },
@@ -32,17 +32,18 @@ const DAILY_ROTATION = [
   { day: 6, mode: 'VFX_EXPERIMENT', label: 'Visual Experiment' },
 ] as const;
 
-export async function adsDaily(_options: {
-  brand?: string;
-  formats?: string;
-}): Promise<void> {
+export async function adsDaily(_options: { brand?: string; formats?: string }): Promise<void> {
   const today = new Date();
   const dayOfWeek = today.getDay();
   const rotation = DAILY_ROTATION[dayOfWeek]!;
 
   console.log(chalk.red.bold('\n📅 PRINTSYNC DAILY ADVERTISING ENGINE V2\n'));
   console.log(chalk.gray(`Date: ${today.toISOString().split('T')[0]}`));
-  console.log(chalk.gray(`Day: ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]}`));
+  console.log(
+    chalk.gray(
+      `Day: ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek]}`,
+    ),
+  );
   console.log(chalk.gray(`Mode: ${rotation.label}\n`));
 
   // Step 1-2: Load brand and history (simulated)
@@ -58,15 +59,30 @@ export async function adsDaily(_options: {
 
   const report = await runDailyCreativeEngine(
     history,
-    ['branding', 'packaging', 'signage', 'digital-printing', 'large-format-printing', 'labels', 'posters'],
-    'AWARENESS'
+    [
+      'branding',
+      'packaging',
+      'signage',
+      'digital-printing',
+      'large-format-printing',
+      'labels',
+      'posters',
+    ],
+    'AWARENESS',
   );
 
   // Display creative fatigue
   console.log(chalk.yellow('CREATIVE FATIGUE:\n'));
   for (const fatigue of report.creativeFatigue.slice(0, 5)) {
-    const color = fatigue.usageLevel === 'HIGH' ? chalk.red : fatigue.usageLevel === 'MEDIUM' ? chalk.yellow : chalk.green;
-    console.log(`  ${fatigue.dimension.padEnd(30)} ${color(fatigue.usageLevel)} (${fatigue.percentage}%)`);
+    const color =
+      fatigue.usageLevel === 'HIGH'
+        ? chalk.red
+        : fatigue.usageLevel === 'MEDIUM'
+          ? chalk.yellow
+          : chalk.green;
+    console.log(
+      `  ${fatigue.dimension.padEnd(30)} ${color(fatigue.usageLevel)} (${fatigue.percentage}%)`,
+    );
   }
   console.log();
 
@@ -85,13 +101,22 @@ export async function adsDaily(_options: {
   // Display top 3 concepts
   console.log(chalk.yellow('TOP 3 CONCEPTS:\n'));
   for (const concept of report.topThree) {
-    const verdict = report.judgeResults.find(j => j.concept.id === concept.id)?.verdict;
+    const verdict = report.judgeResults.find((j) => j.concept.id === concept.id)?.verdict;
     const score = verdict?.total ?? 0;
-    const statusColor = score >= 90 ? chalk.red.bold : score >= 80 ? chalk.green : score >= 70 ? chalk.yellow : chalk.red;
+    const statusColor =
+      score >= 90
+        ? chalk.red.bold
+        : score >= 80
+          ? chalk.green
+          : score >= 70
+            ? chalk.yellow
+            : chalk.red;
 
     console.log(`  ${chalk.bold(concept.title)}`);
     console.log(`  ${chalk.gray(concept.logline)}`);
-    console.log(`  Mode: ${concept.creative_mode} | Territory: ${concept.territory} | Mood: ${concept.mood}`);
+    console.log(
+      `  Mode: ${concept.creative_mode} | Territory: ${concept.territory} | Mood: ${concept.mood}`,
+    );
     console.log(`  Score: ${score}/100 ${statusColor(`[${verdict?.status ?? 'UNKNOWN'}]`)}`);
     console.log();
   }
@@ -109,11 +134,15 @@ export async function adsDaily(_options: {
 
   // Display winner
   if (report.winner) {
-    const winnerVerdict = report.judgeResults.find(j => j.concept.id === report.winner?.id)?.verdict;
+    const winnerVerdict = report.judgeResults.find(
+      (j) => j.concept.id === report.winner?.id,
+    )?.verdict;
     console.log(chalk.green.bold('🏆 WINNING CONCEPT:\n'));
     console.log(`  ${chalk.bold(report.winner.title)}`);
     console.log(`  ${chalk.gray(report.winner.logline)}`);
-    console.log(`  Score: ${winnerVerdict?.total}/100 ${chalk.green(`[${winnerVerdict?.status}]`)}`);
+    console.log(
+      `  Score: ${winnerVerdict?.total}/100 ${chalk.green(`[${winnerVerdict?.status}]`)}`,
+    );
     console.log(`  CTA: ${chalk.cyan(report.winner.cta)}`);
     console.log();
   }

@@ -47,10 +47,11 @@ export class InMemoryCampaignRepository implements CampaignRepository {
 
   async searchCampaigns(query: string): Promise<Campaign[]> {
     const lowerQuery = query.toLowerCase();
-    return Array.from(this.campaigns.values()).filter(c =>
-      c.name.toLowerCase().includes(lowerQuery) ||
-      c.service.toLowerCase().includes(lowerQuery) ||
-      c.concept_id.toLowerCase().includes(lowerQuery)
+    return Array.from(this.campaigns.values()).filter(
+      (c) =>
+        c.name.toLowerCase().includes(lowerQuery) ||
+        c.service.toLowerCase().includes(lowerQuery) ||
+        c.concept_id.toLowerCase().includes(lowerQuery),
     );
   }
 
@@ -61,27 +62,27 @@ export class InMemoryCampaignRepository implements CampaignRepository {
   }
 
   async getCampaignsByService(service: string): Promise<Campaign[]> {
-    return Array.from(this.campaigns.values()).filter(c => c.service === service);
+    return Array.from(this.campaigns.values()).filter((c) => c.service === service);
   }
 
   async getCampaignsByMode(mode: string): Promise<Campaign[]> {
-    return Array.from(this.campaigns.values()).filter(c => c.creative_mode === mode);
+    return Array.from(this.campaigns.values()).filter((c) => c.creative_mode === mode);
   }
 
   async getCampaignsByStyle(style: string): Promise<Campaign[]> {
-    return Array.from(this.campaigns.values()).filter(c => c.visual_style === style);
+    return Array.from(this.campaigns.values()).filter((c) => c.visual_style === style);
   }
 
   async getCampaignsByPlatform(platform: string): Promise<Campaign[]> {
-    return Array.from(this.campaigns.values()).filter(c => c.formats.includes(platform));
+    return Array.from(this.campaigns.values()).filter((c) => c.formats.includes(platform));
   }
 
   async getCampaignsByScore(minScore: number): Promise<Campaign[]> {
-    return Array.from(this.campaigns.values()).filter(c => c.score >= minScore);
+    return Array.from(this.campaigns.values()).filter((c) => c.score >= minScore);
   }
 
   async getCreativePatterns(): Promise<CreativeHistoryEntry[]> {
-    return Array.from(this.campaigns.values()).map(c => ({
+    return Array.from(this.campaigns.values()).map((c) => ({
       date: c.date,
       campaign: c.name,
       concept_id: c.concept_id,
@@ -96,7 +97,7 @@ export class InMemoryCampaignRepository implements CampaignRepository {
       visual_style: c.visual_style,
       narrative_structure: c.narrative_structure,
       score: c.score,
-      outputs: c.outputs.map(o => o.path),
+      outputs: c.outputs.map((o) => o.path),
     }));
   }
 

@@ -31,12 +31,7 @@ export type CreativeMode =
   | 'VOICEOVER_FILM'
   | 'CAMPAIGN_FILM';
 
-export type VoiceMode =
-  | 'VOICEOVER'
-  | 'TYPOGRAPHY_ONLY'
-  | 'MUSIC_ONLY'
-  | 'DIALOGUE'
-  | 'HYBRID';
+export type VoiceMode = 'VOICEOVER' | 'TYPOGRAPHY_ONLY' | 'MUSIC_ONLY' | 'DIALOGUE' | 'HYBRID';
 
 export type NarrativeStructure =
   | 'PROBLEM_TENSION_DISCOVERY_TRANSFORMATION_PROOF_BRAND'
@@ -46,31 +41,13 @@ export type NarrativeStructure =
   | 'BORING_PRINTSYNC_TRANSFORMATION'
   | 'DIGITAL_PHYSICAL_EXPERIENCE';
 
-export type CreativeTerritory =
-  | 'PRECISION'
-  | 'TRANSFORMATION'
-  | 'SCALE'
-  | 'HUMAN_IMPACT'
-  | 'PLAY';
+export type CreativeTerritory = 'PRECISION' | 'TRANSFORMATION' | 'SCALE' | 'HUMAN_IMPACT' | 'PLAY';
 
-export type Mood =
-  | 'cinematic'
-  | 'playful'
-  | 'technical'
-  | 'minimal'
-  | 'dramatic';
+export type Mood = 'cinematic' | 'playful' | 'technical' | 'minimal' | 'dramatic';
 
-export type VisualStyle =
-  | 'typography'
-  | 'product'
-  | 'vfx'
-  | 'live_action'
-  | 'mixed';
+export type VisualStyle = 'typography' | 'product' | 'vfx' | 'live_action' | 'mixed';
 
-export type Pace =
-  | 'slow_premium'
-  | 'fast_energetic'
-  | 'rhythmic';
+export type Pace = 'slow_premium' | 'fast_energetic' | 'rhythmic';
 
 export interface CreativeBrief {
   objective: string;
@@ -171,7 +148,7 @@ export const DEFAULT_THRESHOLDS: CreativeScoreThresholds = {
  */
 export function getScoreStatus(
   total: number,
-  thresholds: CreativeScoreThresholds = DEFAULT_THRESHOLDS
+  thresholds: CreativeScoreThresholds = DEFAULT_THRESHOLDS,
 ): 'REJECT' | 'REWORK' | 'APPROVE' | 'SIGNATURE' {
   if (total >= thresholds.signature) return 'SIGNATURE';
   if (total >= thresholds.approve) return 'APPROVE';

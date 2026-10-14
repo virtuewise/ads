@@ -2,13 +2,22 @@
  * Creative Engine Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import type { Concept, CreativeBrief } from '@printsync/shared';
+import { describe, expect, it } from 'vitest';
+import { checkAntiGeneric, generateAntiGenericSuggestions } from './anti-generic.js';
 import { CreativeDirector } from './director.js';
 import { CreativeJudge } from './judge.js';
-import { checkAntiGeneric, generateAntiGenericSuggestions } from './anti-generic.js';
-import { generateStoryGrammar, getAllStoryTemplates, getStructuresByComplexity } from './story-grammar.js';
-import { getCreativeMode, getAllCreativeModes, getModesByTerritory, getModesByMood } from './modes.js';
-import type { CreativeBrief, Concept } from '@printsync/shared';
+import {
+  getAllCreativeModes,
+  getCreativeMode,
+  getModesByMood,
+  getModesByTerritory,
+} from './modes.js';
+import {
+  generateStoryGrammar,
+  getAllStoryTemplates,
+  getStructuresByComplexity,
+} from './story-grammar.js';
 
 describe('CreativeDirector', () => {
   const director = new CreativeDirector();
@@ -73,8 +82,10 @@ describe('CreativeJudge', () => {
     visual_style: 'typography',
     pace: 'rhythmic',
     voice_mode: 'TYPOGRAPHY_ONLY',
-    key_visual: 'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
-    story_summary: 'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
+    key_visual:
+      'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
+    story_summary:
+      'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
     target_duration_seconds: 20,
     formats: ['16:9', '9:16', '1:1'],
     cta: 'Engineer your brand',
@@ -117,8 +128,10 @@ describe('Anti-Generic Engine', () => {
       visual_style: 'typography',
       pace: 'rhythmic',
       voice_mode: 'TYPOGRAPHY_ONLY',
-      key_visual: 'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
-      story_summary: 'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
+      key_visual:
+        'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
+      story_summary:
+        'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
       target_duration_seconds: 20,
       formats: ['16:9', '9:16', '1:1'],
       cta: 'Engineer your brand',

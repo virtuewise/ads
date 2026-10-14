@@ -15,7 +15,9 @@ import { frameRangeArg, type RenderJobSpec } from './plan.js';
 
 /** The slice of `@remotion/lambda` this adapter uses. */
 export interface RemotionLambdaModule {
-  renderMediaOnLambda: (options: LambdaRenderOptions) => Promise<{ renderId: string; bucketName: string }>;
+  renderMediaOnLambda: (
+    options: LambdaRenderOptions,
+  ) => Promise<{ renderId: string; bucketName: string }>;
   getRenderProgress: (options: LambdaProgressOptions) => Promise<LambdaProgress>;
   getOrCreateBucket: (options: { region: string }) => Promise<{ bucketName: string }>;
   deploySite: (options: {
@@ -114,11 +116,17 @@ export async function loadRemotionLambda(): Promise<RemotionLambdaModule> {
 /** A renderer that can submit a plan's jobs to Lambda and poll them. */
 export interface LambdaRenderer {
   /** Submit one shard job. Returns Remotion's render id. */
-  render: (job: RenderJobSpec, outputName: string) => Promise<{ renderId: string; bucketName: string }>;
+  render: (
+    job: RenderJobSpec,
+    outputName: string,
+  ) => Promise<{ renderId: string; bucketName: string }>;
   /** Poll one render. */
   progress: (renderId: string) => Promise<FarmRenderProgress>;
   /** Wait for a render to finish, polling at `intervalMs`. */
-  wait: (renderId: string, options?: { intervalMs?: number; timeoutMs?: number }) => Promise<FarmRenderProgress>;
+  wait: (
+    renderId: string,
+    options?: { intervalMs?: number; timeoutMs?: number },
+  ) => Promise<FarmRenderProgress>;
 }
 
 function toProgress(renderId: string, report: LambdaProgress): FarmRenderProgress {

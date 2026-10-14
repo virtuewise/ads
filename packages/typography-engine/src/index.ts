@@ -1,5 +1,5 @@
 // Typography Engine – kinetic typography planning and presets
-import { Shot, TypographyPlan } from "@printsync/common";
+import type { Shot, TypographyPlan } from '@printsync/common';
 
 export interface TypographyPreset {
   id: string;
@@ -10,7 +10,15 @@ export interface TypographyPreset {
   lineHeight: number;
   letterSpacing: number;
   color: string;
-  animation: 'KINETIC_TITLE' | 'KINETIC_CTA' | 'KINETIC_BODY' | 'KINETIC_DATA' | 'TYPEWRITER' | 'SCRAMBLE' | 'FADE_UP' | 'SLIDE_IN';
+  animation:
+    | 'KINETIC_TITLE'
+    | 'KINETIC_CTA'
+    | 'KINETIC_BODY'
+    | 'KINETIC_DATA'
+    | 'TYPEWRITER'
+    | 'SCRAMBLE'
+    | 'FADE_UP'
+    | 'SLIDE_IN';
   animationDuration: number; // seconds
   stagger: number; // per character/word
 }
@@ -132,10 +140,14 @@ export class TypographyEngine {
   /**
    * Generate typography plan from shots and visual grammar.
    */
-  async planTypography(shots: Shot[], options: TypographyEngineOptions = {}): Promise<TypographyPlan> {
+  async planTypography(
+    shots: Shot[],
+    options: TypographyEngineOptions = {},
+  ): Promise<TypographyPlan> {
     const { mode = 'EXPLAINER', brandPrimary, brandAccent } = options;
     // brandPrimary and brandAccent reserved for future preset customization
-    void brandPrimary; void brandAccent;
+    void brandPrimary;
+    void brandAccent;
 
     const animations = new Set<string>();
 

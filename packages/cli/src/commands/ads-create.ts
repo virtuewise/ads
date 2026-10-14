@@ -2,9 +2,9 @@
  * ads:create — Create a new advert from a creative brief
  */
 
-import chalk from 'chalk';
-import type { CreativeBrief } from '@printsync/shared';
 import { CreativeDirector, CreativeJudge } from '@printsync/creative-engine';
+import type { CreativeBrief } from '@printsync/shared';
+import chalk from 'chalk';
 
 export async function adsCreate(options: {
   service?: string;
@@ -40,14 +40,20 @@ export async function adsCreate(options: {
   console.log(chalk.yellow('TOP 3 CONCEPTS:\n'));
   for (const concept of scored.slice(0, 3)) {
     const score = concept.score!;
-    const statusColor = score.status === 'SIGNATURE' ? chalk.red.bold
-      : score.status === 'APPROVE' ? chalk.green
-      : score.status === 'REWORK' ? chalk.yellow
-      : chalk.red;
+    const statusColor =
+      score.status === 'SIGNATURE'
+        ? chalk.red.bold
+        : score.status === 'APPROVE'
+          ? chalk.green
+          : score.status === 'REWORK'
+            ? chalk.yellow
+            : chalk.red;
 
     console.log(`  ${chalk.bold(concept.title)}`);
     console.log(`  ${chalk.gray(concept.logline)}`);
-    console.log(`  Mode: ${concept.creative_mode} | Territory: ${concept.territory} | Mood: ${concept.mood}`);
+    console.log(
+      `  Mode: ${concept.creative_mode} | Territory: ${concept.territory} | Mood: ${concept.mood}`,
+    );
     console.log(`  Score: ${score.total}/100 ${statusColor(`[${score.status}]`)}`);
     console.log(`  CTA: ${chalk.cyan(concept.cta)}`);
     console.log();

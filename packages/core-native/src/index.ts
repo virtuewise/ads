@@ -1,6 +1,6 @@
 /**
  * @printsync/core-native - TypeScript bindings for native hot paths
- * 
+ *
  * This module provides TypeScript bindings for the Rust native module.
  * It uses dynamic import with fallback to pure TypeScript implementations.
  */
@@ -37,25 +37,25 @@ export interface NativeModule {
     slide: number,
     lift: number,
     aim: number,
-    height: number
+    height: number,
   ): SubjectPose;
   analyzeFrequencyBands(spectrum: Float32Array, bands: number): number[];
   kerbsideClearance(
     subjectZ: number,
     subjectHalfLength: number,
     parkedVehiclesZ: number[],
-    parkedHalfLengths: number[]
+    parkedHalfLengths: number[],
   ): number;
   liftPanelAboveShop(
     panelBottom: number,
     shopHeight: number,
     panelHeight: number,
-    gap: number
+    gap: number,
   ): number;
   cityGridPositions(
     extent: number,
     slotSpacing: number,
-    buildingWidthRange: [number, number]
+    buildingWidthRange: [number, number],
   ): number[];
 }
 
@@ -95,7 +95,7 @@ export const mulberry32_ts = (seed: number): (() => number) => {
 };
 
 export const frameDistance_ts = (visibleWidth: number, fovDeg: number, aspect: number): number => {
-  const halfFovRad = (fovDeg * Math.PI / 180) * 0.5;
+  const halfFovRad = ((fovDeg * Math.PI) / 180) * 0.5;
   return visibleWidth / (2 * Math.tan(halfFovRad) * aspect);
 };
 
@@ -103,10 +103,10 @@ export const boulevardPose_ts = (t: number, extent: number, rise: number) => {
   const x = -5.6;
   const y = 1.72 + rise * 12.28;
   const z = extent * (0.62 - 0.74 * t);
-  const yaw = (1 - rise) * 8.5 * Math.PI / 180;
+  const yaw = ((1 - rise) * 8.5 * Math.PI) / 180;
   return {
     position: { x, y, z },
-    lookAt: { x: x - yaw, y: 1.72 + rise * 12.28, z: z - 42 }
+    lookAt: { x: x - yaw, y: 1.72 + rise * 12.28, z: z - 42 },
   };
 };
 
@@ -118,20 +118,20 @@ export const subjectPose_ts = (
   slide: number,
   lift: number,
   aim: number,
-  height: number
+  height: number,
 ) => {
   const up = { x: 0, y: 1, z: 0 };
   return {
     position: {
       x: faceCenter.x + normal.x * distance + tangent.x * slide + up.x * lift,
       y: faceCenter.y + normal.y * distance + tangent.y * slide + up.y * lift,
-      z: faceCenter.z + normal.z * distance + tangent.z * slide + up.z * lift
+      z: faceCenter.z + normal.z * distance + tangent.z * slide + up.z * lift,
     },
     lookAt: {
       x: faceCenter.x + up.x * (aim * height),
       y: faceCenter.y + up.y * (aim * height),
-      z: faceCenter.z + up.z * (aim * height)
-    }
+      z: faceCenter.z + up.z * (aim * height),
+    },
   };
 };
 
@@ -142,7 +142,10 @@ export const analyzeFrequencyBands_ts = (spectrum: Float32Array, bands: number):
   for (let b = 0; b < bands; b++) {
     const start = Math.floor(b * bandSize);
     const end = Math.min(Math.ceil((b + 1) * bandSize), spectrum.length);
-    if (start >= end) { result.push(0); continue; }
+    if (start >= end) {
+      result.push(0);
+      continue;
+    }
     let sum = 0;
     for (let i = start; i < end; i++) sum += spectrum[i];
     result.push(sum / (end - start));
@@ -154,11 +157,12 @@ export const kerbsideClearance_ts = (
   subjectZ: number,
   subjectHalfLength: number,
   parkedVehiclesZ: number[],
-  parkedHalfLengths: number[]
+  parkedHalfLengths: number[],
 ): number => {
   let minClearance = Infinity;
   for (let i = 0; i < parkedVehiclesZ.length; i++) {
-    const clearance = Math.abs(subjectZ - parkedVehiclesZ[i]) - subjectHalfLength - parkedHalfLengths[i];
+    const clearance =
+      Math.abs(subjectZ - parkedVehiclesZ[i]) - subjectHalfLength - parkedHalfLengths[i];
     if (clearance < minClearance) minClearance = clearance;
   }
   return minClearance === Infinity ? 100 : minClearance;
@@ -168,7 +172,7 @@ export const liftPanelAboveShop_ts = (
   panelBottom: number,
   shopHeight: number,
   panelHeight: number,
-  gap: number
+  gap: number,
 ): number => {
   const newCenter = shopHeight + gap + panelHeight * 0.5;
   return newCenter - panelBottom;
@@ -177,7 +181,7 @@ export const liftPanelAboveShop_ts = (
 export const cityGridPositions_ts = (
   extent: number,
   slotSpacing: number,
-  buildingWidthRange: [number, number]
+  buildingWidthRange: [number, number],
 ): number[] => {
   const positions: number[] = [];
   let z = -extent + slotSpacing * 0.5;
@@ -216,8 +220,7 @@ function createFallbackModule(): NativeModule {
     mulberry32: (seed: number) => mulberry32_ts(seed),
     frameDistance: (visibleWidth: number, fovDeg: number, aspect: number) =>
       frameDistance_ts(visibleWidth, fovDeg, aspect),
-    boulevardPose: (t: number, extent: number, rise: number) =>
-      boulevardPose_ts(t, extent, rise),
+    boulevardPose: (t: number, extent: number, rise: number) => boulevardPose_ts(t, extent, rise),
     subjectPose: (
       faceCenter: { x: number; y: number; z: number },
       normal: { x: number; y: number; z: number },
@@ -226,7 +229,7 @@ function createFallbackModule(): NativeModule {
       slide: number,
       lift: number,
       aim: number,
-      height: number
+      height: number,
     ) => subjectPose_ts(faceCenter, normal, tangent, distance, slide, lift, aim, height),
     analyzeFrequencyBands: (spectrum: Float32Array, bands: number) =>
       analyzeFrequencyBands_ts(spectrum, bands),
@@ -234,34 +237,34 @@ function createFallbackModule(): NativeModule {
       subjectZ: number,
       subjectHalfLength: number,
       parkedVehiclesZ: number[],
-      parkedHalfLengths: number[]
+      parkedHalfLengths: number[],
     ) => kerbsideClearance_ts(subjectZ, subjectHalfLength, parkedVehiclesZ, parkedHalfLengths),
     liftPanelAboveShop: (
       panelBottom: number,
       shopHeight: number,
       panelHeight: number,
-      gap: number
+      gap: number,
     ) => liftPanelAboveShop_ts(panelBottom, shopHeight, panelHeight, gap),
     cityGridPositions: (
       extent: number,
       slotSpacing: number,
-      buildingWidthRange: [number, number]
+      buildingWidthRange: [number, number],
     ) => cityGridPositions_ts(extent, slotSpacing, buildingWidthRange),
   };
 }
 
 // Re-export fallbacks for direct use
 export {
-  fnv1a_64_ts as fnv1a64,
-  fnv1a_32_ts as fnv1a32,
-  mulberry32_ts as mulberry32,
-  frameDistance_ts as frameDistance,
-  boulevardPose_ts as boulevardPose,
-  subjectPose_ts as subjectPose,
   analyzeFrequencyBands_ts as analyzeFrequencyBands,
+  boulevardPose_ts as boulevardPose,
+  cityGridPositions_ts as cityGridPositions,
+  fnv1a_32_ts as fnv1a32,
+  fnv1a_64_ts as fnv1a64,
+  frameDistance_ts as frameDistance,
   kerbsideClearance_ts as kerbsideClearance,
   liftPanelAboveShop_ts as liftPanelAboveShop,
-  cityGridPositions_ts as cityGridPositions,
+  mulberry32_ts as mulberry32,
+  subjectPose_ts as subjectPose,
 };
 
 // Utility: check if native module is available
@@ -270,4 +273,4 @@ export function isNativeAvailable(): boolean {
 }
 
 // Export types
-export type { Vec3, BoulevardPose, SubjectPose };
+export type { BoulevardPose, SubjectPose, Vec3 };

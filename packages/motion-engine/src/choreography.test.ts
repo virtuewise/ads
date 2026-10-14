@@ -1,16 +1,23 @@
-import { describe, it, expect } from 'vitest';
-import { getPrintItem } from './print-items.js';
+import { describe, expect, it } from 'vitest';
 import {
   animatePrintObject,
   generateAnimationFrames,
   type PrintObjectAnimation,
   type Transform,
 } from './choreography.js';
+import { getPrintItem } from './print-items.js';
 
 const BOTTLE = getPrintItem('bottle-500')!;
 
 const ANIMATIONS: PrintObjectAnimation[] = [
-  'rise', 'float', 'orbit', 'spin', 'reveal', 'fold', 'drop', 'reset',
+  'rise',
+  'float',
+  'orbit',
+  'spin',
+  'reveal',
+  'fold',
+  'drop',
+  'reset',
 ];
 
 describe('animatePrintObject', () => {

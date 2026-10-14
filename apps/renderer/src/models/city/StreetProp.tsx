@@ -47,7 +47,12 @@ function SignalHead({ palette, lit }: { palette: CityPalette; lit: 'red' | 'gree
         <meshStandardMaterial color={SIGNAL_CASE} roughness={0.7} />
       </mesh>
       {palette.windowIntensity > 0.8 && (
-        <pointLight color={lit === 'red' ? SIGNAL_RED : SIGNAL_GREEN} intensity={26} distance={9} decay={2} />
+        <pointLight
+          color={lit === 'red' ? SIGNAL_RED : SIGNAL_GREEN}
+          intensity={26}
+          distance={9}
+          decay={2}
+        />
       )}
     </group>
   );

@@ -2,7 +2,7 @@
 //!
 //! Single source of truth for all shared types.
 //! Zod schemas are auto-generated via `schemars` and written to
-//! `packages/common/src/schemas/` by `cargo make generate-schemas`.
+//! `packages/common/src/generated/` by `cargo make generate-schemas`.
 
 pub mod brief;
 pub mod production;

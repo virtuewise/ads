@@ -1,13 +1,9 @@
+import { type BrandTokens, buildArtworkSpec, type PrintItemSpec } from '@printsync/motion-engine';
 import { useMemo } from 'react';
 import { DoubleSide } from 'three';
-import {
-  buildArtworkSpec,
-  type BrandTokens,
-  type PrintItemSpec,
-} from '@printsync/motion-engine';
-import { createItemParts } from './geometry';
-import { createItemDecal } from './decal';
 import { createArtworkTexture } from './artwork';
+import { createItemDecal } from './decal';
+import { createItemParts } from './geometry';
 import { materialConfig } from './materials';
 
 interface PrintItemProps {
@@ -33,8 +29,8 @@ export const PrintItem: React.FC<PrintItemProps> = ({ spec, brand, scale = 1 }) 
 
   return (
     <group scale={scale}>
-      {parts.map((part, index) => (
-        <mesh key={index} geometry={part.geometry}>
+      {parts.map((part) => (
+        <mesh key={part.geometry.uuid} geometry={part.geometry}>
           <meshPhysicalMaterial {...materialConfig(part.material)} />
         </mesh>
       ))}

@@ -1,5 +1,5 @@
 import { analyzeFrequencyBands } from '@printsync/audio-engine';
-import { visualizeAudio, useAudioData } from '@remotion/media-utils';
+import { useAudioData, visualizeAudio } from '@remotion/media-utils';
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from 'remotion';
 
 const BRAND = '#c8001c';
@@ -48,6 +48,7 @@ export const Spectrum: React.FC<SpectrumProps> = ({ audioSrc, bars = 56 }) => {
       >
         {levels.map((level, index) => (
           <div
+            // biome-ignore lint/suspicious/noArrayIndexKey: fixed-count positional spectrum bars; order never changes
             key={index}
             style={{
               flex: 1,

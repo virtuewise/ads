@@ -7,9 +7,9 @@
  * declares how high its bottom edge sits above the pavement.
  */
 
-import { toSceneUnits } from './print-items.js';
 import type { BrandTokens } from './artwork.js';
 import { hashSeedOf } from './hash.js';
+import { toSceneUnits } from './print-items.js';
 
 export type OohMedium = 'paper' | 'digital';
 

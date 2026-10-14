@@ -1,14 +1,14 @@
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import { ThreeCanvas } from '@remotion/three';
 import {
   animatePrintObject,
+  type ProductLineInputs,
   printItemBoundingRadius,
   resolveCameraPlan,
   resolveProductLineInputs,
-  type ProductLineInputs,
 } from '@printsync/motion-engine';
-import { PrintItem } from '../models/PrintItem';
+import { ThreeCanvas } from '@remotion/three';
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { CameraRig } from '../models/CameraRig';
+import { PrintItem } from '../models/PrintItem';
 import { Studio } from '../models/Studio';
 
 const RING_RADIUS = 3.1;

@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   CAMERA_PATHS,
-  SHOWCASE_SHOTS,
+  type CameraPath,
+  type CityShotSubject,
   clamp01,
   resolveCameraPlan,
   resolveCityCameraPlan,
-  type CameraPath,
-  type CityShotSubject,
+  SHOWCASE_SHOTS,
 } from './camera.js';
 import { CITY_LANES, VEHICLE_SIZES } from './vehicles.js';
 
@@ -14,14 +14,7 @@ const RADIUS = 3.1;
 
 describe('CAMERA_PATHS', () => {
   it('matches the render-input contract vocabulary', () => {
-    expect([...CAMERA_PATHS]).toEqual([
-      'turntable',
-      'orbit',
-      'dolly',
-      'hero',
-      'showcase',
-      'none',
-    ]);
+    expect([...CAMERA_PATHS]).toEqual(['turntable', 'orbit', 'dolly', 'hero', 'showcase', 'none']);
   });
 
   it('has no duplicates', () => {
@@ -113,10 +106,7 @@ describe('resolveCameraPlan', () => {
       showcase: 0.85,
       none: 0,
     };
-    for (const [path, expected] of Object.entries(spins) as [
-      CameraPath,
-      number,
-    ][]) {
+    for (const [path, expected] of Object.entries(spins) as [CameraPath, number][]) {
       expect(resolveCameraPlan(path, 0.5, RADIUS).worldSpin).toBe(expected);
     }
   });
@@ -200,9 +190,7 @@ describe('resolveCityCameraPlan', () => {
   it('frames a wider orbit for turntable than for orbit', () => {
     const turntable = resolveCityCameraPlan('turntable', 0.25, EXTENT).pose.position;
     const orbit = resolveCityCameraPlan('orbit', 0.25, EXTENT).pose.position;
-    expect(Math.hypot(turntable[0], turntable[2])).toBeGreaterThan(
-      Math.hypot(orbit[0], orbit[2]),
-    );
+    expect(Math.hypot(turntable[0], turntable[2])).toBeGreaterThan(Math.hypot(orbit[0], orbit[2]));
   });
 
   it('scales the framing with the city extent', () => {
@@ -275,8 +263,9 @@ describe('showcase edit', () => {
   it('throws a hard cut between shots', () => {
     const before = poseAt(0.3 - 1e-6).position;
     const after = poseAt(0.3).position;
-    expect(Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2]))
-      .toBeGreaterThan(1);
+    expect(
+      Math.hypot(after[0] - before[0], after[1] - before[1], after[2] - before[2]),
+    ).toBeGreaterThan(1);
   });
 
   it('squares up to each face and aims within it', () => {

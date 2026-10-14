@@ -1,22 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  baseLitRatio,
   CITY_BOULEVARD_HALF_WIDTH,
   CITY_EXTENT_M,
   CITY_ROUTE_POINTS,
   CITY_SIDEWALK_WIDTH,
   CITY_TIMES_OF_DAY,
-  baseLitRatio,
+  type CityOptions,
   cityPalette,
   generateCityLayout,
   generateCityRoute,
   hashSeed,
   mulberry32,
   sampleCityRoute,
-  type CityOptions,
 } from './city.js';
 import { getOohFormat } from './ooh.js';
-import { getRoadSign } from './signage.js';
 import { PRINT_ITEMS_HERO_IDS } from './print-items.js';
+import { getRoadSign } from './signage.js';
 
 const baseOptions: CityOptions = {
   seed: 'test-city',
@@ -305,9 +305,7 @@ describe('cityPalette', () => {
     expect(cityPalette('night').windowIntensity).toBeGreaterThan(
       cityPalette('dusk').windowIntensity,
     );
-    expect(cityPalette('dusk').windowIntensity).toBeGreaterThan(
-      cityPalette('day').windowIntensity,
-    );
+    expect(cityPalette('dusk').windowIntensity).toBeGreaterThan(cityPalette('day').windowIntensity);
   });
 
   it('shines the sun brightest by day', () => {

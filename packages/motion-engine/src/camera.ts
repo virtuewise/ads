@@ -12,14 +12,7 @@
  */
 
 /** Every camera path the renderer supports, in contract order. */
-export const CAMERA_PATHS = [
-  'turntable',
-  'orbit',
-  'dolly',
-  'hero',
-  'showcase',
-  'none',
-] as const;
+export const CAMERA_PATHS = ['turntable', 'orbit', 'dolly', 'hero', 'showcase', 'none'] as const;
 
 export type CameraPath = (typeof CAMERA_PATHS)[number];
 
@@ -46,7 +39,7 @@ export function clamp01(value: number): number {
 
 /** Smooth 0 -> 1 ease used by the dolly path. */
 function easeInOut(t: number): number {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 }
 
 /** Horizontal camera distance behind the catalogue, in scene units. */
@@ -121,11 +114,7 @@ function worldSpinFor(path: CameraPath): number {
  * @param progress Normalised time through the composition, clamped to [0, 1].
  * @param radius Radius of the item layout the camera should frame.
  */
-export function resolveCameraPlan(
-  path: CameraPath,
-  progress: number,
-  radius = 3,
-): CameraPlan {
+export function resolveCameraPlan(path: CameraPath, progress: number, radius = 3): CameraPlan {
   const p = clamp01(progress);
   const eased = easeInOut(p);
   const distance = distanceFor(path, Math.max(0, radius), eased);
@@ -300,29 +289,19 @@ function subjectPose(subject: CityShotSubject, t: number): CameraPose {
   const tx = Math.cos(subject.facing);
   const tz = -Math.sin(subject.facing);
 
-  const distance = frameDistance(
-    framing.fromWidth + (framing.toWidth - framing.fromWidth) * k,
-  );
+  const distance = frameDistance(framing.fromWidth + (framing.toWidth - framing.fromWidth) * k);
   const lift = framing.fromLift + (framing.toLift - framing.fromLift) * k;
   const slide = framing.fromSlide + (framing.toSlide - framing.fromSlide) * k;
   const aim = framing.fromAim + (framing.toAim - framing.fromAim) * k;
 
   return {
-    position: [
-      cx + nx * distance + tx * slide,
-      cy + lift,
-      cz + nz * distance + tz * slide,
-    ],
+    position: [cx + nx * distance + tx * slide, cy + lift, cz + nz * distance + tz * slide],
     lookAt: [cx, cy + aim * height, cz],
   };
 }
 
 /** The showcase shot running at `p`, cut to whichever subject it is pointed at. */
-function showcasePose(
-  p: number,
-  extent: number,
-  subjects: readonly CityShotSubject[],
-): CameraPose {
+function showcasePose(p: number, extent: number, subjects: readonly CityShotSubject[]): CameraPose {
   const last = SHOWCASE_SHOTS[SHOWCASE_SHOTS.length - 1];
   const shot = SHOWCASE_SHOTS.find((entry) => p < entry.to) ?? last;
   if (!shot) return boulevardPose(p, extent, 0);

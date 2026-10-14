@@ -1,8 +1,10 @@
 // Build native module with graceful fallback
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CARGO_MANIFEST = path.resolve(__dirname, '../../rust/core-native/Cargo.toml');
 const DIST_DIR = path.resolve(__dirname, '../dist');
 
@@ -19,8 +21,8 @@ function hasCargo() {
 }
 
 function runCargo(args) {
-  const cmd = 'cargo ' + args.join(' ');
-  console.log('Running: ' + cmd);
+  const cmd = `cargo ${args.join(' ')}`;
+  console.log(`Running: ${cmd}`);
   execSync(cmd, { stdio: 'inherit', cwd: path.dirname(CARGO_MANIFEST) });
 }
 
@@ -41,7 +43,7 @@ function copyArtifacts() {
   }
 
   const profile = isRelease ? 'release' : 'debug';
-  const targetDir = path.resolve(__dirname, '../../rust/target/' + profile);
+  const targetDir = path.resolve(__dirname, `../../rust/target/${profile}`);
 
   let copied = 0;
   for (const artifact of artifacts) {
@@ -50,7 +52,7 @@ function copyArtifacts() {
 
     if (fs.existsSync(src)) {
       fs.copyFileSync(src, dest);
-      console.log('Copied ' + artifact + ' -> dist/');
+      console.log(`Copied ${artifact} -> dist/`);
       copied++;
     }
   }
@@ -66,7 +68,7 @@ function copyArtifacts() {
 }
 
 function main() {
-  console.log('Building @printsync/core-native (' + (isRelease ? 'release' : 'dev') + ')...');
+  console.log(`Building @printsync/core-native (${isRelease ? 'release' : 'dev'})...`);
 
   if (!hasCargo()) {
     console.warn('WARNING: Cargo not found in PATH. Skipping native build.');
@@ -86,8 +88,8 @@ function main() {
     runCargo(args);
     copyArtifacts();
     console.log('Native module built successfully');
-  } catch (e) {
-    console.error('Native build failed:', e.message);
+  } catch (error) {
+    console.error('Native build failed:', error.message);
     console.warn('Falling back to TypeScript implementations');
     process.exitCode = 0; // Don't fail the build
   }

@@ -1,6 +1,6 @@
+import { type CityRoute, sampleCityRoute } from '@printsync/motion-engine';
 import { useMemo } from 'react';
 import { AdditiveBlending, BufferGeometry, DoubleSide, Float32BufferAttribute } from 'three';
-import { sampleCityRoute, type CityRoute } from '@printsync/motion-engine';
 import { createRouteRibbonTexture } from './cityArtwork';
 
 interface RouteLineProps {
@@ -15,7 +15,10 @@ interface RouteLineProps {
 const CHEVRON_METRES = 26;
 
 /** Lay the route flat on the road as a two-vertex-wide ribbon. */
-function buildRibbon(route: CityRoute, width: number): { geometry: BufferGeometry; segments: number } {
+function buildRibbon(
+  route: CityRoute,
+  width: number,
+): { geometry: BufferGeometry; segments: number } {
   const points = route.points;
   const count = points.length;
   const half = width / 2;

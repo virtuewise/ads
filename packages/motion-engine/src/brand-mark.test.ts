@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { PRINTSYNC_MARK, brandMarkTones } from './brand-mark.js';
+import { describe, expect, it } from 'vitest';
+import { brandMarkTones, PRINTSYNC_MARK } from './brand-mark.js';
 
 describe('PRINTSYNC_MARK', () => {
   it('keeps the roundel in a square artboard', () => {

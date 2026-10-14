@@ -1,0 +1,6 @@
+# cargo-nextest configuration for the Virtue Studio Rust workspace.
+# Referenced by the `test-rust` task in Makefile.toml (`--profile ci`).
+
+[profile.ci]
+# In CI, run every test even after a failure so the full failure set is visible.
+fail-fast = false

@@ -7,7 +7,7 @@
 # Primary Tasks
 # ============================================================================
 
-[default]
+[tasks.default]
 description = "Show available tasks"
 commands = ["cargo make --list-all-steps"]
 
@@ -17,21 +17,25 @@ commands = ["cargo make --list-all-steps"]
 
 [tasks.biome-check]
 description = "Run Biome lint check (no fixes)"
-command = "biome"
-args = ["check", "."]
+command = "pnpm"
+args = ["exec", "biome", "check", "."]
 cwd = "."
 
 [tasks.biome-fix]
 description = "Run Biome lint check with auto-fix"
-command = "biome"
-args = ["check", "--write", "."]
+command = "pnpm"
+args = ["exec", "biome", "check", "--write", "."]
 cwd = "."
 
 [tasks.biome-format]
 description = "Format code with Biome"
-command = "biome"
-args = ["format", "--write", "."]
+command = "pnpm"
+args = ["exec", "biome", "format", "--write", "."]
 cwd = "."
+
+[tasks.lint]
+description = "Run all linters (alias for biome-check)"
+dependencies = ["biome-check"]
 
 # ---------------------------------------------------------------------------
 # Schema Generation
@@ -40,7 +44,7 @@ cwd = "."
 [tasks.generate-schemas]
 description = "Generate Zod schemas from Rust types"
 command = "cargo"
-args = ["run", "--manifest-path", "rust/xtask/Cargo.toml", "--", "generate-schemas", "--output", "../../packages/common/src"]
+args = ["run", "--manifest-path", "rust/xtask/Cargo.toml", "--", "generate-schemas", "--output", "packages/common/src/generated"]
 cwd = "."
 
 # ---------------------------------------------------------------------------
@@ -99,6 +103,10 @@ cwd = "."
 description = "Build everything (Rust native + TypeScript)"
 dependencies = ["build-native", "build-ts"]
 
+[tasks.build]
+description = "Build everything (alias for build-all)"
+dependencies = ["build-all"]
+
 # ---------------------------------------------------------------------------
 # Full CI Pipeline
 # ---------------------------------------------------------------------------
@@ -106,7 +114,6 @@ dependencies = ["build-native", "build-ts"]
 [tasks.ci]
 description = "Full CI pipeline (lint + schemas + native + build + tests)"
 dependencies = ["biome-check", "generate-schemas", "build-native", "build-ts", "test-all"]
-description = "Complete CI pipeline"
 
 # ---------------------------------------------------------------------------
 # Development Helpers
@@ -114,8 +121,8 @@ description = "Complete CI pipeline"
 
 [tasks.install-hooks]
 description = "Install git hooks via lefthook"
-command = "lefthook"
-args = ["install"]
+command = "pnpm"
+args = ["exec", "lefthook", "install"]
 cwd = "."
 
 [tasks.clean]

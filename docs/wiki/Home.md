@@ -6,8 +6,8 @@
 > A persistent, brand-aware advertising engine that can ideate, strategize, write, design,
 > generate, animate, edit, critique, adapt, archive, and continuously improve Virtue Studio advertising.
 
-This wiki documents the `printsync-ads` repository — **Virtue Studio**, a TypeScript monorepo that
-produces advertising for the **PrintSync** brand. It is written for anyone building, extending, or
+This wiki documents the `virtue-studio` repository — **Virtue Studio**, a TypeScript monorepo that
+produces advertising for multiple brands (with PrintSync as the default template). It is written for anyone building, extending, or
 operating the system.
 
 ---
@@ -82,7 +82,7 @@ See [Roadmap & Status](Roadmap) for the honest per-area breakdown.
 
 ## Repository
 
-- Package name: `printsync-ads` (`package.json`)
+- Package name: `virtue-studio` (`package.json`)
 - Structure: `apps/` (studio, renderer, dashboard, demo) + `packages/` (23 engine/tooling packages)
 - Source of truth for schemas: `@printsync/shared` and `@printsync/common`
 - Source of truth for creative modes: `packages/creative-engine/src/modes.ts`

@@ -23,10 +23,26 @@ export async function filmCreate(options: {
   console.log(chalk.yellow('FILM STRUCTURE:\n'));
 
   const acts = [
-    { name: 'ACT I — Setup', duration: Math.round(duration * 0.2), description: 'Establish the world and the problem' },
-    { name: 'ACT II — Confrontation', duration: Math.round(duration * 0.4), description: 'The journey and transformation' },
-    { name: 'ACT III — Resolution', duration: Math.round(duration * 0.3), description: 'The result and brand reveal' },
-    { name: 'TAG — Brand', duration: Math.round(duration * 0.1), description: 'Logo, tagline, CTA' },
+    {
+      name: 'ACT I — Setup',
+      duration: Math.round(duration * 0.2),
+      description: 'Establish the world and the problem',
+    },
+    {
+      name: 'ACT II — Confrontation',
+      duration: Math.round(duration * 0.4),
+      description: 'The journey and transformation',
+    },
+    {
+      name: 'ACT III — Resolution',
+      duration: Math.round(duration * 0.3),
+      description: 'The result and brand reveal',
+    },
+    {
+      name: 'TAG — Brand',
+      duration: Math.round(duration * 0.1),
+      description: 'Logo, tagline, CTA',
+    },
   ];
 
   for (const act of acts) {

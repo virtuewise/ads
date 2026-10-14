@@ -1,5 +1,5 @@
 // Edit Engine – edit decision list generation
-import { Shot, EditPlan } from "@printsync/common";
+import type { EditPlan, Shot } from '@printsync/common';
 
 export interface EditDecision {
   time: number; // seconds
@@ -49,29 +49,71 @@ export class EditEngine {
 
     // Fast pace = more aggressive cuts
     if (pace === 'FAST' || mode.includes('SALES') || mode.includes('SOCIAL')) {
-      return { type: 'SMASH_CUT', duration: 0, reason: 'Fast pace', fromShot: from.id, toShot: to.id, time: 0 };
+      return {
+        type: 'SMASH_CUT',
+        duration: 0,
+        reason: 'Fast pace',
+        fromShot: from.id,
+        toShot: to.id,
+        time: 0,
+      };
     }
 
     // Slow/premium = dissolves
     if (pace === 'SLOW' || mode.includes('CINEMATIC') || mode.includes('BRAND')) {
       if (samePurpose) {
-        return { type: 'MATCH_CUT', duration: 0.5, reason: 'Visual continuity', fromShot: from.id, toShot: to.id, time: 0 };
+        return {
+          type: 'MATCH_CUT',
+          duration: 0.5,
+          reason: 'Visual continuity',
+          fromShot: from.id,
+          toShot: to.id,
+          time: 0,
+        };
       }
-      return { type: 'DISSOLVE', duration: 1.0, reason: 'Premium feel', fromShot: from.id, toShot: to.id, time: 0 };
+      return {
+        type: 'DISSOLVE',
+        duration: 1.0,
+        reason: 'Premium feel',
+        fromShot: from.id,
+        toShot: to.id,
+        time: 0,
+      };
     }
 
     // Rhythmic = cut on beat
     if (pace === 'RHYTHMIC' || mode.includes('TYPOGRAPHIC') || mode.includes('MUSIC')) {
-      return { type: 'CUT', duration: 0, reason: 'Rhythmic cut', fromShot: from.id, toShot: to.id, time: 0 };
+      return {
+        type: 'CUT',
+        duration: 0,
+        reason: 'Rhythmic cut',
+        fromShot: from.id,
+        toShot: to.id,
+        time: 0,
+      };
     }
 
     // VFX transitions
     if (hasVFX) {
-      return { type: 'WIPE', duration: 0.5, reason: 'VFX transition', fromShot: from.id, toShot: to.id, time: 0 };
+      return {
+        type: 'WIPE',
+        duration: 0.5,
+        reason: 'VFX transition',
+        fromShot: from.id,
+        toShot: to.id,
+        time: 0,
+      };
     }
 
     // Default: clean cut
-    return { type: 'CUT', duration: 0, reason: 'Standard', fromShot: from.id, toShot: to.id, time: 0 };
+    return {
+      type: 'CUT',
+      duration: 0,
+      reason: 'Standard',
+      fromShot: from.id,
+      toShot: to.id,
+      time: 0,
+    };
   }
 
   /** Get all transition types */

@@ -3,10 +3,10 @@
  * Do not simply reject — rework concepts to improve them.
  */
 
-import type { Concept, ReworkResult, CreativeHistoryEntry } from '@printsync/shared';
+import type { Concept, CreativeHistoryEntry, ReworkResult } from '@printsync/shared';
 import { DEFAULT_THRESHOLDS } from '@printsync/shared';
-import { judgeConceptV2 } from './judge-v2.js';
 import { analyzeAntiGeneric } from './anti-generic-v2.js';
+import { judgeConceptV2 } from './judge-v2.js';
 
 const MAX_ITERATIONS = 3;
 
@@ -14,10 +14,7 @@ const MAX_ITERATIONS = 3;
  * Rework a concept based on judge feedback.
  * Returns an improved concept or rejects it if it cannot be improved.
  */
-export function reworkConcept(
-  concept: Concept,
-  history: CreativeHistoryEntry[]
-): ReworkResult {
+export function reworkConcept(concept: Concept, history: CreativeHistoryEntry[]): ReworkResult {
   let currentConcept = { ...concept };
   let currentVerdict = judgeConceptV2(currentConcept, history);
   const originalScore = currentVerdict.total;
@@ -31,7 +28,11 @@ export function reworkConcept(
 
     iterations++;
     const antiGenericReport = analyzeAntiGeneric(currentConcept, history);
-    const reworkStrategy = generateReworkStrategy(currentConcept, currentVerdict, antiGenericReport);
+    const reworkStrategy = generateReworkStrategy(
+      currentConcept,
+      currentVerdict,
+      antiGenericReport,
+    );
 
     if (reworkStrategy.length === 0) break;
 
@@ -72,7 +73,7 @@ export function reworkConcept(
 function generateReworkStrategy(
   _concept: Concept,
   verdict: { feedback: string[]; hardGates: Record<string, boolean> },
-  antiGenericReport: { recommendations: string[] }
+  antiGenericReport: { recommendations: string[] },
 ): string[] {
   const strategies: string[] = [];
 

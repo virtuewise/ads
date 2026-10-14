@@ -1,6 +1,6 @@
 # Packages & Engines
 
-All workspace packages are scoped `@printsync/*`. This page summarises each one. "Maturity" is
+All workspace packages are scoped `@printsync/*` (this predates the Virtue Studio naming). This page summarises each one. "Maturity" is
 based on the current source size and intent — see [Roadmap & Status](Roadmap) for the phase view.
 
 ## Core / shared

@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
 use uuid::Uuid;
-use crate::brief::{VisualGrammar, StoryBeat};
+use crate::brief::VisualGrammar;
 
 /// Unique identifier for a production plan
 pub type PlanId = Uuid;

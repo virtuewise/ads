@@ -3,24 +3,30 @@
  * Every completed concept receives a Creative Genome for intelligent comparison.
  */
 
-import type { CreativeGenome, Concept } from '@printsync/shared';
+import type { Concept, CreativeGenome } from '@printsync/shared';
 
 /**
  * Generate a Creative Genome from a concept.
  * This captures the creative DNA of a concept for similarity detection.
  */
 export function generateCreativeGenome(concept: Concept): CreativeGenome {
-  const text = `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
+  const text =
+    `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
 
   return {
     narrative: concept.narrative_structure,
     creativeMode: concept.creative_mode,
-    service: concept.story_summary.toLowerCase().includes('large format') ? 'large-format-printing'
-      : concept.story_summary.toLowerCase().includes('digital') ? 'digital-printing'
-      : concept.story_summary.toLowerCase().includes('sign') ? 'signage'
-      : concept.story_summary.toLowerCase().includes('brand') ? 'branding'
-      : concept.story_summary.toLowerCase().includes('packag') ? 'packaging'
-      : 'custom-print-solutions',
+    service: concept.story_summary.toLowerCase().includes('large format')
+      ? 'large-format-printing'
+      : concept.story_summary.toLowerCase().includes('digital')
+        ? 'digital-printing'
+        : concept.story_summary.toLowerCase().includes('sign')
+          ? 'signage'
+          : concept.story_summary.toLowerCase().includes('brand')
+            ? 'branding'
+            : concept.story_summary.toLowerCase().includes('packag')
+              ? 'packaging'
+              : 'custom-print-solutions',
     emotionalTone: extractEmotionalTone(text),
     visualTerritories: [concept.territory],
     typographyBehaviors: extractTypographyBehaviors(concept, text),
@@ -42,7 +48,8 @@ export function generateCreativeGenome(concept: Concept): CreativeGenome {
 function extractEmotionalTone(text: string): string[] {
   const tones: string[] = [];
   if (text.includes('dramatic') || text.includes('epic')) tones.push('dramatic');
-  if (text.includes('humor') || text.includes('funny') || text.includes('comedy')) tones.push('humorous');
+  if (text.includes('humor') || text.includes('funny') || text.includes('comedy'))
+    tones.push('humorous');
   if (text.includes('technical') || text.includes('precision')) tones.push('technical');
   if (text.includes('minimal') || text.includes('clean')) tones.push('minimal');
   if (text.includes('playful') || text.includes('surprise')) tones.push('playful');
@@ -91,7 +98,8 @@ function extractTransitionTypes(text: string): string[] {
 
 function extractColorProfile(concept: Concept): string[] {
   const profile: string[] = [];
-  if (concept.mood === 'technical' || concept.mood === 'minimal') profile.push('monochrome', 'technical');
+  if (concept.mood === 'technical' || concept.mood === 'minimal')
+    profile.push('monochrome', 'technical');
   if (concept.mood === 'dramatic') profile.push('high-contrast', 'dark');
   if (concept.mood === 'cinematic') profile.push('cinematic', 'graded');
   if (concept.mood === 'playful') profile.push('vibrant', 'colorful');
@@ -124,14 +132,16 @@ function extractSoundLanguage(concept: Concept, text: string): string[] {
 function extractVisualMetaphors(text: string): string[] {
   const metaphors: string[] = [];
   if (text.includes('engine') || text.includes('machine')) metaphors.push('PRINT AS ENGINE');
-  if (text.includes('architecture') || text.includes('building')) metaphors.push('PRINT AS ARCHITECTURE');
+  if (text.includes('architecture') || text.includes('building'))
+    metaphors.push('PRINT AS ARCHITECTURE');
   if (text.includes('identity') || text.includes('brand')) metaphors.push('PRINT AS IDENTITY');
   if (text.includes('armor') || text.includes('protect')) metaphors.push('PRINT AS ARMOR');
   if (text.includes('language') || text.includes('speak')) metaphors.push('PRINT AS LANGUAGE');
   if (text.includes('memory') || text.includes('remember')) metaphors.push('PRINT AS MEMORY');
   if (text.includes('signal') || text.includes('visible')) metaphors.push('PRINT AS SIGNAL');
   if (text.includes('scale') || text.includes('grow')) metaphors.push('PRINT AS SCALE');
-  if (text.includes('transform') || text.includes('become')) metaphors.push('PRINT AS TRANSFORMATION');
+  if (text.includes('transform') || text.includes('become'))
+    metaphors.push('PRINT AS TRANSFORMATION');
   if (text.includes('evidence') || text.includes('proof')) metaphors.push('PRINT AS EVIDENCE');
   if (text.includes('currency') || text.includes('value')) metaphors.push('PRINT AS CURRENCY');
   if (text.includes('story') || text.includes('narrative')) metaphors.push('PRINT AS STORY');

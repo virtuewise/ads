@@ -16,7 +16,7 @@ Scores every concept against 10 equally weighted dimensions (10% each):
 
 | Dimension | Question |
 |---|---|
-| Brand Fit | Does it feel like PrintSync? |
+| Brand Fit | Does it align with the target brand's identity? |
 | Originality | Is it fresh and unexpected? |
 | Commercial Value | Does it sell? |
 | Visual Potential | Can it look stunning? |

@@ -1,5 +1,5 @@
 // Shot Engine – deterministic shot planning
-import { Storyboard, Shot } from "@printsync/common";
+import type { Shot, Storyboard } from '@printsync/common';
 
 export class ShotEngine {
   /**

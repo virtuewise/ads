@@ -1,12 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  PRINT_ITEMS,
-  PRINT_ITEM_ACCENT,
-  SCENE_UNITS_PER_MM,
   getPrintItem,
+  PRINT_ITEM_ACCENT,
+  PRINT_ITEMS,
+  printItemBevelMm,
   printItemBodyHeight,
   printItemBoundingRadius,
-  printItemBevelMm,
   printItemCapHeight,
   printItemDecalRect,
   printItemFlapThickness,
@@ -14,6 +13,7 @@ import {
   printItemSealHeight,
   printItemWrapBand,
   revolveRadiusAt,
+  SCENE_UNITS_PER_MM,
   toSceneUnits,
 } from './print-items.js';
 
@@ -94,8 +94,16 @@ describe('PRINT_ITEMS catalogue', () => {
   });
 
   it('matches canonical ISO / industry flat sizes exactly', () => {
-    expect(getPrintItem('business-card')?.dimensions).toEqual({ width: 85, height: 55, depth: 0.4 });
-    expect(getPrintItem('postcard-a6')?.dimensions).toEqual({ width: 105, height: 148, depth: 0.45 });
+    expect(getPrintItem('business-card')?.dimensions).toEqual({
+      width: 85,
+      height: 55,
+      depth: 0.4,
+    });
+    expect(getPrintItem('postcard-a6')?.dimensions).toEqual({
+      width: 105,
+      height: 148,
+      depth: 0.45,
+    });
     expect(getPrintItem('flyer-a5')?.dimensions).toEqual({ width: 148, height: 210, depth: 0.15 });
     expect(getPrintItem('brochure-a4')?.dimensions).toEqual({ width: 148, height: 210, depth: 3 });
   });

@@ -1,5 +1,5 @@
 // Asset Engine – determines asset requirements from shots
-import { Shot, AssetRequirement } from "@printsync/common";
+import type { AssetRequirement, Shot } from '@printsync/common';
 
 const ASSET_BASE = 'file:///assets';
 
@@ -17,16 +17,31 @@ export class AssetEngine {
   /**
    * Analyze shots and determine required assets.
    */
-  async analyzeAssets(shots: Shot[], options: AssetEngineOptions = {}): Promise<AssetRequirement[]> {
+  async analyzeAssets(
+    shots: Shot[],
+    options: AssetEngineOptions = {},
+  ): Promise<AssetRequirement[]> {
     const { includeStock = true, include3D = false, includeBrand = true } = options;
     const assets: AssetRequirement[] = [];
 
     // Brand assets (always needed for PrintSync)
     if (includeBrand) {
       assets.push(
-        { type: 'brand_mark', url: assetUrl('brand/printsync/logo.svg'), description: 'PrintSync primary logo' },
-        { type: 'brand_guidelines', url: assetUrl('brand/printsync/guidelines.pdf'), description: 'Brand usage guidelines' },
-        { type: 'color_palette', url: assetUrl('brand/printsync/palette.json'), description: 'Brand color tokens' },
+        {
+          type: 'brand_mark',
+          url: assetUrl('brand/printsync/logo.svg'),
+          description: 'PrintSync primary logo',
+        },
+        {
+          type: 'brand_guidelines',
+          url: assetUrl('brand/printsync/guidelines.pdf'),
+          description: 'Brand usage guidelines',
+        },
+        {
+          type: 'color_palette',
+          url: assetUrl('brand/printsync/palette.json'),
+          description: 'Brand color tokens',
+        },
       );
     }
 
@@ -94,7 +109,7 @@ export class AssetEngine {
 
     // Deduplicate by URL
     const seen = new Set<string>();
-    return assets.filter(a => {
+    return assets.filter((a) => {
       if (seen.has(a.url)) return false;
       seen.add(a.url);
       return true;

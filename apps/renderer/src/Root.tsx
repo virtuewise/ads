@@ -1,9 +1,9 @@
-import { Composition } from 'remotion';
 import { DEFAULT_CITY_INPUTS, DEFAULT_PRODUCT_LINE_INPUTS } from '@printsync/motion-engine';
+import { Composition } from 'remotion';
 import { PrintSyncBrandFilm } from './compositions/PrintSyncBrandFilm';
-import { PrintSyncSignatureFilm } from './compositions/PrintSyncSignatureFilm';
-import { PrintSyncProductLine } from './compositions/PrintSyncProductLine';
 import { PrintSyncLivingCity } from './compositions/PrintSyncLivingCity';
+import { PrintSyncProductLine } from './compositions/PrintSyncProductLine';
+import { PrintSyncSignatureFilm } from './compositions/PrintSyncSignatureFilm';
 
 export const RemotionRoot: React.FC = () => {
   return (

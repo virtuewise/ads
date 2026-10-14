@@ -3,22 +3,34 @@
  * These functions are inlined from @printsync/campaign-engine to avoid module resolution issues.
  */
 
-import type { CreativeGenome, Concept, SimilarityResult, CreativeFatigueReport, CreativeOpportunity } from '@printsync/shared';
+import type {
+  Concept,
+  CreativeFatigueReport,
+  CreativeGenome,
+  CreativeOpportunity,
+  SimilarityResult,
+} from '@printsync/shared';
 
 // ─── Creative Genome ────────────────────────────────────────────────────────
 
 export function generateCreativeGenome(concept: Concept): CreativeGenome {
-  const text = `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
+  const text =
+    `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
 
   return {
     narrative: concept.narrative_structure,
     creativeMode: concept.creative_mode,
-    service: concept.story_summary.toLowerCase().includes('large format') ? 'large-format-printing'
-      : concept.story_summary.toLowerCase().includes('digital') ? 'digital-printing'
-      : concept.story_summary.toLowerCase().includes('sign') ? 'signage'
-      : concept.story_summary.toLowerCase().includes('brand') ? 'branding'
-      : concept.story_summary.toLowerCase().includes('packag') ? 'packaging'
-      : 'custom-print-solutions',
+    service: concept.story_summary.toLowerCase().includes('large format')
+      ? 'large-format-printing'
+      : concept.story_summary.toLowerCase().includes('digital')
+        ? 'digital-printing'
+        : concept.story_summary.toLowerCase().includes('sign')
+          ? 'signage'
+          : concept.story_summary.toLowerCase().includes('brand')
+            ? 'branding'
+            : concept.story_summary.toLowerCase().includes('packag')
+              ? 'packaging'
+              : 'custom-print-solutions',
     emotionalTone: extractEmotionalTone(text),
     visualTerritories: [concept.territory],
     typographyBehaviors: extractTypographyBehaviors(concept, text),
@@ -40,7 +52,8 @@ export function generateCreativeGenome(concept: Concept): CreativeGenome {
 function extractEmotionalTone(text: string): string[] {
   const tones: string[] = [];
   if (text.includes('dramatic') || text.includes('epic')) tones.push('dramatic');
-  if (text.includes('humor') || text.includes('funny') || text.includes('comedy')) tones.push('humorous');
+  if (text.includes('humor') || text.includes('funny') || text.includes('comedy'))
+    tones.push('humorous');
   if (text.includes('technical') || text.includes('precision')) tones.push('technical');
   if (text.includes('minimal') || text.includes('clean')) tones.push('minimal');
   if (text.includes('playful') || text.includes('surprise')) tones.push('playful');
@@ -89,7 +102,8 @@ function extractTransitionTypes(text: string): string[] {
 
 function extractColorProfile(concept: Concept): string[] {
   const profile: string[] = [];
-  if (concept.mood === 'technical' || concept.mood === 'minimal') profile.push('monochrome', 'technical');
+  if (concept.mood === 'technical' || concept.mood === 'minimal')
+    profile.push('monochrome', 'technical');
   if (concept.mood === 'dramatic') profile.push('high-contrast', 'dark');
   if (concept.mood === 'cinematic') profile.push('cinematic', 'graded');
   if (concept.mood === 'playful') profile.push('vibrant', 'colorful');
@@ -122,14 +136,16 @@ function extractSoundLanguage(concept: Concept, text: string): string[] {
 function extractVisualMetaphors(text: string): string[] {
   const metaphors: string[] = [];
   if (text.includes('engine') || text.includes('machine')) metaphors.push('PRINT AS ENGINE');
-  if (text.includes('architecture') || text.includes('building')) metaphors.push('PRINT AS ARCHITECTURE');
+  if (text.includes('architecture') || text.includes('building'))
+    metaphors.push('PRINT AS ARCHITECTURE');
   if (text.includes('identity') || text.includes('brand')) metaphors.push('PRINT AS IDENTITY');
   if (text.includes('armor') || text.includes('protect')) metaphors.push('PRINT AS ARMOR');
   if (text.includes('language') || text.includes('speak')) metaphors.push('PRINT AS LANGUAGE');
   if (text.includes('memory') || text.includes('remember')) metaphors.push('PRINT AS MEMORY');
   if (text.includes('signal') || text.includes('visible')) metaphors.push('PRINT AS SIGNAL');
   if (text.includes('scale') || text.includes('grow')) metaphors.push('PRINT AS SCALE');
-  if (text.includes('transform') || text.includes('become')) metaphors.push('PRINT AS TRANSFORMATION');
+  if (text.includes('transform') || text.includes('become'))
+    metaphors.push('PRINT AS TRANSFORMATION');
   if (text.includes('evidence') || text.includes('proof')) metaphors.push('PRINT AS EVIDENCE');
   if (text.includes('currency') || text.includes('value')) metaphors.push('PRINT AS CURRENCY');
   if (text.includes('story') || text.includes('narrative')) metaphors.push('PRINT AS STORY');
@@ -202,11 +218,11 @@ interface SimilarityWeights {
 const DEFAULT_WEIGHTS: SimilarityWeights = {
   creativeMode: 0.15,
   narrativeStructure: 0.15,
-  service: 0.10,
+  service: 0.1,
   visualTerritory: 0.15,
-  typography: 0.10,
-  motion: 0.10,
-  tone: 0.10,
+  typography: 0.1,
+  motion: 0.1,
+  tone: 0.1,
   camera: 0.05,
   color: 0.05,
   transition: 0.05,
@@ -215,7 +231,7 @@ const DEFAULT_WEIGHTS: SimilarityWeights = {
 export function calculateCreativeSimilarity(
   a: CreativeGenome,
   b: CreativeGenome,
-  weights: SimilarityWeights = DEFAULT_WEIGHTS
+  weights: SimilarityWeights = DEFAULT_WEIGHTS,
 ): SimilarityResult {
   const details: Record<string, number> = {};
 
@@ -225,43 +241,44 @@ export function calculateCreativeSimilarity(
 
   const territoryA = new Set(a.visualTerritories);
   const territoryB = new Set(b.visualTerritories);
-  const territoryIntersection = new Set([...territoryA].filter(x => territoryB.has(x)));
+  const territoryIntersection = new Set([...territoryA].filter((x) => territoryB.has(x)));
   const territoryUnion = new Set([...territoryA, ...territoryB]);
-  details.visualTerritory = territoryUnion.size > 0 ? territoryIntersection.size / territoryUnion.size : 0;
+  details.visualTerritory =
+    territoryUnion.size > 0 ? territoryIntersection.size / territoryUnion.size : 0;
 
   const typoA = new Set(a.typographyBehaviors);
   const typoB = new Set(b.typographyBehaviors);
-  const typoIntersection = new Set([...typoA].filter(x => typoB.has(x)));
+  const typoIntersection = new Set([...typoA].filter((x) => typoB.has(x)));
   const typoUnion = new Set([...typoA, ...typoB]);
   details.typography = typoUnion.size > 0 ? typoIntersection.size / typoUnion.size : 0;
 
   const motionA = new Set(a.motionBehaviors);
   const motionB = new Set(b.motionBehaviors);
-  const motionIntersection = new Set([...motionA].filter(x => motionB.has(x)));
+  const motionIntersection = new Set([...motionA].filter((x) => motionB.has(x)));
   const motionUnion = new Set([...motionA, ...motionB]);
   details.motion = motionUnion.size > 0 ? motionIntersection.size / motionUnion.size : 0;
 
   const toneA = new Set(a.emotionalTone);
   const toneB = new Set(b.emotionalTone);
-  const toneIntersection = new Set([...toneA].filter(x => toneB.has(x)));
+  const toneIntersection = new Set([...toneA].filter((x) => toneB.has(x)));
   const toneUnion = new Set([...toneA, ...toneB]);
   details.tone = toneUnion.size > 0 ? toneIntersection.size / toneUnion.size : 0;
 
   const cameraA = new Set(a.cameraLanguage);
   const cameraB = new Set(b.cameraLanguage);
-  const cameraIntersection = new Set([...cameraA].filter(x => cameraB.has(x)));
+  const cameraIntersection = new Set([...cameraA].filter((x) => cameraB.has(x)));
   const cameraUnion = new Set([...cameraA, ...cameraB]);
   details.camera = cameraUnion.size > 0 ? cameraIntersection.size / cameraUnion.size : 0;
 
   const colorA = new Set(a.colorProfile);
   const colorB = new Set(b.colorProfile);
-  const colorIntersection = new Set([...colorA].filter(x => colorB.has(x)));
+  const colorIntersection = new Set([...colorA].filter((x) => colorB.has(x)));
   const colorUnion = new Set([...colorA, ...colorB]);
   details.color = colorUnion.size > 0 ? colorIntersection.size / colorUnion.size : 0;
 
   const transA = new Set(a.transitionTypes);
   const transB = new Set(b.transitionTypes);
-  const transIntersection = new Set([...transA].filter(x => transB.has(x)));
+  const transIntersection = new Set([...transA].filter((x) => transB.has(x)));
   const transUnion = new Set([...transA, ...transB]);
   details.transition = transUnion.size > 0 ? transIntersection.size / transUnion.size : 0;
 
@@ -304,25 +321,51 @@ interface FatigueDimension {
 }
 
 const FATIGUE_DIMENSIONS: FatigueDimension[] = [
-  { name: 'Kinetic Typography', extract: (g) => g.typographyBehaviors.length > 0 ? ['typography'] : [] },
-  { name: 'Dark Technical Aesthetic', extract: (g) => g.colorProfile.includes('dark') || g.colorProfile.includes('monochrome') ? ['dark-technical'] : [] },
-  { name: 'Large Format Service', extract: (g) => g.service === 'large-format-printing' ? ['large-format'] : [] },
-  { name: 'Detective Narrative', extract: (g) => g.narrativeStructure.includes('MYSTERY') ? ['detective'] : [] },
-  { name: 'Humour', extract: (g) => g.humorLevel > 3 ? ['humour'] : [] },
-  { name: 'Human Storytelling', extract: (g) => g.humanPresence > 5 ? ['human-story'] : [] },
-  { name: 'Packaging', extract: (g) => g.service === 'packaging' ? ['packaging'] : [] },
-  { name: 'Minimalist Print Photography', extract: (g) => g.colorProfile.includes('monochrome') && g.cinematicLevel < 5 ? ['minimal-photo'] : [] },
-  { name: 'Cinematic Film', extract: (g) => g.cinematicLevel > 7 ? ['cinematic'] : [] },
-  { name: 'Technical Grids', extract: (g) => g.technicalLevel > 7 ? ['technical-grids'] : [] },
-  { name: 'Particle Effects', extract: (g) => g.motionBehaviors.some(b => b.includes('particle')) ? ['particles'] : [] },
-  { name: 'Scale Transitions', extract: (g) => g.motionBehaviors.some(b => b.includes('scale')) ? ['scale-transitions'] : [] },
+  {
+    name: 'Kinetic Typography',
+    extract: (g) => (g.typographyBehaviors.length > 0 ? ['typography'] : []),
+  },
+  {
+    name: 'Dark Technical Aesthetic',
+    extract: (g) =>
+      g.colorProfile.includes('dark') || g.colorProfile.includes('monochrome')
+        ? ['dark-technical']
+        : [],
+  },
+  {
+    name: 'Large Format Service',
+    extract: (g) => (g.service === 'large-format-printing' ? ['large-format'] : []),
+  },
+  {
+    name: 'Detective Narrative',
+    extract: (g) => (g.narrativeStructure.includes('MYSTERY') ? ['detective'] : []),
+  },
+  { name: 'Humour', extract: (g) => (g.humorLevel > 3 ? ['humour'] : []) },
+  { name: 'Human Storytelling', extract: (g) => (g.humanPresence > 5 ? ['human-story'] : []) },
+  { name: 'Packaging', extract: (g) => (g.service === 'packaging' ? ['packaging'] : []) },
+  {
+    name: 'Minimalist Print Photography',
+    extract: (g) =>
+      g.colorProfile.includes('monochrome') && g.cinematicLevel < 5 ? ['minimal-photo'] : [],
+  },
+  { name: 'Cinematic Film', extract: (g) => (g.cinematicLevel > 7 ? ['cinematic'] : []) },
+  { name: 'Technical Grids', extract: (g) => (g.technicalLevel > 7 ? ['technical-grids'] : []) },
+  {
+    name: 'Particle Effects',
+    extract: (g) => (g.motionBehaviors.some((b) => b.includes('particle')) ? ['particles'] : []),
+  },
+  {
+    name: 'Scale Transitions',
+    extract: (g) =>
+      g.motionBehaviors.some((b) => b.includes('scale')) ? ['scale-transitions'] : [],
+  },
 ];
 
 export function detectCreativeFatigue(genomes: CreativeGenome[]): CreativeFatigueReport[] {
   const reports: CreativeFatigueReport[] = [];
 
   for (const dimension of FATIGUE_DIMENSIONS) {
-    const matchingGenomes = genomes.filter(g => dimension.extract(g).length > 0);
+    const matchingGenomes = genomes.filter((g) => dimension.extract(g).length > 0);
     const recentGenomes = matchingGenomes.slice(-5);
     const totalCount = matchingGenomes.length;
     const recentCount = recentGenomes.length;
@@ -350,15 +393,11 @@ export function detectCreativeFatigue(genomes: CreativeGenome[]): CreativeFatigu
 }
 
 export function getUnderusedDimensions(reports: CreativeFatigueReport[]): string[] {
-  return reports
-    .filter(r => r.usageLevel === 'LOW')
-    .map(r => r.dimension);
+  return reports.filter((r) => r.usageLevel === 'LOW').map((r) => r.dimension);
 }
 
 export function getOverusedDimensions(reports: CreativeFatigueReport[]): string[] {
-  return reports
-    .filter(r => r.usageLevel === 'HIGH')
-    .map(r => r.dimension);
+  return reports.filter((r) => r.usageLevel === 'HIGH').map((r) => r.dimension);
 }
 
 // ─── Creative Opportunities ─────────────────────────────────────────────────
@@ -366,20 +405,20 @@ export function getOverusedDimensions(reports: CreativeFatigueReport[]): string[
 export function identifyCreativeOpportunities(
   genomes: CreativeGenome[],
   fatigueReports: CreativeFatigueReport[],
-  availableServices: string[]
+  availableServices: string[],
 ): CreativeOpportunity[] {
   const underused = getUnderusedDimensions(fatigueReports);
   const _overused = getOverusedDimensions(fatigueReports);
   void _overused;
   const opportunities: CreativeOpportunity[] = [];
 
-  const underusedServices = availableServices.filter(service =>
-    !genomes.some(g => g.service === service)
+  const underusedServices = availableServices.filter(
+    (service) => !genomes.some((g) => g.service === service),
   );
 
   const allTerritories = ['PRECISION', 'TRANSFORMATION', 'SCALE', 'HUMAN_IMPACT', 'PLAY'];
-  const usedTerritories = new Set(genomes.map(g => g.visualTerritories[0]));
-  const underusedTerritories = allTerritories.filter(t => !usedTerritories.has(t));
+  const usedTerritories = new Set(genomes.map((g) => g.visualTerritories[0]));
+  const underusedTerritories = allTerritories.filter((t) => !usedTerritories.has(t));
 
   const allNarratives = [
     'PROBLEM_TENSION_DISCOVERY_TRANSFORMATION_PROOF_BRAND',
@@ -389,12 +428,16 @@ export function identifyCreativeOpportunities(
     'BORING_PRINTSYNC_TRANSFORMATION',
     'DIGITAL_PHYSICAL_EXPERIENCE',
   ];
-  const usedNarratives = new Set(genomes.map(g => g.narrativeStructure));
-  const underusedNarratives = allNarratives.filter(n => !usedNarratives.has(n));
+  const usedNarratives = new Set(genomes.map((g) => g.narrativeStructure));
+  const underusedNarratives = allNarratives.filter((n) => !usedNarratives.has(n));
 
   for (const service of underusedServices.slice(0, 3)) {
-    const territory = underusedTerritories[Math.floor(Math.random() * underusedTerritories.length)] ?? 'TRANSFORMATION';
-    const narrative = underusedNarratives[Math.floor(Math.random() * underusedNarratives.length)] ?? 'IDEA_DESIGN_MACHINE_MATERIAL_SCALE_IMPACT';
+    const territory =
+      underusedTerritories[Math.floor(Math.random() * underusedTerritories.length)] ??
+      'TRANSFORMATION';
+    const narrative =
+      underusedNarratives[Math.floor(Math.random() * underusedNarratives.length)] ??
+      'IDEA_DESIGN_MACHINE_MATERIAL_SCALE_IMPACT';
     const mode = selectModeForTerritory(territory);
 
     const confidence = calculateConfidence(service, territory, narrative, genomes);
@@ -415,9 +458,12 @@ export function identifyCreativeOpportunities(
   }
 
   for (const dimension of underused.slice(0, 3)) {
-    const service = availableServices[Math.floor(Math.random() * availableServices.length)] ?? 'branding';
+    const service =
+      availableServices[Math.floor(Math.random() * availableServices.length)] ?? 'branding';
     const territory = allTerritories[Math.floor(Math.random() * allTerritories.length)] ?? 'PLAY';
-    const narrative = allNarratives[Math.floor(Math.random() * allNarratives.length)] ?? 'CHAOS_PRECISION_CONTROL_RESULT';
+    const narrative =
+      allNarratives[Math.floor(Math.random() * allNarratives.length)] ??
+      'CHAOS_PRECISION_CONTROL_RESULT';
     const mode = selectModeForTerritory(territory);
 
     const confidence = calculateConfidence(service, territory, narrative, genomes) * 0.9;
@@ -437,9 +483,7 @@ export function identifyCreativeOpportunities(
     });
   }
 
-  return opportunities
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 5);
+  return opportunities.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
 }
 
 function selectModeForTerritory(territory: string): string {
@@ -453,19 +497,29 @@ function selectModeForTerritory(territory: string): string {
   return modeMap[territory] ?? 'CINEMATIC_BRAND_FILM';
 }
 
-function calculateConfidence(service: string, territory: string, narrative: string, genomes: CreativeGenome[]): number {
+function calculateConfidence(
+  service: string,
+  territory: string,
+  narrative: string,
+  genomes: CreativeGenome[],
+): number {
   let confidence = 70;
-  if (!genomes.some(g => g.service === service)) confidence += 15;
-  if (!genomes.some(g => g.visualTerritories.includes(territory))) confidence += 10;
-  if (!genomes.some(g => g.narrativeStructure === narrative)) confidence += 5;
+  if (!genomes.some((g) => g.service === service)) confidence += 15;
+  if (!genomes.some((g) => g.visualTerritories.includes(territory))) confidence += 10;
+  if (!genomes.some((g) => g.narrativeStructure === narrative)) confidence += 5;
   return Math.min(100, confidence);
 }
 
-function calculateNovelty(service: string, territory: string, narrative: string, genomes: CreativeGenome[]): number {
+function calculateNovelty(
+  service: string,
+  territory: string,
+  narrative: string,
+  genomes: CreativeGenome[],
+): number {
   let novelty = 60;
-  if (!genomes.some(g => g.service === service)) novelty += 20;
-  if (!genomes.some(g => g.visualTerritories.includes(territory))) novelty += 15;
-  if (!genomes.some(g => g.narrativeStructure === narrative)) novelty += 5;
+  if (!genomes.some((g) => g.service === service)) novelty += 20;
+  if (!genomes.some((g) => g.visualTerritories.includes(territory))) novelty += 15;
+  if (!genomes.some((g) => g.narrativeStructure === narrative)) novelty += 5;
   return Math.min(100, novelty);
 }
 

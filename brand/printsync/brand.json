@@ -20,12 +20,7 @@
   "core_message": "Your Vision. Our Precision.",
   "visual_principle": "Ideas becoming physical impact",
   "motion_principle": "Precision in motion",
-  "brand_pillars": [
-    "CONSISTENCY",
-    "PERSEVERANCE",
-    "CREATIVITY",
-    "PRECISION"
-  ],
+  "brand_pillars": ["CONSISTENCY", "PERSEVERANCE", "CREATIVITY", "PRECISION"],
   "voice_tone": {
     "primary": "confident and precise",
     "secondary": "intelligent and modern",

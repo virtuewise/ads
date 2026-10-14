@@ -84,7 +84,9 @@ export interface MuxArgsOptions {
 /** Mux a picture-locked video with its audio bed, optionally loudness-matched. */
 export function ffmpegMuxArgs(options: MuxArgsOptions): string[] {
   const args = ['-y', '-i', options.video, '-i', options.audio];
-  args.push(...(options.copyVideo === false ? ['-c:v', 'libx264', '-crf', '16'] : ['-c:v', 'copy']));
+  args.push(
+    ...(options.copyVideo === false ? ['-c:v', 'libx264', '-crf', '16'] : ['-c:v', 'copy']),
+  );
   args.push('-c:a', 'aac', '-b:a', options.audioBitrate ?? '192k');
   if (options.loudnorm !== false) {
     args.push('-af', loudnormFilter(options.loudnorm ?? DEFAULT_LOUDNESS));
@@ -152,14 +154,18 @@ export interface MediaProbe {
   readonly durationSeconds: number;
   readonly sizeBytes: number;
   readonly formatName: string;
-  readonly video: {
-    readonly codec: string;
-    readonly width: number;
-    readonly height: number;
-    readonly frameRate: number;
-    readonly frames: number | undefined;
-  } | undefined;
-  readonly audio: { readonly codec: string; readonly channels: number; readonly sampleRate: number } | undefined;
+  readonly video:
+    | {
+        readonly codec: string;
+        readonly width: number;
+        readonly height: number;
+        readonly frameRate: number;
+        readonly frames: number | undefined;
+      }
+    | undefined;
+  readonly audio:
+    | { readonly codec: string; readonly channels: number; readonly sampleRate: number }
+    | undefined;
 }
 
 /**
@@ -253,10 +259,7 @@ export async function runFfmpeg(
 }
 
 /** Probe a media file. Throws if ffprobe is missing or reports nothing. */
-export async function probeMedia(
-  input: string,
-  options: BinaryOptions = {},
-): Promise<MediaProbe> {
+export async function probeMedia(input: string, options: BinaryOptions = {}): Promise<MediaProbe> {
   const result = await runBinary(options.ffprobePath ?? 'ffprobe', ffprobeArgs(input));
   if (result.code !== 0) {
     throw new Error(`ffprobe exited ${result.code}\n${result.stderr.trim()}`);

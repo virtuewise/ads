@@ -19,10 +19,10 @@
 import {
   CITY_EXTENT_M,
   CITY_LOT_DEPTH,
-  hashSeed,
-  mulberry32,
   type CityBuilding,
   type CityOptions,
+  hashSeed,
+  mulberry32,
 } from './city.js';
 
 /** Head height of a shopfront opening, in metres. */
@@ -259,9 +259,7 @@ export const SHOPFRONT_MAX_HEIGHT_M = 4.4;
 /** Where a shop can go: a trading frontage, not a tower lobby or a sliver. */
 function tradable(building: CityBuilding): boolean {
   return (
-    building.style !== 'tower' &&
-    building.depth >= 6 &&
-    building.height >= SHOPFRONT_MIN_BLOCK_M
+    building.style !== 'tower' && building.depth >= 6 && building.height >= SHOPFRONT_MIN_BLOCK_M
   );
 }
 
@@ -335,7 +333,9 @@ export function generateCityShopfronts(
 
     index++;
     const isPrintSync = isHero;
-    const spec = isPrintSync ? specFor('printcentre') : (order[tradeCursor++ % order.length] as TradeSpec);
+    const spec = isPrintSync
+      ? specFor('printcentre')
+      : (order[tradeCursor++ % order.length] as TradeSpec);
 
     const span = building.depth;
     const width = Math.max(3.6, span - SHOPFRONT_PIER_M * 2);
@@ -343,8 +343,8 @@ export function generateCityShopfronts(
     const facingY = building.side > 0 ? -Math.PI / 2 : Math.PI / 2;
 
     const name = isPrintSync
-      ? spec.names[0] ?? 'PrintSync'
-      : spec.names[Math.floor(rand() * spec.names.length)] ?? (spec.names[0] as string);
+      ? (spec.names[0] ?? 'PrintSync')
+      : (spec.names[Math.floor(rand() * spec.names.length)] ?? (spec.names[0] as string));
 
     const shelfBays = Math.round(spec.shelf * 3);
     const banner = rand() < 0.62 ? spec.banner : undefined;
@@ -368,8 +368,15 @@ export function generateCityShopfronts(
       name,
       trade: spec.trade,
       accent: spec.accent,
-      fasciaKind: isPrintSync ? 'lightbox' : rand() < 0.34 ? 'letters' : rand() < 0.7 ? 'panel' : 'lightbox',
-      windowKind: rand() < 0.28 ? 'clear' : rand() < 0.6 ? 'band' : rand() < 0.85 ? 'perforated' : 'vinyl',
+      fasciaKind: isPrintSync
+        ? 'lightbox'
+        : rand() < 0.34
+          ? 'letters'
+          : rand() < 0.7
+            ? 'panel'
+            : 'lightbox',
+      windowKind:
+        rand() < 0.28 ? 'clear' : rand() < 0.6 ? 'band' : rand() < 0.85 ? 'perforated' : 'vinyl',
       awning: spec.awning,
       interior: {
         backWall: spec.backWall,

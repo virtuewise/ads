@@ -1,6 +1,6 @@
+import type { CityBuilding, CityPalette, CityShopfront } from '@printsync/motion-engine';
 import { useMemo } from 'react';
 import { MeshStandardMaterial, type Texture } from 'three';
-import type { CityBuilding, CityPalette, CityShopfront } from '@printsync/motion-engine';
 import { cloneWithRepeat, getFacadeTextures, type WindowVariant } from './cityArtwork';
 
 interface BuildingProps {

@@ -99,10 +99,10 @@ The orchestrator accepts a `seed` for determinism and a `validate` flag (default
 
 ## Naming
 
-- **Virtue Studio** — the product documented here: a persistent, brand-aware advertising engine.
-- **PrintSync** — the brand Virtue Studio produces advertising for. Its rules live in
-  `brand/printsync/` and are documented on the [Brand](Brand) page.
-- `printsync-ads` — the npm package name of this monorepo and the scope of its packages
-  (`@printsync/*`). The scope predates the Virtue Studio name.
+- **Virtue Studio** — the product documented here: a persistent, brand-aware advertising engine for multi-brand creative production.
+- **PrintSync** — the default brand template within Virtue Studio. Its rules live in
+  `brand/printsync/` and are documented on the [Brand](Brand) page. Virtue Studio can support any brand, not just PrintSync.
+- `virtue-studio` — the npm package name of this monorepo.
+- `@printsync/*` — the npm package scope used internally (predates the Virtue Studio branding).
 
 See [Brand](Brand) for the brand, and [Roadmap & Status](Roadmap) for implementation status per area.

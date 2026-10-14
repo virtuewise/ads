@@ -1,5 +1,5 @@
-import { AdditiveBlending } from 'three';
 import type { CityPalette, CityStreetLight } from '@printsync/motion-engine';
+import { AdditiveBlending } from 'three';
 import { getGlowTexture, getLightPoolTexture } from './cityArtwork';
 
 /** Sodium-warm lamp colour. */
@@ -33,7 +33,10 @@ export const StreetLight: React.FC<StreetLightProps> = ({ light, palette }) => {
   const halo = getGlowTexture(LAMP);
 
   return (
-    <group position={[light.position[0], light.position[1], light.position[2]]} rotation={[0, light.rotationY, 0]}>
+    <group
+      position={[light.position[0], light.position[1], light.position[2]]}
+      rotation={[0, light.rotationY, 0]}
+    >
       {/* Column. */}
       <mesh position={[0, STREET_LIGHT_HEIGHT / 2, 0]} castShadow>
         <cylinderGeometry args={[0.1, 0.15, STREET_LIGHT_HEIGHT, 8]} />

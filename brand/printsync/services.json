@@ -5,9 +5,19 @@
       "name": "Digital Printing",
       "category": "print",
       "description": "High-quality digital printing for short runs, quick turnaround, and variable data",
-      "customer_problems": ["need fast turnaround", "small print runs", "variable data printing", "on-demand printing"],
+      "customer_problems": [
+        "need fast turnaround",
+        "small print runs",
+        "variable data printing",
+        "on-demand printing"
+      ],
       "applications": ["brochures", "flyers", "business cards", "booklets", "personalized mailers"],
-      "visual_opportunities": ["precision registration", "color accuracy", "short-run efficiency", "variable data"],
+      "visual_opportunities": [
+        "precision registration",
+        "color accuracy",
+        "short-run efficiency",
+        "variable data"
+      ],
       "proof_assets": ["printed samples", "color calibration", "registration marks"],
       "campaign_angles": ["speed meets precision", "every copy perfect", "on-demand capability"],
       "cta_options": ["Start your print order", "Get a quote today", "Upload your design"]
@@ -17,11 +27,20 @@
       "name": "Commercial Printing",
       "category": "print",
       "description": "Large-scale commercial printing for high-volume projects",
-      "customer_problems": ["high-volume needs", "consistent quality at scale", "tight deadlines", "cost efficiency"],
+      "customer_problems": [
+        "high-volume needs",
+        "consistent quality at scale",
+        "tight deadlines",
+        "cost efficiency"
+      ],
       "applications": ["magazines", "catalogs", "annual reports", "brochures", "posters"],
       "visual_opportunities": ["production lines", "volume", "consistency", "scale"],
       "proof_assets": ["production facility", "large print runs", "quality control"],
-      "campaign_angles": ["scale without compromise", "volume with precision", "industrial capability"],
+      "campaign_angles": [
+        "scale without compromise",
+        "volume with precision",
+        "industrial capability"
+      ],
       "cta_options": ["Scale your print", "Request commercial quote", "Plan your project"]
     },
     {
@@ -29,11 +48,26 @@
       "name": "Large Format Printing",
       "category": "print",
       "description": "Oversized printing for banners, signage, displays, and environmental graphics",
-      "customer_problems": ["need visibility", "large-scale branding", "outdoor durability", "environmental impact"],
-      "applications": ["banners", "billboards", "building wraps", "vehicle graphics", "exhibition displays"],
+      "customer_problems": [
+        "need visibility",
+        "large-scale branding",
+        "outdoor durability",
+        "environmental impact"
+      ],
+      "applications": [
+        "banners",
+        "billboards",
+        "building wraps",
+        "vehicle graphics",
+        "exhibition displays"
+      ],
       "visual_opportunities": ["scale", "transformation", "environmental impact", "visibility"],
       "proof_assets": ["large installations", "building wraps", "outdoor signage"],
-      "campaign_angles": ["big ideas need big print", "impossible to ignore", "scale that transforms"],
+      "campaign_angles": [
+        "big ideas need big print",
+        "impossible to ignore",
+        "scale that transforms"
+      ],
       "cta_options": ["Go big with PrintSync", "Request large-format quote", "Transform your space"]
     },
     {
@@ -41,9 +75,25 @@
       "name": "Signage",
       "category": "signage",
       "description": "Professional signage solutions for businesses, retail, and public spaces",
-      "customer_problems": ["need visibility", "brand consistency", "professional appearance", "durability"],
-      "applications": ["storefront signs", "directional signage", "wayfinding", "retail displays", "office signage"],
-      "visual_opportunities": ["dimensional lettering", "illumination", "material variety", "architectural integration"],
+      "customer_problems": [
+        "need visibility",
+        "brand consistency",
+        "professional appearance",
+        "durability"
+      ],
+      "applications": [
+        "storefront signs",
+        "directional signage",
+        "wayfinding",
+        "retail displays",
+        "office signage"
+      ],
+      "visual_opportunities": [
+        "dimensional lettering",
+        "illumination",
+        "material variety",
+        "architectural integration"
+      ],
       "proof_assets": ["installed signage", "illuminated signs", "dimensional lettering"],
       "campaign_angles": ["be seen", "signage that works", "brand in three dimensions"],
       "cta_options": ["Design your sign", "Request signage consultation", "Get noticed"]
@@ -53,11 +103,31 @@
       "name": "Road Signs",
       "category": "signage",
       "description": "Traffic and road signage meeting safety standards and regulations",
-      "customer_problems": ["regulatory compliance", "safety requirements", "durability", "visibility"],
-      "applications": ["traffic signs", "directional signs", "warning signs", "regulatory signs", "highway signage"],
-      "visual_opportunities": ["reflective materials", "standardized precision", "safety", "visibility at speed"],
+      "customer_problems": [
+        "regulatory compliance",
+        "safety requirements",
+        "durability",
+        "visibility"
+      ],
+      "applications": [
+        "traffic signs",
+        "directional signs",
+        "warning signs",
+        "regulatory signs",
+        "highway signage"
+      ],
+      "visual_opportunities": [
+        "reflective materials",
+        "standardized precision",
+        "safety",
+        "visibility at speed"
+      ],
       "proof_assets": ["road installations", "reflective signage", "compliance certification"],
-      "campaign_angles": ["safety in precision", "signs that save lives", "engineered for visibility"],
+      "campaign_angles": [
+        "safety in precision",
+        "signs that save lives",
+        "engineered for visibility"
+      ],
       "cta_options": ["Ensure compliance", "Request road sign quote", "Safety first"]
     },
     {
@@ -65,9 +135,25 @@
       "name": "Safety Signs",
       "category": "signage",
       "description": "Workplace safety signage for compliance and protection",
-      "customer_problems": ["workplace safety", "legal compliance", "employee protection", "risk reduction"],
-      "applications": ["warning signs", "prohibition signs", "mandatory signs", "emergency signs", "fire safety signs"],
-      "visual_opportunities": ["universal symbols", "high visibility", "instant recognition", "life-saving clarity"],
+      "customer_problems": [
+        "workplace safety",
+        "legal compliance",
+        "employee protection",
+        "risk reduction"
+      ],
+      "applications": [
+        "warning signs",
+        "prohibition signs",
+        "mandatory signs",
+        "emergency signs",
+        "fire safety signs"
+      ],
+      "visual_opportunities": [
+        "universal symbols",
+        "high visibility",
+        "instant recognition",
+        "life-saving clarity"
+      ],
       "proof_assets": ["workplace installations", "safety compliance", "emergency signage"],
       "campaign_angles": ["safety speaks clearly", "signs that protect", "compliance made visible"],
       "cta_options": ["Protect your workplace", "Request safety audit", "Compliance starts here"]
@@ -77,10 +163,30 @@
       "name": "Medical Safety Signs",
       "category": "signage",
       "description": "Specialized safety signage for healthcare and medical environments",
-      "customer_problems": ["healthcare compliance", "infection control", "patient safety", "staff protection"],
-      "applications": ["hospital signage", "clinic wayfinding", "hazard warnings", "sterile area signs", "emergency exits"],
-      "visual_opportunities": ["clean precision", "healthcare environments", "critical clarity", "sterile aesthetics"],
-      "proof_assets": ["hospital installations", "medical facility signage", "healthcare compliance"],
+      "customer_problems": [
+        "healthcare compliance",
+        "infection control",
+        "patient safety",
+        "staff protection"
+      ],
+      "applications": [
+        "hospital signage",
+        "clinic wayfinding",
+        "hazard warnings",
+        "sterile area signs",
+        "emergency exits"
+      ],
+      "visual_opportunities": [
+        "clean precision",
+        "healthcare environments",
+        "critical clarity",
+        "sterile aesthetics"
+      ],
+      "proof_assets": [
+        "hospital installations",
+        "medical facility signage",
+        "healthcare compliance"
+      ],
       "campaign_angles": ["precision in care", "signs that protect lives", "healthcare clarity"],
       "cta_options": ["Protect patients", "Request medical signage", "Healthcare precision"]
     },
@@ -89,9 +195,25 @@
       "name": "Branding",
       "category": "creative",
       "description": "Comprehensive brand identity and visual communication solutions",
-      "customer_problems": ["brand inconsistency", "weak visual identity", "need differentiation", "brand recognition"],
-      "applications": ["logo design", "brand guidelines", "visual identity", "brand strategy", "rebranding"],
-      "visual_opportunities": ["identity systems", "brand consistency", "visual storytelling", "recognition"],
+      "customer_problems": [
+        "brand inconsistency",
+        "weak visual identity",
+        "need differentiation",
+        "brand recognition"
+      ],
+      "applications": [
+        "logo design",
+        "brand guidelines",
+        "visual identity",
+        "brand strategy",
+        "rebranding"
+      ],
+      "visual_opportunities": [
+        "identity systems",
+        "brand consistency",
+        "visual storytelling",
+        "recognition"
+      ],
       "proof_assets": ["brand guidelines", "identity systems", "before/after rebrands"],
       "campaign_angles": ["brand with precision", "identity that works", "be remembered"],
       "cta_options": ["Build your brand", "Request brand consultation", "Define your identity"]
@@ -101,9 +223,25 @@
       "name": "Graphic Design",
       "category": "creative",
       "description": "Professional graphic design for print and digital media",
-      "customer_problems": ["need professional design", "stand out from competitors", "communicate effectively", "visual impact"],
-      "applications": ["marketing materials", "digital graphics", "print design", "social media", "presentations"],
-      "visual_opportunities": ["visual communication", "creative concepts", "professional execution", "brand consistency"],
+      "customer_problems": [
+        "need professional design",
+        "stand out from competitors",
+        "communicate effectively",
+        "visual impact"
+      ],
+      "applications": [
+        "marketing materials",
+        "digital graphics",
+        "print design",
+        "social media",
+        "presentations"
+      ],
+      "visual_opportunities": [
+        "visual communication",
+        "creative concepts",
+        "professional execution",
+        "brand consistency"
+      ],
       "proof_assets": ["design portfolios", "client work", "award-winning design"],
       "campaign_angles": ["design that communicates", "visual impact", "creative precision"],
       "cta_options": ["Start your design", "Request design portfolio", "Create with PrintSync"]
@@ -113,11 +251,31 @@
       "name": "Labels",
       "category": "print",
       "description": "Custom label printing for products, packaging, and identification",
-      "customer_problems": ["product identification", "brand consistency", "regulatory labeling", "durability"],
-      "applications": ["product labels", "barcode labels", "warning labels", "brand labels", "asset tags"],
-      "visual_opportunities": ["precision printing", "material variety", "adhesive technology", "brand consistency"],
+      "customer_problems": [
+        "product identification",
+        "brand consistency",
+        "regulatory labeling",
+        "durability"
+      ],
+      "applications": [
+        "product labels",
+        "barcode labels",
+        "warning labels",
+        "brand labels",
+        "asset tags"
+      ],
+      "visual_opportunities": [
+        "precision printing",
+        "material variety",
+        "adhesive technology",
+        "brand consistency"
+      ],
       "proof_assets": ["label samples", "product applications", "material variety"],
-      "campaign_angles": ["every label perfect", "brand in every detail", "precision at small scale"],
+      "campaign_angles": [
+        "every label perfect",
+        "brand in every detail",
+        "precision at small scale"
+      ],
       "cta_options": ["Label your products", "Request label samples", "Precision labeling"]
     },
     {
@@ -125,9 +283,25 @@
       "name": "Stickers",
       "category": "print",
       "description": "Custom sticker printing for branding, promotion, and identification",
-      "customer_problems": ["brand promotion", "product identification", "event branding", "durability"],
-      "applications": ["brand stickers", "promotional stickers", "product labels", "event stickers", "vinyl decals"],
-      "visual_opportunities": ["die-cut shapes", "material variety", "vibrant colors", "brand expression"],
+      "customer_problems": [
+        "brand promotion",
+        "product identification",
+        "event branding",
+        "durability"
+      ],
+      "applications": [
+        "brand stickers",
+        "promotional stickers",
+        "product labels",
+        "event stickers",
+        "vinyl decals"
+      ],
+      "visual_opportunities": [
+        "die-cut shapes",
+        "material variety",
+        "vibrant colors",
+        "brand expression"
+      ],
       "proof_assets": ["sticker samples", "die-cut examples", "vinyl applications"],
       "campaign_angles": ["stick your brand", "precision in every shape", "brand that sticks"],
       "cta_options": ["Create your stickers", "Request sticker samples", "Stick with PrintSync"]
@@ -137,9 +311,25 @@
       "name": "Packaging",
       "category": "print",
       "description": "Custom packaging printing for products, retail, and shipping",
-      "customer_problems": ["product protection", "brand presentation", "shelf impact", "sustainability"],
-      "applications": ["product boxes", "retail packaging", "shipping boxes", "luxury packaging", "food packaging"],
-      "visual_opportunities": ["structural design", "material variety", "brand experience", "unboxing moments"],
+      "customer_problems": [
+        "product protection",
+        "brand presentation",
+        "shelf impact",
+        "sustainability"
+      ],
+      "applications": [
+        "product boxes",
+        "retail packaging",
+        "shipping boxes",
+        "luxury packaging",
+        "food packaging"
+      ],
+      "visual_opportunities": [
+        "structural design",
+        "material variety",
+        "brand experience",
+        "unboxing moments"
+      ],
       "proof_assets": ["packaging samples", "structural designs", "retail applications"],
       "campaign_angles": ["packaging that sells", "brand in every box", "unbox the experience"],
       "cta_options": ["Package your product", "Request packaging design", "Elevate your unboxing"]
@@ -149,11 +339,31 @@
       "name": "Corporate Stationery",
       "category": "print",
       "description": "Professional stationery for business communication and branding",
-      "customer_problems": ["professional image", "brand consistency", "business communication", "first impressions"],
-      "applications": ["letterheads", "business cards", "envelopes", "compliment slips", "notepads"],
-      "visual_opportunities": ["paper quality", "printing precision", "brand consistency", "tactile experience"],
+      "customer_problems": [
+        "professional image",
+        "brand consistency",
+        "business communication",
+        "first impressions"
+      ],
+      "applications": [
+        "letterheads",
+        "business cards",
+        "envelopes",
+        "compliment slips",
+        "notepads"
+      ],
+      "visual_opportunities": [
+        "paper quality",
+        "printing precision",
+        "brand consistency",
+        "tactile experience"
+      ],
       "proof_assets": ["stationery sets", "paper samples", "printing techniques"],
-      "campaign_angles": ["first impressions matter", "brand in every detail", "professional precision"],
+      "campaign_angles": [
+        "first impressions matter",
+        "brand in every detail",
+        "professional precision"
+      ],
       "cta_options": ["Elevate your stationery", "Request stationery samples", "Brand every detail"]
     },
     {
@@ -161,8 +371,19 @@
       "name": "Posters",
       "category": "print",
       "description": "High-impact poster printing for advertising, promotion, and decoration",
-      "customer_problems": ["need visibility", "promotional impact", "event advertising", "brand awareness"],
-      "applications": ["event posters", "promotional posters", "advertising posters", "decorative posters", "movie posters"],
+      "customer_problems": [
+        "need visibility",
+        "promotional impact",
+        "event advertising",
+        "brand awareness"
+      ],
+      "applications": [
+        "event posters",
+        "promotional posters",
+        "advertising posters",
+        "decorative posters",
+        "movie posters"
+      ],
       "visual_opportunities": ["large format", "vibrant colors", "visual impact", "scale"],
       "proof_assets": ["poster installations", "event promotions", "advertising campaigns"],
       "campaign_angles": ["ideas that demand attention", "poster power", "impact at scale"],
@@ -173,8 +394,19 @@
       "name": "Banners",
       "category": "print",
       "description": "Custom banner printing for events, promotions, and advertising",
-      "customer_problems": ["event visibility", "promotional impact", "outdoor advertising", "brand presence"],
-      "applications": ["event banners", "promotional banners", "outdoor banners", "trade show banners", "vinyl banners"],
+      "customer_problems": [
+        "event visibility",
+        "promotional impact",
+        "outdoor advertising",
+        "brand presence"
+      ],
+      "applications": [
+        "event banners",
+        "promotional banners",
+        "outdoor banners",
+        "trade show banners",
+        "vinyl banners"
+      ],
       "visual_opportunities": ["large scale", "vibrant colors", "durability", "visibility"],
       "proof_assets": ["banner installations", "event applications", "outdoor advertising"],
       "campaign_angles": ["banner visibility", "impossible to ignore", "brand at scale"],
@@ -185,9 +417,25 @@
       "name": "Displays",
       "category": "signage",
       "description": "Point-of-sale and exhibition displays for retail and events",
-      "customer_problems": ["need visibility", "brand presence", "product promotion", "customer engagement"],
-      "applications": ["POS displays", "exhibition stands", "retail displays", "trade show displays", "pop-up displays"],
-      "visual_opportunities": ["structural design", "brand integration", "interactive elements", "visual impact"],
+      "customer_problems": [
+        "need visibility",
+        "brand presence",
+        "product promotion",
+        "customer engagement"
+      ],
+      "applications": [
+        "POS displays",
+        "exhibition stands",
+        "retail displays",
+        "trade show displays",
+        "pop-up displays"
+      ],
+      "visual_opportunities": [
+        "structural design",
+        "brand integration",
+        "interactive elements",
+        "visual impact"
+      ],
       "proof_assets": ["display installations", "exhibition stands", "retail applications"],
       "campaign_angles": ["display your brand", "engage your audience", "stand out"],
       "cta_options": ["Design your display", "Request display consultation", "Stand out"]
@@ -197,9 +445,26 @@
       "name": "Finishing",
       "category": "finishing",
       "description": "Professional finishing services including laminating, binding, and cutting",
-      "customer_problems": ["professional appearance", "durability", "presentation quality", "protection"],
-      "applications": ["lamination", "binding", "die-cutting", "foiling", "embossing", "UV coating"],
-      "visual_opportunities": ["material transformation", "tactile quality", "premium finishes", "protection"],
+      "customer_problems": [
+        "professional appearance",
+        "durability",
+        "presentation quality",
+        "protection"
+      ],
+      "applications": [
+        "lamination",
+        "binding",
+        "die-cutting",
+        "foiling",
+        "embossing",
+        "UV coating"
+      ],
+      "visual_opportunities": [
+        "material transformation",
+        "tactile quality",
+        "premium finishes",
+        "protection"
+      ],
       "proof_assets": ["finished samples", "material transformations", "premium effects"],
       "campaign_angles": ["finish with precision", "the final touch", "perfection in detail"],
       "cta_options": ["Finish with PrintSync", "Request finishing samples", "Perfect the detail"]
@@ -209,9 +474,25 @@
       "name": "Custom Print Solutions",
       "category": "specialty",
       "description": "Bespoke printing solutions for unique and specialized requirements",
-      "customer_problems": ["unique requirements", "specialized materials", "unusual formats", "creative challenges"],
-      "applications": ["specialty printing", "unusual substrates", "custom formats", "innovative materials", "prototype printing"],
-      "visual_opportunities": ["innovation", "material exploration", "creative problem-solving", "unique applications"],
+      "customer_problems": [
+        "unique requirements",
+        "specialized materials",
+        "unusual formats",
+        "creative challenges"
+      ],
+      "applications": [
+        "specialty printing",
+        "unusual substrates",
+        "custom formats",
+        "innovative materials",
+        "prototype printing"
+      ],
+      "visual_opportunities": [
+        "innovation",
+        "material exploration",
+        "creative problem-solving",
+        "unique applications"
+      ],
       "proof_assets": ["custom projects", "innovative solutions", "specialty applications"],
       "campaign_angles": ["if you can imagine it", "print the impossible", "custom precision"],
       "cta_options": ["Challenge us", "Request custom consultation", "Print the impossible"]

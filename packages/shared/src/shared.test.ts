@@ -2,7 +2,7 @@
  * Shared Package Tests
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { DEFAULT_THRESHOLDS, getScoreStatus } from './schemas/creative.js';
 
 describe('Shared Schemas', () => {

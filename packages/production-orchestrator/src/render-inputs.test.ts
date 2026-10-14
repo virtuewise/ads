@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { RenderInputsSchema, type CreativeBrief } from '@printsync/common';
+import { type CreativeBrief, RenderInputsSchema } from '@printsync/common';
 import { PRINT_ITEMS_HERO_IDS } from '@printsync/motion-engine';
+import { describe, expect, it } from 'vitest';
 import { buildCityRenderInputs, buildRenderInputs } from './index.js';
 
 const brief: CreativeBrief = {

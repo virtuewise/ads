@@ -3,7 +3,15 @@
  * Defines campaign structure, history, and rotation state.
  */
 
-import type { CreativeMode, VoiceMode, Mood, VisualStyle, Pace, CreativeTerritory, NarrativeStructure } from './creative.js';
+import type {
+  CreativeMode,
+  CreativeTerritory,
+  Mood,
+  NarrativeStructure,
+  Pace,
+  VisualStyle,
+  VoiceMode,
+} from './creative.js';
 
 export interface Campaign {
   id: string;

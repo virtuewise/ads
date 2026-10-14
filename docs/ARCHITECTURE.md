@@ -10,7 +10,7 @@ Virtue Studio is a modular, brand-aware advertising engine built on a monorepo a
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PRINTSYNC CREATIVE OS                        │
+│                        VIRTUE STUDIO                              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │

@@ -1,6 +1,6 @@
+import type { CityBrandSign, CityPalette } from '@printsync/motion-engine';
 import { useMemo } from 'react';
 import { DoubleSide } from 'three';
-import type { CityBrandSign, CityPalette } from '@printsync/motion-engine';
 import { createBrandSignTexture } from './cityArtwork';
 
 interface BrandSignProps {

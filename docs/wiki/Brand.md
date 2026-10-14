@@ -1,6 +1,6 @@
 # Brand
 
-PrintSync is the brand this system produces advertising for. The **brand brain** lives in
+PrintSync is the default brand template within Virtue Studio. Virtue Studio is a multi-brand advertising engine that can support any brand; PrintSync is the first/featured brand implementation. The **brand brain** lives in
 `brand/printsync/` and is loaded through `@printsync/brand-engine` — the rest of the system should not
 read brand files directly.
 

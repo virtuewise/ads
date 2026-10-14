@@ -1,14 +1,4 @@
-import { describe, it, expect } from 'vitest';
-import {
-  DEFAULT_FRAMES_PER_SHARD,
-  buildRenderPlan,
-  frameRangeArg,
-  planShards,
-  shardFileName,
-  shardFrames,
-  type RenderJobSpec,
-  type RenderTarget,
-} from './plan.js';
+import { describe, expect, it } from 'vitest';
 import {
   BROADCAST_LOUDNESS,
   DEFAULT_LOUDNESS,
@@ -21,6 +11,16 @@ import {
   parseProbe,
 } from './ffmpeg.js';
 import { loadRemotionLambda } from './lambda.js';
+import {
+  buildRenderPlan,
+  DEFAULT_FRAMES_PER_SHARD,
+  frameRangeArg,
+  planShards,
+  type RenderJobSpec,
+  type RenderTarget,
+  shardFileName,
+  shardFrames,
+} from './plan.js';
 
 describe('shardFrames', () => {
   it('covers the whole composition with no gap and no overlap', () => {
@@ -148,7 +148,13 @@ describe('buildRenderPlan', () => {
   it('defaults to a single job per short target', () => {
     const plan = buildRenderPlan({
       targets: [
-        { composition: 'PrintSyncSignatureFilm', durationInFrames: 120, fps: 30, width: 1920, height: 1080 },
+        {
+          composition: 'PrintSyncSignatureFilm',
+          durationInFrames: 120,
+          fps: 30,
+          width: 1920,
+          height: 1080,
+        },
       ],
     });
     expect(plan.jobs).toHaveLength(1);
@@ -157,7 +163,7 @@ describe('buildRenderPlan', () => {
 });
 
 describe('frameRangeArg', () => {
-  it('converts the half-open range to Remotion\'s inclusive argument', () => {
+  it("converts the half-open range to Remotion's inclusive argument", () => {
     expect(frameRangeArg({ from: 0, toExclusive: 300 })).toBe('0-299');
     expect(frameRangeArg({ from: 900, toExclusive: 1200 })).toBe('900-1199');
   });
@@ -249,19 +255,36 @@ describe('ffmpeg argument builders', () => {
   });
 
   it('leaves audio untouched when normalisation is disabled', () => {
-    const args = ffmpegMuxArgs({ video: 'v.mp4', audio: 'a.wav', output: 'out.mp4', loudnorm: false });
+    const args = ffmpegMuxArgs({
+      video: 'v.mp4',
+      audio: 'a.wav',
+      output: 'out.mp4',
+      loudnorm: false,
+    });
     expect(args).not.toContain('-af');
     expect(args).toContain('out.mp4');
   });
 
   it('picks the right encoder per delivery codec', () => {
     expect(ffmpegTranscodeArgs({ input: 'm.mov', output: 'd.mp4' })).toEqual([
-      '-y', '-i', 'm.mov', '-c:v', 'libx264', '-crf', '20', '-preset', 'medium', '-pix_fmt',
-      'yuv420p', '-movflags', '+faststart', 'd.mp4',
+      '-y',
+      '-i',
+      'm.mov',
+      '-c:v',
+      'libx264',
+      '-crf',
+      '20',
+      '-preset',
+      'medium',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      'd.mp4',
     ]);
-    expect(
-      ffmpegTranscodeArgs({ input: 'm.mov', output: 'd.mp4', codec: 'h265' }),
-    ).toContain('libx265');
+    expect(ffmpegTranscodeArgs({ input: 'm.mov', output: 'd.mp4', codec: 'h265' })).toContain(
+      'libx265',
+    );
     const prores = ffmpegTranscodeArgs({ input: 'm.mov', output: 'd.mov', codec: 'prores' });
     expect(prores).toContain('prores_ks');
     expect(prores).not.toContain('-crf');

@@ -20,9 +20,4 @@ serde_json = { workspace = true }
 half = "2.0"  # f16 support for audio
 
 [build-dependencies]
-napi-build = { version = "3.0", features = ["napi8"] }
-
-[profile.release]
-lto = true
-strip = true
-codegen-units = 1
+napi-build = "2.6"

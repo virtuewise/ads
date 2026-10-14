@@ -17,14 +17,7 @@ export const BrandTokensSchema = z.object({
   ink: z.string(),
 });
 
-export const CameraPathSchema = z.enum([
-  'turntable',
-  'orbit',
-  'dolly',
-  'hero',
-  'showcase',
-  'none',
-]);
+export const CameraPathSchema = z.enum(['turntable', 'orbit', 'dolly', 'hero', 'showcase', 'none']);
 
 export const CompositionIdSchema = z.enum([
   'PrintSyncSignatureFilm',

@@ -1,22 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_BRAND_TOKENS } from './artwork.js';
+import { CAMERA_PATHS, resolveCityCameraPlan, SHOWCASE_SHOTS } from './camera.js';
+import { oohSceneHeight } from './ooh.js';
 import {
-  DEFAULT_PRODUCT_LINE_INPUTS,
-  DEFAULT_CITY_INPUTS,
-  DEFAULT_CITY_SEED,
-  coerceCameraPath,
-  coerceTimeOfDay,
-  resolveCityInputs,
-  resolveProductLineInputs,
-} from './render-inputs.js';
-import {
+  getPrintItem,
   PRINT_ITEMS,
   PRINT_ITEMS_HERO_ANIMATIONS,
   PRINT_ITEMS_HERO_IDS,
-  getPrintItem,
 } from './print-items.js';
-import { CAMERA_PATHS, SHOWCASE_SHOTS, resolveCityCameraPlan } from './camera.js';
-import { DEFAULT_BRAND_TOKENS } from './artwork.js';
-import { oohSceneHeight } from './ooh.js';
+import {
+  coerceCameraPath,
+  coerceTimeOfDay,
+  DEFAULT_CITY_INPUTS,
+  DEFAULT_CITY_SEED,
+  DEFAULT_PRODUCT_LINE_INPUTS,
+  resolveCityInputs,
+  resolveProductLineInputs,
+} from './render-inputs.js';
 import { CITY_LANES, VEHICLE_SIZES } from './vehicles.js';
 
 describe('DEFAULT_PRODUCT_LINE_INPUTS', () => {
@@ -285,8 +285,7 @@ describe('resolveCityInputs', () => {
         for (const vehicle of resolved.vehicles) {
           if (!vehicle.parked || Math.sign(vehicle.lane) !== side) continue;
           const edge =
-            Math.abs(vehicle.z - subject.position[2]) -
-            VEHICLE_SIZES[vehicle.kind].length / 2;
+            Math.abs(vehicle.z - subject.position[2]) - VEHICLE_SIZES[vehicle.kind].length / 2;
           if (edge < nearest) nearest = edge;
         }
         expect(nearest).toBeGreaterThanOrEqual(1.5);
@@ -296,12 +295,8 @@ describe('resolveCityInputs', () => {
 
   it('rides every showcase close-up clear of the traffic', () => {
     const resolved = resolveCityInputs();
-    const widest = Math.max(
-      ...Object.values(VEHICLE_SIZES).map((size) => size.width),
-    );
-    const tallest = Math.max(
-      ...Object.values(VEHICLE_SIZES).map((size) => size.height),
-    );
+    const widest = Math.max(...Object.values(VEHICLE_SIZES).map((size) => size.width));
+    const tallest = Math.max(...Object.values(VEHICLE_SIZES).map((size) => size.height));
     for (const subject of resolved.shotSubjects) {
       const shot = SHOWCASE_SHOTS.find((entry) => entry.kind === subject.kind);
       if (!shot) throw new Error(`showcase has no ${subject.kind} shot`);
@@ -315,9 +310,7 @@ describe('resolveCityInputs', () => {
         ).pose;
         for (const lane of CITY_LANES) {
           const lateral = Math.abs(pose.position[0] - lane.offset);
-          expect(lateral > widest / 2 + 0.2 || pose.position[1] > tallest + 0.2).toBe(
-            true,
-          );
+          expect(lateral > widest / 2 + 0.2 || pose.position[1] > tallest + 0.2).toBe(true);
         }
         for (const vehicle of resolved.vehicles) {
           if (!vehicle.parked) continue;
@@ -334,19 +327,14 @@ describe('resolveCityInputs', () => {
 
   it('rides a wall panel above a shopfront rather than through it', () => {
     const resolved = resolveCityInputs();
-    const shops = new Map(
-      resolved.shopfronts.map((shop) => [shop.buildingId, shop] as const),
-    );
+    const shops = new Map(resolved.shopfronts.map((shop) => [shop.buildingId, shop] as const));
     const buildings = new Map(
       resolved.layout.buildings.map((building) => [building.id, building] as const),
     );
     let lifted = 0;
     for (const entry of resolved.billboards) {
       const buildingId = entry.slot.buildingId;
-      const shop =
-        entry.slot.mount === 'facade' && buildingId
-          ? shops.get(buildingId)
-          : undefined;
+      const shop = entry.slot.mount === 'facade' && buildingId ? shops.get(buildingId) : undefined;
       if (!shop) continue;
       lifted += 1;
       const height = oohSceneHeight(entry.format);

@@ -8,6 +8,10 @@ dist/
 out/
 *.tsbuildinfo
 
+# Generated schemas (Rust xtask output). The hand-written Zod schemas in
+# packages/common/src remain the authoritative source of truth.
+packages/common/src/generated/
+
 # Turborepo cache
 .turbo/
 

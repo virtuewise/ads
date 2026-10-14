@@ -1,7 +1,7 @@
 # CLI Reference
 
-The `@printsync/cli` package exposes the `printsync` binary (Commander). Every command is also
-re-exported as a root `package.json` script for convenience.
+The `@printsync/cli` package exposes the `virtue` binary (Commander). Every command is also
+re-exported as a root `package.json` script for convenience. Note: the package scope remains `@printsync/*` for backward compatibility.
 
 ## Root scripts
 
@@ -138,9 +138,5 @@ Every invocation prints a banner before parsing:
 VIRTUE STUDIO
 Premium visual storytelling. Precision in motion.
 ```
-
-> Note: the string currently hard-coded in `packages/cli/src/index.ts` still reads
-> `PRINTSYNC CREATIVE OS` / `Precision in motion. Ideas becoming physical impact.` The banner
-> predates the Virtue Studio name and should be updated.
 
 See [Creative System](Creative-System) for what the judge and engines actually do.

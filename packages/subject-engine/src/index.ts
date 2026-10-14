@@ -1,5 +1,5 @@
 // Subject Engine – analyses a brief into subject insights
-import { CreativeBrief } from "@printsync/common";
+import type { CreativeBrief } from '@printsync/common';
 
 export interface Entity {
   name: string;
@@ -36,11 +36,11 @@ function extractEntities(brief: CreativeBrief): Entity[] {
 
   // Product/Service type classification
   const serviceMap: Record<string, Entity['type']> = {
-    'print': 'PRODUCT',
-    'signage': 'PRODUCT',
-    'branding': 'SERVICE',
-    'design': 'SERVICE',
-    'campaign': 'SERVICE',
+    print: 'PRODUCT',
+    signage: 'PRODUCT',
+    branding: 'SERVICE',
+    design: 'SERVICE',
+    campaign: 'SERVICE',
   };
 
   for (const [keyword, type] of Object.entries(serviceMap)) {
@@ -59,7 +59,7 @@ function extractEntities(brief: CreativeBrief): Entity[] {
 
   // Deduplicate by name
   const seen = new Set<string>();
-  return entities.filter(e => {
+  return entities.filter((e) => {
     if (seen.has(e.name.toLowerCase())) return false;
     seen.add(e.name.toLowerCase());
     return true;
@@ -72,10 +72,20 @@ function classifyGoal(objective: string): Goal {
   if (obj.includes('awareness') || obj.includes('reach') || obj.includes('visibility')) {
     return { description: objective, type: 'AWARENESS', priority: 9 };
   }
-  if (obj.includes('convert') || obj.includes('sales') || obj.includes('lead') || obj.includes('signup')) {
+  if (
+    obj.includes('convert') ||
+    obj.includes('sales') ||
+    obj.includes('lead') ||
+    obj.includes('signup')
+  ) {
     return { description: objective, type: 'CONVERSION', priority: 10 };
   }
-  if (obj.includes('educate') || obj.includes('explain') || obj.includes('teach') || obj.includes('demo')) {
+  if (
+    obj.includes('educate') ||
+    obj.includes('explain') ||
+    obj.includes('teach') ||
+    obj.includes('demo')
+  ) {
     return { description: objective, type: 'EDUCATION', priority: 8 };
   }
   if (obj.includes('engage') || obj.includes('interact') || obj.includes('community')) {
@@ -90,10 +100,13 @@ function classifyGoal(objective: string): Goal {
 /** Infer tone from mode and mood keywords */
 function inferTone(brief: CreativeBrief): SubjectInfo['tone'] {
   const mode = brief.mode.toUpperCase();
-  if (mode.includes('CINEMATIC') || mode.includes('BRAND_FILM') || mode.includes('STORY')) return 'CINEMATIC';
-  if (mode.includes('TECHNICAL') || mode.includes('EDUCATIONAL') || mode.includes('INFOGRAPHIC')) return 'TECHNICAL';
+  if (mode.includes('CINEMATIC') || mode.includes('BRAND_FILM') || mode.includes('STORY'))
+    return 'CINEMATIC';
+  if (mode.includes('TECHNICAL') || mode.includes('EDUCATIONAL') || mode.includes('INFOGRAPHIC'))
+    return 'TECHNICAL';
   if (mode.includes('HUMOR') || mode.includes('PLAY') || mode.includes('UGC')) return 'PLAYFUL';
-  if (mode.includes('DRAMATIC') || mode.includes('TRANSFORMATION') || mode.includes('BEFORE_AFTER')) return 'DRAMATIC';
+  if (mode.includes('DRAMATIC') || mode.includes('TRANSFORMATION') || mode.includes('BEFORE_AFTER'))
+    return 'DRAMATIC';
   return 'MINIMAL';
 }
 
@@ -102,8 +115,10 @@ function inferTerritory(brief: CreativeBrief): SubjectInfo['territory'] {
   const mode = brief.mode.toUpperCase();
   if (mode.includes('TRANSFORMATION') || mode.includes('BEFORE_AFTER')) return 'TRANSFORMATION';
   if (mode.includes('SCALE') || mode.includes('CORPORATE')) return 'SCALE';
-  if (mode.includes('HUMAN') || mode.includes('TESTIMONIAL') || mode.includes('CASE_STUDY')) return 'HUMAN_IMPACT';
-  if (mode.includes('PRECISION') || mode.includes('PRODUCT') || mode.includes('TYPOGRAPHIC')) return 'PRECISION';
+  if (mode.includes('HUMAN') || mode.includes('TESTIMONIAL') || mode.includes('CASE_STUDY'))
+    return 'HUMAN_IMPACT';
+  if (mode.includes('PRECISION') || mode.includes('PRODUCT') || mode.includes('TYPOGRAPHIC'))
+    return 'PRECISION';
   return 'PLAY';
 }
 
@@ -118,16 +133,30 @@ export class SubjectEngine {
 
     // Secondary goals from scenes
     const secondaryGoals: Goal[] = brief.scenes
-      .map(s => classifyGoal(s))
-      .filter((g, i, arr) => arr.findIndex(x => x.type === g.type) === i)
+      .map((s) => classifyGoal(s))
+      .filter((g, i, arr) => arr.findIndex((x) => x.type === g.type) === i)
       .slice(0, 3);
 
     // Audience from scenes and service
-    const targetAudience = [...new Set(
-      brief.scenes
-        .flatMap(s => s.toLowerCase().split(/[\s,]+/))
-        .filter(w => ['enterprise', 'smb', 'consumer', 'b2b', 'b2c', 'retail', 'corporate', 'developers', 'marketers'].includes(w))
-    )];
+    const targetAudience = [
+      ...new Set(
+        brief.scenes
+          .flatMap((s) => s.toLowerCase().split(/[\s,]+/))
+          .filter((w) =>
+            [
+              'enterprise',
+              'smb',
+              'consumer',
+              'b2b',
+              'b2c',
+              'retail',
+              'corporate',
+              'developers',
+              'marketers',
+            ].includes(w),
+          ),
+      ),
+    ];
 
     // Key messages from title + objective
     const keyMessages = [brief.title, brief.objective].filter(Boolean);

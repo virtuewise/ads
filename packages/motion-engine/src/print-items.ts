@@ -571,7 +571,12 @@ export function printItemDecalRect(spec: PrintItemSpec): DecalRect | null {
   switch (spec.kind) {
     case 'slab':
     case 'roundedBox':
-      return { width: width - 2 * bevel, height: height - 2 * bevel, centerY: height / 2, z: depth / 2 };
+      return {
+        width: width - 2 * bevel,
+        height: height - 2 * bevel,
+        centerY: height / 2,
+        z: depth / 2,
+      };
 
     case 'carton': {
       const flap = printItemFlapThickness(spec);
@@ -701,8 +706,7 @@ export function resolveChoreography(
     .filter((id) => getPrintItem(id) !== undefined)
     .map((id, index) => {
       const override = byId.get(id);
-      const animation =
-        coerceAnimation(override?.animation) ?? defaults[index] ?? 'float';
+      const animation = coerceAnimation(override?.animation) ?? defaults[index] ?? 'float';
       const requestedPhase = override?.phase;
       const phase =
         typeof requestedPhase === 'number' && requestedPhase >= 0

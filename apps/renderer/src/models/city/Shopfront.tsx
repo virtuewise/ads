@@ -1,12 +1,12 @@
-import { useMemo } from 'react';
-import { AdditiveBlending, DoubleSide } from 'three';
 import {
-  SHOPFRONT_AWNING_M,
-  SHOPFRONT_FASCIA_M,
-  hashSeed,
   type CityPalette,
   type CityShopfront,
+  hashSeed,
+  SHOPFRONT_AWNING_M,
+  SHOPFRONT_FASCIA_M,
 } from '@printsync/motion-engine';
+import { useMemo } from 'react';
+import { AdditiveBlending, DoubleSide } from 'three';
 import {
   createAboardTexture,
   createAwningFabricTexture,
@@ -83,9 +83,7 @@ export const Shopfront: React.FC<ShopfrontProps> = ({
       valance: createStripTexture(shopfront.name, accent, 40),
       awning: createAwningFabricTexture(accent),
       aboard: createAboardTexture(shopfront.name, accent, lines, isPrintSync, wordmark),
-      banner: interior.banner
-        ? createBannerTexture(interior.banner, shopfront.name, accent)
-        : null,
+      banner: interior.banner ? createBannerTexture(interior.banner, shopfront.name, accent) : null,
       spill: getLightPoolTexture(accent),
     };
   }, [shopfront, accent, isPrintSync, wordmark, lines]);
@@ -111,7 +109,10 @@ export const Shopfront: React.FC<ShopfrontProps> = ({
   );
 
   return (
-    <group position={[shopfront.position[0], 0, shopfront.position[2]]} rotation={[0, shopfront.rotationY, 0]}>
+    <group
+      position={[shopfront.position[0], 0, shopfront.position[2]]}
+      rotation={[0, shopfront.rotationY, 0]}
+    >
       {/* --- Interior shell, which is what closes the building's ground floor -- */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, -room / 2]}>
         <planeGeometry args={[span, room]} />
@@ -174,7 +175,7 @@ export const Shopfront: React.FC<ShopfrontProps> = ({
         const bayW = 1.7;
         const x = -halfSpan + 1.2 + bay * (bayW + 0.35);
         return (
-          <group key={`bay-${bay}`} position={[x, 0, -room + 0.3]}>
+          <group key={x} position={[x, 0, -room + 0.3]}>
             <mesh position={[0, 1.05, 0]}>
               <boxGeometry args={[bayW, 2.1, 0.42]} />
               <meshStandardMaterial color="#3a3d43" roughness={0.75} metalness={0.15} />
@@ -245,7 +246,10 @@ export const Shopfront: React.FC<ShopfrontProps> = ({
       {/* --- Storefront fabrication -------------------------------------------- */}
       {/* Piers either side of the glazing. */}
       {[-1, 1].map((side) => (
-        <mesh key={`pier-${side}`} position={[side * (halfFront + (halfSpan - halfFront) / 2), h / 2, -0.05]}>
+        <mesh
+          key={`pier-${side}`}
+          position={[side * (halfFront + (halfSpan - halfFront) / 2), h / 2, -0.05]}
+        >
           <boxGeometry args={[halfSpan - halfFront, h, 0.34]} />
           <meshStandardMaterial color={palette.facade} roughness={0.7} metalness={0.15} />
         </mesh>
@@ -288,7 +292,7 @@ export const Shopfront: React.FC<ShopfrontProps> = ({
       {Array.from({ length: mullionCount }, (_, i) => {
         const x = -frontW / 2 + ((i + 1) * frontW) / (mullionCount + 1);
         return (
-          <mesh key={`mullion-${i}`} position={[x, glazingCentre, 0.02]}>
+          <mesh key={x} position={[x, glazingCentre, 0.02]}>
             <boxGeometry args={[MULLION_M, glassH, 0.12]} />
             <meshStandardMaterial color="#20232a" roughness={0.5} metalness={0.4} />
           </mesh>
@@ -325,12 +329,14 @@ export const Shopfront: React.FC<ShopfrontProps> = ({
             rotation={[shopfront.awning === 'wedge' ? 0.24 : 0.1, 0, 0]}
           >
             <boxGeometry args={[frontW, 0.05, SHOPFRONT_AWNING_M]} />
-            <meshStandardMaterial map={textures.awning} roughness={0.85} metalness={0} side={DoubleSide} />
+            <meshStandardMaterial
+              map={textures.awning}
+              roughness={0.85}
+              metalness={0}
+              side={DoubleSide}
+            />
           </mesh>
-          <mesh
-            position={[0, glazingTop - 0.2, SHOPFRONT_AWNING_M - 0.02]}
-            rotation={[0, 0, 0]}
-          >
+          <mesh position={[0, glazingTop - 0.2, SHOPFRONT_AWNING_M - 0.02]} rotation={[0, 0, 0]}>
             <planeGeometry args={[frontW, 0.4]} />
             <meshStandardMaterial
               map={textures.valance}

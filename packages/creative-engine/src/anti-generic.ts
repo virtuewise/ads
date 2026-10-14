@@ -16,7 +16,12 @@ const _GENERIC_PATTERNS: GenericPattern[] = [
   {
     name: 'canva_template',
     description: 'Looks like a Canva template',
-    indicators: ['centered text', 'stock photo background', 'generic gradient', 'decorative shapes'],
+    indicators: [
+      'centered text',
+      'stock photo background',
+      'generic gradient',
+      'decorative shapes',
+    ],
     weight: 10,
   },
   {
@@ -28,7 +33,12 @@ const _GENERIC_PATTERNS: GenericPattern[] = [
   {
     name: 'generic_ai_corporate',
     description: 'Looks like generic AI corporate video',
-    indicators: ['uncanny humans', 'inconsistent lighting', 'morphing artifacts', 'generic transitions'],
+    indicators: [
+      'uncanny humans',
+      'inconsistent lighting',
+      'morphing artifacts',
+      'generic transitions',
+    ],
     weight: 15,
   },
   {
@@ -46,7 +56,12 @@ const _GENERIC_PATTERNS: GenericPattern[] = [
   {
     name: 'repetitive_composition',
     description: 'Repetitive composition pattern',
-    indicators: ['same layout as previous', 'same color scheme', 'same typography style', 'same structure'],
+    indicators: [
+      'same layout as previous',
+      'same color scheme',
+      'same typography style',
+      'same structure',
+    ],
     weight: 12,
   },
 ];
@@ -54,12 +69,13 @@ void _GENERIC_PATTERNS; // Reserved for future use
 
 export function checkAntiGeneric(
   concept: Concept,
-  history: CreativeHistoryEntry[]
+  history: CreativeHistoryEntry[],
 ): AntiGenericCheck {
   const issues: string[] = [];
 
   // Check for generic indicators in concept
-  const conceptText = `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
+  const conceptText =
+    `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
 
   // Check for generic patterns
   const looks_canva = checkCanvaIndicators(conceptText);
@@ -88,10 +104,22 @@ export function checkAntiGeneric(
   if (looks_generic_ai) issues.push('Concept shows generic AI corporate video indicators');
   if (looks_generic_marketing) issues.push('Concept shows generic marketing agency indicators');
   if (looks_generic_printing) issues.push('Concept shows generic printing company indicators');
-  if (looks_already_produced) issues.push('Concept is too similar to previously produced campaigns');
+  if (looks_already_produced)
+    issues.push('Concept is too similar to previously produced campaigns');
   if (!has_strong_visual_idea) issues.push('Concept lacks a strong visual idea');
-  if (!has_metaphor && !has_unexpected_transition && !has_unusual_scale && !has_kinetic_typography && !has_graphic_information_system && !has_humour_mechanism && !has_vfx_idea && !has_storytelling_device) {
-    issues.push('Concept lacks any creative device (metaphor, transition, scale, typography, information system, humour, VFX, or storytelling)');
+  if (
+    !has_metaphor &&
+    !has_unexpected_transition &&
+    !has_unusual_scale &&
+    !has_kinetic_typography &&
+    !has_graphic_information_system &&
+    !has_humour_mechanism &&
+    !has_vfx_idea &&
+    !has_storytelling_device
+  ) {
+    issues.push(
+      'Concept lacks any creative device (metaphor, transition, scale, typography, information system, humour, VFX, or storytelling)',
+    );
   }
 
   const passed = issues.length === 0;
@@ -120,37 +148,44 @@ export function checkAntiGeneric(
 
 function checkCanvaIndicators(text: string): boolean {
   const indicators = ['centered', 'gradient', 'decorative', 'template', 'stock'];
-  return indicators.some(i => text.includes(i));
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkShutterstockIndicators(text: string): boolean {
-  const indicators = ['handshake', 'office meeting', 'smiling', 'team collaboration', 'business people'];
-  return indicators.some(i => text.includes(i));
+  const indicators = [
+    'handshake',
+    'office meeting',
+    'smiling',
+    'team collaboration',
+    'business people',
+  ];
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkGenericAIIndicators(text: string): boolean {
   const indicators = ['uncanny', 'morphing', 'inconsistent', 'artifact', 'generic transition'];
-  return indicators.some(i => text.includes(i));
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkGenericMarketingIndicators(text: string): boolean {
   const indicators = ['buzzword', 'synergy', 'leverage', 'paradigm', 'disrupt'];
-  return indicators.some(i => text.includes(i));
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkGenericPrintingIndicators(text: string): boolean {
   const indicators = ['just a printer', 'paper stack', 'ink cartridge', 'print shop'];
-  return indicators.some(i => text.includes(i));
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkRepetition(concept: Concept, history: CreativeHistoryEntry[]): boolean {
   if (history.length === 0) return false;
 
   const recentCampaigns = history.slice(-5);
-  return recentCampaigns.some(c =>
-    c.creative_mode === concept.creative_mode &&
-    c.territory === concept.territory &&
-    c.mood === concept.mood
+  return recentCampaigns.some(
+    (c) =>
+      c.creative_mode === concept.creative_mode &&
+      c.territory === concept.territory &&
+      c.mood === concept.mood,
   );
 }
 
@@ -159,37 +194,74 @@ function checkStrongVisualIdea(concept: Concept): boolean {
 }
 
 function checkMetaphor(text: string): boolean {
-  const indicators = ['becomes', 'transforms', 'metaphor', 'like a', 'as if', 'journey', 'evolution'];
-  return indicators.some(i => text.includes(i));
+  const indicators = [
+    'becomes',
+    'transforms',
+    'metaphor',
+    'like a',
+    'as if',
+    'journey',
+    'evolution',
+  ];
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkUnexpectedTransition(text: string): boolean {
   const indicators = ['match cut', 'morph', 'transform', 'transition', 'becomes', 'shifts'];
-  return indicators.some(i => text.includes(i));
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkUnusualScale(text: string): boolean {
   const indicators = ['tiny', 'enormous', 'massive', 'scale', 'building', 'card to', 'poster to'];
-  return indicators.some(i => text.includes(i));
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkKineticTypography(concept: Concept): boolean {
-  return concept.visual_style === 'typography' || concept.creative_mode === 'TYPOGRAPHIC_FILM' || concept.creative_mode === 'TYPOGRAPHY_ONLY';
+  return (
+    concept.visual_style === 'typography' ||
+    concept.creative_mode === 'TYPOGRAPHIC_FILM' ||
+    concept.creative_mode === 'TYPOGRAPHY_ONLY'
+  );
 }
 
 function checkGraphicInformationSystem(text: string): boolean {
-  const indicators = ['grid', 'data', 'measurement', 'coordinate', 'technical', 'cmYK', 'registration'];
-  return indicators.some(i => text.includes(i));
+  const indicators = [
+    'grid',
+    'data',
+    'measurement',
+    'coordinate',
+    'technical',
+    'cmYK',
+    'registration',
+  ];
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkHumourMechanism(text: string): boolean {
-  const indicators = ['funny', 'humor', 'joke', 'comedy', 'detective', 'case file', 'investigation'];
-  return indicators.some(i => text.includes(i));
+  const indicators = [
+    'funny',
+    'humor',
+    'joke',
+    'comedy',
+    'detective',
+    'case file',
+    'investigation',
+  ];
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkVFXIdea(text: string): boolean {
-  const indicators = ['particle', 'explode', 'glitch', 'vfx', 'effect', 'burst', 'disintegrate', 'assemble'];
-  return indicators.some(i => text.includes(i));
+  const indicators = [
+    'particle',
+    'explode',
+    'glitch',
+    'vfx',
+    'effect',
+    'burst',
+    'disintegrate',
+    'assemble',
+  ];
+  return indicators.some((i) => text.includes(i));
 }
 
 function checkStorytellingDevice(concept: Concept): boolean {
@@ -200,13 +272,19 @@ export function generateAntiGenericSuggestions(check: AntiGenericCheck): string[
   const suggestions: string[] = [];
 
   if (check.looks_canva) {
-    suggestions.push('Avoid centered compositions and generic gradients. Use asymmetric layouts and intentional color choices.');
+    suggestions.push(
+      'Avoid centered compositions and generic gradients. Use asymmetric layouts and intentional color choices.',
+    );
   }
   if (check.looks_shutterstock) {
-    suggestions.push('Replace stock photography with original print objects, technical graphics, or abstract visual metaphors.');
+    suggestions.push(
+      'Replace stock photography with original print objects, technical graphics, or abstract visual metaphors.',
+    );
   }
   if (check.looks_generic_ai_corporate) {
-    suggestions.push('Avoid generic AI aesthetics. Use deterministic rendering for typography and brand elements.');
+    suggestions.push(
+      'Avoid generic AI aesthetics. Use deterministic rendering for typography and brand elements.',
+    );
   }
   if (check.looks_already_produced) {
     suggestions.push('Vary the creative mode, territory, or mood from recent campaigns.');
@@ -237,7 +315,6 @@ export function generateAntiGenericSuggestions(check: AntiGenericCheck): string[
   }
   if (!check.has_storytelling_device) {
     suggestions.push('Strengthen the narrative structure and storytelling.');
-
   }
 
   return suggestions;

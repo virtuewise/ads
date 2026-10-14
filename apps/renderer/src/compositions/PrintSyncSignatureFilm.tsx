@@ -36,12 +36,10 @@ export const PrintSyncSignatureFilm: React.FC<SignatureFilmProps> = ({
   const taglineOpacity = interpolate(frame, [18, 42], [0, 1], {
     extrapolateRight: 'clamp',
   });
-  const endFade = interpolate(
-    frame,
-    [durationInFrames - 30, durationInFrames],
-    [0, 1],
-    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
-  );
+  const endFade = interpolate(frame, [durationInFrames - 30, durationInFrames], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0a0a0a' }}>

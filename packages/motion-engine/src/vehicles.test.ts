@@ -1,20 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   CITY_BOULEVARD_HALF_WIDTH,
   CITY_EXTENT_M,
-  generateCityLayout,
   type CityOptions,
+  generateCityLayout,
 } from './city.js';
+import { PRINT_ITEMS_HERO_IDS } from './print-items.js';
 import {
   CITY_LANES,
   CITY_PARKING_OFFSET,
   CITY_VEHICLE_KINDS,
-  VEHICLE_SIZES,
   cityVehicleLoopLength,
   generateCityVehicles,
+  VEHICLE_SIZES,
   vehiclePoseAt,
 } from './vehicles.js';
-import { PRINT_ITEMS_HERO_IDS } from './print-items.js';
 
 const baseOptions: CityOptions = {
   seed: 'test-city',

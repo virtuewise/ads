@@ -1,6 +1,6 @@
-import { Script, Shot, Storyboard, CameraSpec } from "@printsync/common";
+import type { CameraSpec, Script, Shot, Storyboard } from '@printsync/common';
 
-export const STORYBOARD_ENGINE_VERSION = "1.0.0";
+export const STORYBOARD_ENGINE_VERSION = '1.0.0';
 
 /** Shot type mapping by beat purpose */
 const SHOT_TYPE_MAP: Record<string, CameraSpec['type']> = {
@@ -50,10 +50,22 @@ export class StoryboardEngine {
       let purpose: Shot['purpose'] = 'VISUAL';
       if (visual.includes('HOOK') || visual.includes('ESTABLISH')) purpose = 'HOOK';
       else if (visual.includes('PROBLEM') || visual.includes('PAIN')) purpose = 'PROBLEM';
-      else if (visual.includes('SOLUTION') || visual.includes('REVEAL') || visual.includes('PRODUCT')) purpose = 'SOLUTION';
-      else if (visual.includes('PROOF') || visual.includes('DATA') || visual.includes('TESTIMONIAL')) purpose = 'PROOF';
-      else if (visual.includes('BENEFIT') || visual.includes('RESULT') || visual.includes('AFTER')) purpose = 'BENEFIT';
-      else if (visual.includes('CTA') || visual.includes('CALL') || visual.includes('BRAND')) purpose = 'CTA';
+      else if (
+        visual.includes('SOLUTION') ||
+        visual.includes('REVEAL') ||
+        visual.includes('PRODUCT')
+      )
+        purpose = 'SOLUTION';
+      else if (
+        visual.includes('PROOF') ||
+        visual.includes('DATA') ||
+        visual.includes('TESTIMONIAL')
+      )
+        purpose = 'PROOF';
+      else if (visual.includes('BENEFIT') || visual.includes('RESULT') || visual.includes('AFTER'))
+        purpose = 'BENEFIT';
+      else if (visual.includes('CTA') || visual.includes('CALL') || visual.includes('BRAND'))
+        purpose = 'CTA';
 
       const cameraType = SHOT_TYPE_MAP[purpose] || 'STATIC';
 
@@ -73,7 +85,8 @@ export class StoryboardEngine {
       const subject = step.visual.split('—')[0]?.trim();
       if (subject) shot.subject = subject;
       if (step.dialogue) shot.action = 'dialogue';
-      shot.lighting = purpose === 'BENEFIT' ? 'warm_key' : purpose === 'PROBLEM' ? 'cool_contrast' : 'standard';
+      shot.lighting =
+        purpose === 'BENEFIT' ? 'warm_key' : purpose === 'PROBLEM' ? 'cool_contrast' : 'standard';
       if (purpose === 'CTA') shot.typography = 'brand_lockup';
       else if (purpose === 'HOOK') shot.typography = 'title_card';
       if (purpose === 'SOLUTION') shot.vfx = 'transition_reveal';

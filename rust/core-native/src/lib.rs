@@ -7,7 +7,6 @@
 //! - City layout helpers (grid, spacing, clearance)
 
 use napi_derive::napi;
-use std::f32::consts::{PI, FRAC_PI_2};
 
 /// FNV-1a 64-bit hash - deterministic procedural generation seed
 #[napi]

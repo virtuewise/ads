@@ -1,7 +1,7 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 /**
- * Core shared types used across the Creative Motion OS.
+ * Core shared types used across Virtue Studio.
  * Each interface has a corresponding Zod schema for runtime validation.
  */
 
@@ -30,7 +30,7 @@ export const CreativeBriefSchema = z.object({
 /** Script step – a time‑boxed piece of the script. */
 export interface ScriptStep {
   start: number; // seconds
-  end: number;   // seconds
+  end: number; // seconds
   visual: string;
   dialogue?: string;
   sfx?: string;
@@ -69,7 +69,13 @@ export interface StoryBeat {
 /** Storyboard – a higher level representation of shots. */
 export interface StoryOutline {
   beats: StoryBeat[];
-  structure: 'THREE_ACT' | 'PROBLEM_SOLUTION' | 'BEFORE_AFTER' | 'DETECTIVE' | 'EDUCATIONAL' | 'HERO_JOURNEY';
+  structure:
+    | 'THREE_ACT'
+    | 'PROBLEM_SOLUTION'
+    | 'BEFORE_AFTER'
+    | 'DETECTIVE'
+    | 'EDUCATIONAL'
+    | 'HERO_JOURNEY';
   totalBeats: number;
   /** @deprecated Use beats instead. Kept for backward compatibility. */
   outline?: string[];
@@ -86,7 +92,14 @@ export const StoryBeatSchema = z.object({
 
 export const StoryOutlineSchema = z.object({
   beats: z.array(StoryBeatSchema),
-  structure: z.enum(['THREE_ACT', 'PROBLEM_SOLUTION', 'BEFORE_AFTER', 'DETECTIVE', 'EDUCATIONAL', 'HERO_JOURNEY']),
+  structure: z.enum([
+    'THREE_ACT',
+    'PROBLEM_SOLUTION',
+    'BEFORE_AFTER',
+    'DETECTIVE',
+    'EDUCATIONAL',
+    'HERO_JOURNEY',
+  ]),
   totalBeats: z.number().int().positive(),
   outline: z.array(z.string()).optional(),
 });
@@ -266,6 +279,33 @@ export const SceneGraphSchema = z.object({
   edges: z.array(SceneEdgeSchema),
 });
 
+/** Lifecycle of a production plan: planned → awaiting QA → finalized. */
+export type ProductionStatus = 'PLANNING' | 'PENDING_QA' | 'COMPLETE' | 'QA_FAILED';
+
+/** Per-check outcome captured from the QA engine during finalize. */
+export interface ProductionQACheck {
+  category: string;
+  name: string;
+  status: 'PASS' | 'FAIL' | 'WARN';
+  message: string;
+  score: number;
+  threshold: number;
+}
+
+/** Audit record attached to a plan once QA has run against a render. */
+export interface ProductionQAReport {
+  score: number;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+    blockers: number;
+  };
+  checks: ProductionQACheck[];
+  timestamp: string;
+}
+
 /** The top‑level production plan contract. */
 export interface ProductionPlan {
   id: string;
@@ -283,7 +323,8 @@ export interface ProductionPlan {
   output: OutputSpec;
   visualGrammar: VisualGrammar;
   sceneGraph: SceneGraph;
-  productionStatus: "PLANNING" | "COMPLETE";
+  productionStatus: ProductionStatus;
+  qaReport?: ProductionQAReport;
 }
 
 export const ProductionPlanSchema = z.object({
@@ -302,12 +343,11 @@ export const ProductionPlanSchema = z.object({
   output: OutputSpecSchema,
   visualGrammar: VisualGrammarSchema,
   sceneGraph: SceneGraphSchema,
-  productionStatus: z.enum(["PLANNING", "COMPLETE"]),
+  productionStatus: z.enum(['PLANNING', 'PENDING_QA', 'COMPLETE', 'QA_FAILED']),
 });
 
 /** Helper for runtime validation */
-export const validateProductionPlan = (data: unknown) =>
-  ProductionPlanSchema.parse(data);
+export const validateProductionPlan = (data: unknown) => ProductionPlanSchema.parse(data);
 
 // ---- Render-input contract (drives the Remotion renderer) ----
 
@@ -315,17 +355,17 @@ export type {
   BrandTokens,
   CameraPath,
   CompositionId,
-  RenderOutput,
-  RenderItem,
   RenderInputs,
+  RenderItem,
+  RenderOutput,
 } from './render-input.js';
 
 export {
   BrandTokensSchema,
   CameraPathSchema,
   CompositionIdSchema,
-  RenderOutputSchema,
   RenderInputsSchema,
   RenderItemSchema,
+  RenderOutputSchema,
   validateRenderInputs,
 } from './render-input.js';

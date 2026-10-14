@@ -1,13 +1,13 @@
-import { useMemo } from 'react';
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import { ThreeCanvas } from '@remotion/three';
 import {
+  type CityInputs,
   cityPalette,
   resolveCityCameraPlan,
   resolveCityInputs,
   shopfrontCopy,
-  type CityInputs,
 } from '@printsync/motion-engine';
+import { ThreeCanvas } from '@remotion/three';
+import { useMemo } from 'react';
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { CameraRig } from '../models/CameraRig';
 import { Billboard } from '../models/city/Billboard';
 import { BrandSign } from '../models/city/BrandSign';
@@ -18,8 +18,8 @@ import { RoadSign } from '../models/city/RoadSign';
 import { RouteLine } from '../models/city/RouteLine';
 import { Shopfront } from '../models/city/Shopfront';
 import { Street } from '../models/city/Street';
-import { StreetProp } from '../models/city/StreetProp';
 import { STREET_LIGHT_HEIGHT, StreetLight } from '../models/city/StreetLight';
+import { StreetProp } from '../models/city/StreetProp';
 import { Vehicle } from '../models/city/Vehicle';
 
 type LivingCityProps = Partial<CityInputs>;
@@ -76,7 +76,8 @@ export const PrintSyncLivingCity: React.FC<LivingCityProps> = (props) => {
     [shopfronts],
   );
 
-  const activeIndex = playlist.length > 0 ? Math.floor(frame / (fps * AD_SECONDS)) % playlist.length : 0;
+  const activeIndex =
+    playlist.length > 0 ? Math.floor(frame / (fps * AD_SECONDS)) % playlist.length : 0;
   const active = playlist[activeIndex];
 
   const routeProgress = interpolate(frame, [0, durationInFrames * ROUTE_DRAW], [0, 1], {

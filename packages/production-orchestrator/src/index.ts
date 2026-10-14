@@ -1,27 +1,27 @@
-import { randomUUID } from "node:crypto";
-import {
-  CreativeBrief,
-  ProductionPlan,
-  ProductionPlanSchema,
-  RenderInputs,
-  RenderInputsSchema,
-  VisualGrammar,
-  Shot,
-} from '@printsync/common';
-import { PRINT_ITEMS_HERO_ANIMATIONS, PRINT_ITEMS_HERO_IDS } from '@printsync/motion-engine';
-import { SubjectEngine } from '@printsync/subject-engine';
-import { StoryEngine } from '@printsync/story-engine';
-import { selectVisualGrammar } from '@printsync/visual-grammar-engine';
-import { ScriptEngine } from '@printsync/script-engine';
-import { StoryboardEngine } from '@printsync/storyboard-engine';
-import { ShotEngine } from '@printsync/shot-engine';
-import { SceneGraphEngine } from '@printsync/scene-graph-engine';
+import { randomUUID } from 'node:crypto';
 import { AssetEngine } from '@printsync/asset-engine';
+import { AudioEngine } from '@printsync/audio-engine';
+import {
+  type CreativeBrief,
+  type ProductionPlan,
+  ProductionPlanSchema,
+  type RenderInputs,
+  RenderInputsSchema,
+  type Shot,
+  type VisualGrammar,
+} from '@printsync/common';
+import { EditEngine } from '@printsync/edit-engine';
+import { PRINT_ITEMS_HERO_ANIMATIONS, PRINT_ITEMS_HERO_IDS } from '@printsync/motion-engine';
+import { QAEngine } from '@printsync/qa-engine';
+import { SceneGraphEngine } from '@printsync/scene-graph-engine';
+import { ScriptEngine } from '@printsync/script-engine';
+import { ShotEngine } from '@printsync/shot-engine';
+import { StoryEngine } from '@printsync/story-engine';
+import { StoryboardEngine } from '@printsync/storyboard-engine';
+import { SubjectEngine } from '@printsync/subject-engine';
 import { TypographyEngine } from '@printsync/typography-engine';
 import { VFXEngine } from '@printsync/vfx-engine';
-import { AudioEngine } from '@printsync/audio-engine';
-import { EditEngine } from '@printsync/edit-engine';
-import { QAEngine } from '@printsync/qa-engine';
+import { selectVisualGrammar } from '@printsync/visual-grammar-engine';
 
 /** Options for building a production plan */
 export interface OrchestratorOptions {
@@ -37,7 +37,10 @@ export interface OrchestratorOptions {
 
 /** Local motion planning engine for production pipeline (not to be confused with the 3D rendering motion-engine) */
 class MotionPlanningEngine {
-  async planMotion(shots: Shot[], options: { mode?: string; fps?: number } = {}): Promise<{
+  async planMotion(
+    shots: Shot[],
+    options: { mode?: string; fps?: number } = {},
+  ): Promise<{
     tracks: string[];
     templates: string[];
   }> {
@@ -59,7 +62,14 @@ class MotionPlanningEngine {
 
     return {
       tracks,
-      templates: ['CAMERA_PUSH_IN', 'CAMERA_ORBIT', 'OBJECT_REVEAL', 'LIGHT_SWEEP', 'PARTICLE_BURST', 'TYPOGRAPHY_REVEAL'],
+      templates: [
+        'CAMERA_PUSH_IN',
+        'CAMERA_ORBIT',
+        'OBJECT_REVEAL',
+        'LIGHT_SWEEP',
+        'PARTICLE_BURST',
+        'TYPOGRAPHY_REVEAL',
+      ],
     };
   }
 }
@@ -135,11 +145,12 @@ export function buildCityRenderInputs(
 
 /**
  * Orchestrates the full production pipeline.
- * Returns a ProductionPlan with all sections populated and `productionStatus` set to "COMPLETE".
+ * Returns a ProductionPlan with all sections populated and `productionStatus` set to "PENDING_QA".
+ * QA must pass via `finalizeProductionPlan()` before status transitions to "COMPLETE".
  */
 export async function buildProductionPlan(
   brief: CreativeBrief,
-  options: OrchestratorOptions = {}
+  options: OrchestratorOptions = {},
 ): Promise<ProductionPlan> {
   const seed = options.seed ?? brief.id ?? randomUUID();
 
@@ -221,18 +232,23 @@ export async function buildProductionPlan(
   const editEngine = new EditEngine();
   const edit = await editEngine.planEdit(shots, {
     mode: brief.mode,
-    pace: brief.mode.includes('FAST') || brief.mode.includes('SOCIAL') ? 'FAST' :
-          brief.mode.includes('CINEMATIC') || brief.mode.includes('BRAND') ? 'SLOW' : 'MEDIUM',
+    pace:
+      brief.mode.includes('FAST') || brief.mode.includes('SOCIAL')
+        ? 'FAST'
+        : brief.mode.includes('CINEMATIC') || brief.mode.includes('BRAND')
+          ? 'SLOW'
+          : 'MEDIUM',
   });
 
   // 1️⃣4️⃣ QA planning
   const qaEngine = new QAEngine();
   const qa = await qaEngine.planQA(shots, {
     mode: brief.mode,
-    strictness: 'STANDARD',
+    strictness: options.qaStrictness ?? 'STANDARD',
   });
 
   // Assemble the complete plan with all sections populated
+  // Status starts as PENDING_QA - must pass QA before COMPLETE
   const plan: ProductionPlan = {
     id: randomUUID(),
     brief,
@@ -253,7 +269,7 @@ export async function buildProductionPlan(
     },
     visualGrammar,
     sceneGraph,
-    productionStatus: "COMPLETE",
+    productionStatus: 'PENDING_QA',
   };
 
   if (options.validate !== false) {
@@ -264,14 +280,71 @@ export async function buildProductionPlan(
 }
 
 /**
- * Run automated QA checks against a completed render.
+ * Finalize a production plan by running QA against the rendered output.
+ * Transitions productionStatus from "PENDING_QA" to "COMPLETE" or "QA_FAILED".
+ */
+export async function finalizeProductionPlan(
+  plan: ProductionPlan,
+  renderOutput: {
+    format: string;
+    width: number;
+    height: number;
+    bitrate: number;
+    codec: string;
+    duration: number;
+    filePath?: string;
+  },
+): Promise<ProductionPlan> {
+  const qaEngine = new QAEngine();
+  const qaReport = await qaEngine.runQA(plan, renderOutput);
+
+  const updatedPlan: ProductionPlan = {
+    ...plan,
+    productionStatus: qaReport.passed ? 'COMPLETE' : 'QA_FAILED',
+    qa: {
+      ...plan.qa,
+      // Store QA report details in the plan for audit trail
+      checks: [
+        ...plan.qa.checks,
+        ...qaReport.checks.map((c) => `${c.category}:${c.name}:${c.status}`),
+      ],
+    },
+    // Attach QA report metadata for audit trail
+    qaReport: {
+      score: qaReport.score,
+      summary: qaReport.summary,
+      checks: qaReport.checks,
+      timestamp: new Date().toISOString(),
+    },
+  };
+
+  return updatedPlan;
+}
+
+/**
+ * Run comprehensive QA checks against a completed render.
+ * Returns full QAReport with pass/fail summary.
  */
 export async function runQA(
   plan: ProductionPlan,
-  renderOutput: { format: string; width: number; height: number; bitrate: number; codec: string; duration: number }
+  renderOutput: {
+    format: string;
+    width: number;
+    height: number;
+    bitrate: number;
+    codec: string;
+    duration: number;
+    filePath?: string;
+  },
 ) {
   const qaEngine = new QAEngine();
-  return qaEngine.runAutomatedChecks(renderOutput, plan.qa.checks);
+  return qaEngine.runQA(plan, renderOutput);
 }
 
-export default { buildProductionPlan, buildRenderInputs, buildCityRenderInputs, runQA };
+export default {
+  buildProductionPlan,
+  buildRenderInputs,
+  buildCityRenderInputs,
+  runQA,
+  finalizeProductionPlan,
+};

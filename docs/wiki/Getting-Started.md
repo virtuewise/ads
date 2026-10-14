@@ -23,7 +23,7 @@ The monorepo is orchestrated by Turborepo. Root scripts fan out to every workspa
 ```bash
 pnpm build   # turbo run build (respects dependency order)
 pnpm test    # turbo run test  (depends on build)
-pnpm lint    # turbo run lint
+pnpm lint    # biome check . (repo-wide)
 pnpm dev     # turbo run dev   (persistent, uncached)
 ```
 

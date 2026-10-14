@@ -1,13 +1,13 @@
-import { useMemo } from 'react';
 import {
-  buildOohArtworkSpec,
-  oohSceneHeight,
-  oohSceneWidth,
   type BrandTokens,
+  buildOohArtworkSpec,
   type CityPalette,
   type OohHeadline,
+  oohSceneHeight,
+  oohSceneWidth,
   type ResolvedCityBillboard,
 } from '@printsync/motion-engine';
+import { useMemo } from 'react';
 import { createDigitalTexture, createOohTexture } from './cityArtwork';
 
 interface BillboardProps {
@@ -56,11 +56,19 @@ export const Billboard: React.FC<BillboardProps> = ({
     );
     // Kerbside units are backlit lightboxes; roadside paper is floodlit.
     const intensity =
-      slot.mount === 'kerb'
-        ? Math.max(0.55, palette.floodlitIntensity)
-        : palette.floodlitIntensity;
+      slot.mount === 'kerb' ? Math.max(0.55, palette.floodlitIntensity) : palette.floodlitIntensity;
     return { texture: createOohTexture(spec), emissiveIntensity: intensity };
-  }, [isDigital, format, brand, playlist, activeIndex, slot.playlistIndex, slot.mount, item, palette.floodlitIntensity]);
+  }, [
+    isDigital,
+    format,
+    brand,
+    playlist,
+    activeIndex,
+    slot.playlistIndex,
+    slot.mount,
+    item,
+    palette.floodlitIntensity,
+  ]);
 
   const legHeight = 1.6;
   const panelBottom = -height / 2;

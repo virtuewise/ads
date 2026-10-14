@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -7,15 +7,17 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": [
-      "node_modules/**",
-      "dist/**",
-      "build/**",
-      ".next/**",
-      "*.log",
-      ".turbo/**",
-      "rust/target/**",
-      "*.d.ts"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/.next",
+      "!**/*.log",
+      "!**/.turbo",
+      "!**/rust/target",
+      "!**/*.d.ts",
+      "!**/*.svg"
     ]
   },
   "formatter": {
@@ -28,67 +30,18 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
-      "complexity": {
-        "noExtraBooleanCast": "error",
-        "noMultipleSpacesInRegularExpressionLiterals": "error",
-        "noUselessCatch": "error",
-        "noUselessTypeConstraint": "error"
-      },
-      "correctness": {
-        "noChildrenProp": "error",
-        "noConstAssign": "error",
-        "noConstantCondition": "error",
-        "noEmptyCharacterClassInRegex": "error",
-        "noEmptyPattern": "error",
-        "noGlobalObjectCalls": "error",
-        "noInvalidBuiltinInstantiation": "error",
-        "noInvalidConstructorSuper": "error",
-        "noNewSymbol": "error",
-        "noPrecisionLoss": "error",
-        "noSelfAssign": "error",
-        "noSetterReturn": "error",
-        "noSwitchDeclarations": "error",
-        "noUnreachable": "error",
-        "noUnsafeFinally": "error",
-        "noUnsafeOptionalChaining": "error",
-        "noUnusedArguments": "error",
-        "noUnusedLabels": "error",
-        "noUnusedPrivateClassMembers": "error",
-        "noUnusedVariables": "error"
-      },
+      "preset": "recommended",
       "style": {
-        "noInferrableTypes": "error",
-        "noNonNullAssertion": "warn",
-        "noParameterAssign": "error",
-        "noUnusedTemplateLiteral": "error",
-        "useAsConstAssertion": "error",
-        "useConst": "error",
-        "useDefaultParameterLast": "error",
-        "useEnumInitializers": "error",
-        "useSingleVarDeclarator": "error"
-      },
-      "suspicious": {
-        "noAsyncPromiseExecutor": "error",
-        "noCatchAssign": "error",
-        "noCompareNegZero": "error",
-        "noDebugger": "error",
-        "noEmptyBlockStatements": "error",
-        "noFallthroughSwitchClause": "error",
-        "noGlobalIsNan": "error",
-        "noMisleadingCharacterClass": "error",
-        "noPrototypeBuiltinAccess": "error",
-        "noSelfAssign": "error",
-        "noShadowRestrictedNames": "error",
-        "noThenProperty": "error"
+        "noNonNullAssertion": "warn"
       }
     }
   },
   "javascript": {
     "formatter": {
+      "quoteStyle": "single",
       "jsxQuoteStyle": "double",
       "quoteProperties": "asNeeded",
-      "trailingCommas": "es5",
+      "trailingCommas": "all",
       "semicolons": "always",
       "arrowParentheses": "always",
       "bracketSpacing": true
@@ -103,6 +56,9 @@
     }
   },
   "css": {
+    "parser": {
+      "tailwindDirectives": true
+    },
     "formatter": {
       "enabled": true
     }

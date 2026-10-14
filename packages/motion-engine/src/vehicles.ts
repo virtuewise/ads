@@ -14,9 +14,9 @@
 import {
   CITY_BOULEVARD_HALF_WIDTH,
   CITY_EXTENT_M,
+  type CityOptions,
   hashSeed,
   mulberry32,
-  type CityOptions,
 } from './city.js';
 
 export type CityVehicleKind = 'car' | 'taxi' | 'van' | 'bus' | 'truck';
@@ -154,9 +154,7 @@ export function generateCityVehicles(options: CityOptions): CityVehicle[] {
 
   // Exactly one PrintSync-liveried van, the first one to appear in the city, so
   // the brand takes part in the street rather than sitting only on billboards.
-  const liveriedIndex = vehicles.findIndex(
-    (vehicle) => !vehicle.parked && vehicle.kind === 'van',
-  );
+  const liveriedIndex = vehicles.findIndex((vehicle) => !vehicle.parked && vehicle.kind === 'van');
   if (liveriedIndex >= 0) {
     const van = vehicles[liveriedIndex]!;
     vehicles[liveriedIndex] = { ...van, brand: true, colour: '#f4f5f7' };

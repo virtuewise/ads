@@ -30,7 +30,21 @@ jobs:
 
       - name: Install cargo tools
         run: |
-          cargo install cargo-nextest cargo-make lefthook typos-cli --locked
+          cargo install cargo-nextest cargo-make typos-cli --locked
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run cargo-make ci
         run: cargo make ci

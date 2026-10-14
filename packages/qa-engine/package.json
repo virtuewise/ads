@@ -2,6 +2,7 @@
   "name": "@printsync/qa-engine",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
@@ -11,7 +12,8 @@
   },
   "dependencies": {
     "@printsync/shared": "workspace:*",
-    "@printsync/common": "workspace:*"
+    "@printsync/common": "workspace:*",
+    "@printsync/creative-engine": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

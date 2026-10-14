@@ -15,11 +15,15 @@ const DETECTION_LAYERS: DetectionLayer[] = [
     name: 'Structural Detection',
     detect: (concept) => {
       const issues: string[] = [];
-      const text = `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
+      const text =
+        `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
 
-      if (text.includes('quality') && text.includes('service')) issues.push('generic service messaging');
-      if (text.includes('innovation') || text.includes('excellence')) issues.push('empty buzzwords');
-      if (text.includes('we provide') || text.includes('we offer')) issues.push('generic corporate opening');
+      if (text.includes('quality') && text.includes('service'))
+        issues.push('generic service messaging');
+      if (text.includes('innovation') || text.includes('excellence'))
+        issues.push('empty buzzwords');
+      if (text.includes('we provide') || text.includes('we offer'))
+        issues.push('generic corporate opening');
       if (text.includes('contact us') && text.length < 100) issues.push('generic CTA');
       if (concept.key_visual.length < 30) issues.push('weak visual concept');
       if (concept.story_summary.length < 50) issues.push('thin narrative');
@@ -31,9 +35,8 @@ const DETECTION_LAYERS: DetectionLayer[] = [
     name: 'Creative Similarity',
     detect: (concept, history) => {
       const issues: string[] = [];
-      const recentSimilar = history.filter(h =>
-        h.creative_mode === concept.creative_mode &&
-        h.territory === concept.territory
+      const recentSimilar = history.filter(
+        (h) => h.creative_mode === concept.creative_mode && h.territory === concept.territory,
       ).length;
 
       if (recentSimilar >= 3) issues.push('overused creative mode + territory combination');
@@ -48,12 +51,29 @@ const DETECTION_LAYERS: DetectionLayer[] = [
       const issues: string[] = [];
       const text = `${concept.title} ${concept.logline} ${concept.key_visual}`.toLowerCase();
 
-      const hasMetaphor = ['becomes', 'transforms', 'like', 'as if', 'journey', 'engine', 'architecture'].some(m => text.includes(m));
-      const hasTransition = ['match cut', 'morph', 'transform', 'transition', 'becomes'].some(t => text.includes(t));
-      const hasScale = ['tiny', 'enormous', 'massive', 'scale', 'building'].some(s => text.includes(s));
-      const hasTypography = concept.visual_style === 'typography' || concept.creative_mode === 'TYPOGRAPHIC_FILM';
-      const hasHumor = ['funny', 'humor', 'joke', 'comedy', 'detective'].some(h => text.includes(h));
-      const hasVFX = ['particle', 'explode', 'glitch', 'vfx', 'effect'].some(v => text.includes(v));
+      const hasMetaphor = [
+        'becomes',
+        'transforms',
+        'like',
+        'as if',
+        'journey',
+        'engine',
+        'architecture',
+      ].some((m) => text.includes(m));
+      const hasTransition = ['match cut', 'morph', 'transform', 'transition', 'becomes'].some((t) =>
+        text.includes(t),
+      );
+      const hasScale = ['tiny', 'enormous', 'massive', 'scale', 'building'].some((s) =>
+        text.includes(s),
+      );
+      const hasTypography =
+        concept.visual_style === 'typography' || concept.creative_mode === 'TYPOGRAPHIC_FILM';
+      const hasHumor = ['funny', 'humor', 'joke', 'comedy', 'detective'].some((h) =>
+        text.includes(h),
+      );
+      const hasVFX = ['particle', 'explode', 'glitch', 'vfx', 'effect'].some((v) =>
+        text.includes(v),
+      );
 
       if (!hasMetaphor && !hasTransition && !hasScale && !hasTypography && !hasHumor && !hasVFX) {
         issues.push('lacks creative device');
@@ -82,12 +102,23 @@ const DETECTION_LAYERS: DetectionLayer[] = [
     name: 'Brand Signature',
     detect: (concept) => {
       const issues: string[] = [];
-      const text = `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
+      const text =
+        `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
 
       const hasPrintSyncSignature = [
-        'precision', 'print', 'brand', 'sign', 'label', 'packag',
-        'poster', 'banner', 'display', 'format', 'cmyk', 'registration',
-      ].some(s => text.includes(s));
+        'precision',
+        'print',
+        'brand',
+        'sign',
+        'label',
+        'packag',
+        'poster',
+        'banner',
+        'display',
+        'format',
+        'cmyk',
+        'registration',
+      ].some((s) => text.includes(s));
 
       if (!hasPrintSyncSignature) {
         issues.push('lacks PrintSync brand signature');
@@ -103,7 +134,7 @@ const DETECTION_LAYERS: DetectionLayer[] = [
  */
 export function analyzeAntiGeneric(
   concept: Concept,
-  history: CreativeHistoryEntry[]
+  history: CreativeHistoryEntry[],
 ): AntiGenericReport {
   const allIssues: string[] = [];
   const layerResults: Record<string, string[]> = {};
@@ -117,8 +148,14 @@ export function analyzeAntiGeneric(
   // Calculate scores
   const genericityScore = Math.min(100, allIssues.length * 15);
   const originalityScore = Math.max(0, 100 - allIssues.length * 20);
-  const distinctivenessScore = Math.max(0, 100 - (layerResults['Visual Distinctiveness']?.length ?? 0) * 25);
-  const brandSpecificityScore = Math.max(0, 100 - (layerResults['Brand Signature']?.length ?? 0) * 30);
+  const distinctivenessScore = Math.max(
+    0,
+    100 - (layerResults['Visual Distinctiveness']?.length ?? 0) * 25,
+  );
+  const brandSpecificityScore = Math.max(
+    0,
+    100 - (layerResults['Brand Signature']?.length ?? 0) * 30,
+  );
 
   // Competitor test
   const competitorTest = runCompetitorTest(concept);
@@ -150,13 +187,21 @@ export function analyzeAntiGeneric(
  */
 function runCompetitorTest(concept: Concept): { passes: boolean; issues: string[] } {
   const issues: string[] = [];
-  const text = `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
+  const text =
+    `${concept.title} ${concept.logline} ${concept.key_visual} ${concept.story_summary}`.toLowerCase();
 
   // Check for PrintSync-specific elements
   const hasPrintSyncSpecifics = [
-    'printsync', 'precision', 'cmyk', 'registration', 'large format',
-    'digital print', 'signage', 'branding', 'packaging',
-  ].some(s => text.includes(s));
+    'printsync',
+    'precision',
+    'cmyk',
+    'registration',
+    'large format',
+    'digital print',
+    'signage',
+    'branding',
+    'packaging',
+  ].some((s) => text.includes(s));
 
   if (!hasPrintSyncSpecifics) {
     issues.push('No PrintSync-specific services or capabilities mentioned');
@@ -164,9 +209,15 @@ function runCompetitorTest(concept: Concept): { passes: boolean; issues: string[
 
   // Check for generic visual language
   const hasGenericVisuals = [
-    'office', 'handshake', 'meeting', 'laptop', 'coffee',
-    'smiling', 'team', 'collaboration',
-  ].some(v => text.includes(v));
+    'office',
+    'handshake',
+    'meeting',
+    'laptop',
+    'coffee',
+    'smiling',
+    'team',
+    'collaboration',
+  ].some((v) => text.includes(v));
 
   if (hasGenericVisuals) {
     issues.push('Uses generic visual language that any competitor could use');
@@ -174,9 +225,17 @@ function runCompetitorTest(concept: Concept): { passes: boolean; issues: string[
 
   // Check for distinctive creative devices
   const hasDistinctiveDevice = [
-    'typography', 'kinetic', 'metaphor', 'transformation', 'scale',
-    'detective', 'humor', 'vfx', 'particle', 'explode',
-  ].some(d => text.includes(d));
+    'typography',
+    'kinetic',
+    'metaphor',
+    'transformation',
+    'scale',
+    'detective',
+    'humor',
+    'vfx',
+    'particle',
+    'explode',
+  ].some((d) => text.includes(d));
 
   if (!hasDistinctiveDevice) {
     issues.push('Lacks distinctive creative device that would be associated with PrintSync');
@@ -188,7 +247,10 @@ function runCompetitorTest(concept: Concept): { passes: boolean; issues: string[
   };
 }
 
-function generateRecommendations(issues: string[], layerResults: Record<string, string[]>): string[] {
+function generateRecommendations(
+  issues: string[],
+  layerResults: Record<string, string[]>,
+): string[] {
   const recommendations: string[] = [];
 
   if (issues.includes('generic service messaging')) {
@@ -201,13 +263,17 @@ function generateRecommendations(issues: string[], layerResults: Record<string, 
     recommendations.push('Vary the creative mode or territory from recent campaigns');
   }
   if (issues.includes('lacks creative device')) {
-    recommendations.push('Introduce a creative device: metaphor, transition, scale, typography, or humor');
+    recommendations.push(
+      'Introduce a creative device: metaphor, transition, scale, typography, or humor',
+    );
   }
   if (issues.includes('generic printer imagery')) {
     recommendations.push('Replace generic printer imagery with PrintSync-specific visual language');
   }
   if (issues.includes('lacks PrintSync brand signature')) {
-    recommendations.push('Add PrintSync-specific elements: precision, print physics, technical graphics');
+    recommendations.push(
+      'Add PrintSync-specific elements: precision, print physics, technical graphics',
+    );
   }
   if ((layerResults['Brand Signature']?.length ?? 0) > 0) {
     recommendations.push('Strengthen brand-specific elements to pass the competitor test');

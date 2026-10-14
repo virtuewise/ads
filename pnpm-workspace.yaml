@@ -13,6 +13,7 @@ allowBuilds:
   "@tailwindcss/node": true
   "@tailwindcss/oxide": true
   esbuild: true
+  lefthook: true
   sharp: true
   unrs-resolver: true
   "@printsync/core-native": true

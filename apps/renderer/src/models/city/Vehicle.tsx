@@ -1,11 +1,11 @@
-import { useMemo } from 'react';
-import type { CanvasTexture } from 'three';
 import {
-  VEHICLE_SIZES,
-  vehiclePoseAt,
   type CityPalette,
   type CityVehicle,
+  VEHICLE_SIZES,
+  vehiclePoseAt,
 } from '@printsync/motion-engine';
+import { useMemo } from 'react';
+import type { CanvasTexture } from 'three';
 import { canvasTexture, createCanvas, drawBrandMark } from '../artwork';
 
 interface VehicleProps {
@@ -45,12 +45,7 @@ function vehicleBrandTexture(wordmark: string, primary: string): CanvasTexture {
   return canvasTexture(canvas);
 }
 
-export const Vehicle: React.FC<VehicleProps> = ({
-  vehicle,
-  seconds,
-  palette,
-  brandPrimary,
-}) => {
+export const Vehicle: React.FC<VehicleProps> = ({ vehicle, seconds, palette, brandPrimary }) => {
   const size = VEHICLE_SIZES[vehicle.kind];
   const pose = vehiclePoseAt(vehicle, seconds);
   const night = palette.windowIntensity > 0.8;
@@ -69,11 +64,7 @@ export const Vehicle: React.FC<VehicleProps> = ({
       {/* Body, sitting on its wheels. */}
       <mesh position={[0, bodyY, 0]} castShadow>
         <boxGeometry args={[size.width, size.height - size.wheelRadius, size.length]} />
-        <meshStandardMaterial
-          color={bodyColour}
-          roughness={0.42}
-          metalness={0.34}
-        />
+        <meshStandardMaterial color={bodyColour} roughness={0.42} metalness={0.34} />
       </mesh>
 
       {/* Glazing, inset slightly so it never z-fights the body. */}

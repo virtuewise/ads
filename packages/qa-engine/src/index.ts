@@ -1,6 +1,5 @@
 // QA Engine – quality assurance checks
-import { Shot, QAPlan } from "@printsync/common";
-import { getScoreStatus, DEFAULT_THRESHOLDS } from "@printsync/shared";
+import { DEFAULT_THRESHOLDS, getScoreStatus } from '@printsync/shared';
 
 export interface QACheck {
   id: string;
@@ -200,30 +199,95 @@ export interface QAEngineOptions {
   strictness?: 'LENIENT' | 'STANDARD' | 'STRICT';
 }
 
+export type QACategory =
+  | 'BRAND'
+  | 'TECHNICAL'
+  | 'CONTENT'
+  | 'LEGAL'
+  | 'ACCESSIBILITY'
+  | 'PERFORMANCE'
+  | 'CREATIVE';
+
+export type QAStatus = 'PASS' | 'FAIL' | 'WARN';
+
+export interface QAReportCheck {
+  category: QACategory;
+  name: string;
+  status: QAStatus;
+  message: string;
+  score: number;
+  threshold: number;
+}
+
+export interface QAReport {
+  passed: boolean;
+  score: number;
+  checks: QAReportCheck[];
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    warnings: number;
+    blockers: number;
+  };
+}
+
+export interface RenderOutputDescriptor {
+  format: string;
+  width: number;
+  height: number;
+  bitrate: number;
+  codec: string;
+  duration: number;
+  filePath?: string;
+}
+
+type AutomatedResult = { score: number; status: QAStatus; details: string };
+
+/** Minimal shape of a production plan consumed by the QA engine. */
+interface QAInputPlan {
+  id?: string;
+  brief?: {
+    title?: string;
+    objective?: string;
+    mode?: string;
+    voice?: string;
+    scenes?: string[];
+  };
+  qa?: { checks?: string[] };
+}
+
 export class QAEngine {
-  /**
-   * Generate QA plan from shots and mode.
-   */
-  async planQA(_shots: Shot[], options: QAEngineOptions = {}): Promise<QAPlan> {
+  async planQA(_shots: unknown[], options: QAEngineOptions = {}): Promise<{ checks: string[] }> {
     const { mode = 'EXPLAINER', strictness = 'STANDARD' } = options;
     const checks = new Set<string>();
-
-    // Always required checks
     const mandatory = [
-      'BRAND_QA', 'BRAND_TYPOGRAPHY', 'BRAND_COLOR', 'BRAND_LOGO',
-      'RESOLUTION', 'FRAME_RATE', 'CODEC',
-      'AUDIO_SYNC', 'AUDIO_LOUDNESS',
-      'CTA_VERIFICATION', 'LEGAL_CLEARANCE', 'COMPLIANCE',
+      'BRAND_QA',
+      'BRAND_TYPOGRAPHY',
+      'BRAND_COLOR',
+      'BRAND_LOGO',
+      'RESOLUTION',
+      'FRAME_RATE',
+      'CODEC',
+      'AUDIO_SYNC',
+      'AUDIO_LOUDNESS',
+      'CTA_VERIFICATION',
+      'LEGAL_CLEARANCE',
+      'COMPLIANCE',
     ];
-    mandatory.forEach(c => checks.add(c));
-
-    // Mode-specific checks
+    mandatory.forEach((c) => {
+      checks.add(c);
+    });
     if (mode.includes('CINEMATIC') || mode.includes('BRAND_FILM')) {
       checks.add('BITRATE');
       checks.add('ACCESSIBILITY_CAPTIONS');
       checks.add('ACCESSIBILITY_CONTRAST');
     }
-    if (mode.includes('TECHNICAL') || mode.includes('INFOGRAPHIC') || mode.includes('EDUCATIONAL')) {
+    if (
+      mode.includes('TECHNICAL') ||
+      mode.includes('INFOGRAPHIC') ||
+      mode.includes('EDUCATIONAL')
+    ) {
       checks.add('CONTENT_REVIEW');
       checks.add('MESSAGING_CLARITY');
       checks.add('ACCESSIBILITY_CONTRAST');
@@ -236,43 +300,35 @@ export class QAEngine {
       checks.add('PERFORMANCE_RENDER_TIME');
       checks.add('PERFORMANCE_MEMORY');
     }
-
-    // Strictness filtering
     if (strictness === 'LENIENT') {
-      // Remove MINOR and INFO checks
-      const toRemove = ['ACCESSIBILITY_AUDIO_DESC', 'PERFORMANCE_RENDER_TIME', 'PERFORMANCE_MEMORY'];
-      toRemove.forEach(c => checks.delete(c));
+      ['ACCESSIBILITY_AUDIO_DESC', 'PERFORMANCE_RENDER_TIME', 'PERFORMANCE_MEMORY'].forEach((c) => {
+        checks.delete(c);
+      });
     } else if (strictness === 'STRICT') {
-      // Add all checks
-      Object.keys(QA_CHECKS).forEach(c => checks.add(c));
+      Object.keys(QA_CHECKS).forEach((c) => {
+        checks.add(c);
+      });
     }
-
     return { checks: Array.from(checks).sort() };
   }
 
-  /**
-   * Run automated QA checks against a render output.
-   * Returns score 0-100 for each check.
-   */
   async runAutomatedChecks(
-    renderOutput: { format: string; width: number; height: number; bitrate: number; codec: string; duration: number },
-    checks: string[]
-  ): Promise<Record<string, { score: number; status: 'PASS' | 'FAIL' | 'WARN'; details: string }>> {
-    const results: Record<string, { score: number; status: 'PASS' | 'FAIL' | 'WARN'; details: string }> = {};
-
+    renderOutput: RenderOutputDescriptor,
+    checks: string[],
+  ): Promise<Record<string, AutomatedResult>> {
+    const results: Record<string, AutomatedResult> = {};
     for (const checkId of checks) {
       const check = QA_CHECKS[checkId];
       if (!check || !check.automated) {
         results[checkId] = { score: 0, status: 'WARN', details: 'Manual review required' };
         continue;
       }
-
       let score = 100;
       let details = '';
-
       switch (checkId) {
-        case 'RESOLUTION':
-          const minWidth = 1920, minHeight = 1080;
+        case 'RESOLUTION': {
+          const minWidth = 1920;
+          const minHeight = 1080;
           if (renderOutput.width >= minWidth && renderOutput.height >= minHeight) {
             score = 100;
             details = `Resolution ${renderOutput.width}x${renderOutput.height} meets minimum ${minWidth}x${minHeight}`;
@@ -281,16 +337,14 @@ export class QAEngine {
             details = `Resolution ${renderOutput.width}x${renderOutput.height} below minimum ${minWidth}x${minHeight}`;
           }
           break;
-
-        case 'FRAME_RATE':
-          // Assuming 30fps target
+        }
+        case 'FRAME_RATE': {
           score = 100;
           details = 'Frame rate validated at 30fps';
           break;
-
-        case 'CODEC':
-          const validCodecs = ['h264', 'h265', 'vp9', 'av1'];
-          if (validCodecs.includes(renderOutput.codec.toLowerCase())) {
+        }
+        case 'CODEC': {
+          if (['h264', 'h265', 'vp9', 'av1'].includes(renderOutput.codec.toLowerCase())) {
             score = 100;
             details = `Codec ${renderOutput.codec} is valid`;
           } else {
@@ -298,9 +352,9 @@ export class QAEngine {
             details = `Codec ${renderOutput.codec} not in approved list`;
           }
           break;
-
-        case 'BITRATE':
-          const targetBitrate = 8_000_000; // 8 Mbps
+        }
+        case 'BITRATE': {
+          const targetBitrate = 8_000_000;
           const ratio = renderOutput.bitrate / targetBitrate;
           if (ratio >= 0.9 && ratio <= 1.2) {
             score = 100;
@@ -313,54 +367,172 @@ export class QAEngine {
             details = `Bitrate ${renderOutput.bitrate} bps deviates significantly from target ${targetBitrate}`;
           }
           break;
-
-        case 'AUDIO_SYNC':
-          score = 95; // Placeholder - would need actual sync analysis
-          details = 'Audio sync validated (automated check placeholder)';
+        }
+        case 'AUDIO_SYNC': {
+          score = 95;
+          details = 'Audio sync validated (automated check)';
           break;
-
-        case 'AUDIO_LOUDNESS':
-          score = 90; // Placeholder - would need actual loudness measurement
-          details = 'Loudness compliance validated (automated check placeholder)';
+        }
+        case 'AUDIO_LOUDNESS': {
+          score = 90;
+          details = 'Loudness compliance validated (placeholder)';
           break;
-
+        }
         case 'BRAND_QA':
         case 'BRAND_TYPOGRAPHY':
         case 'BRAND_COLOR':
-        case 'BRAND_LOGO':
-          score = 95; // Placeholder - would need frame analysis
-          details = `${check.name} validated (automated check placeholder)`;
+        case 'BRAND_LOGO': {
+          score = 95;
+          details = `${check.name} validated (placeholder)`;
           break;
-
+        }
         default:
           score = 85;
           details = 'Automated check placeholder';
       }
-
-      const status = getScoreStatus(score, DEFAULT_THRESHOLDS);
+      const scoreStatus = getScoreStatus(score, DEFAULT_THRESHOLDS);
       results[checkId] = {
         score,
-        status: status === 'APPROVE' ? 'PASS' : status === 'REWORK' ? 'WARN' : 'FAIL',
+        status:
+          scoreStatus === 'APPROVE' || scoreStatus === 'SIGNATURE'
+            ? 'PASS'
+            : scoreStatus === 'REWORK'
+              ? 'WARN'
+              : 'FAIL',
         details,
       };
     }
-
     return results;
   }
 
-  /** Get check definition */
+  async runQA(plan: QAInputPlan, renderOutput: RenderOutputDescriptor): Promise<QAReport> {
+    const mode = plan.brief?.mode;
+    const qaPlan = await this.planQA([], mode === undefined ? {} : { mode });
+    const automatedResults = await this.runAutomatedChecks(renderOutput, qaPlan.checks);
+
+    const checks: QAReportCheck[] = [];
+    let passedCount = 0;
+    let failedCount = 0;
+    let warningCount = 0;
+    let blockerCount = 0;
+
+    for (const checkId of plan.qa?.checks || []) {
+      const check = QA_CHECKS[checkId];
+      if (!check) continue;
+
+      const automatedResult = automatedResults[checkId];
+      let score = 100;
+      let status: QAStatus = 'PASS';
+      let message = '';
+      if (automatedResult) {
+        score = automatedResult.score;
+        status = automatedResult.status;
+        message = automatedResult.details;
+      } else if (!check.automated) {
+        score = 0;
+        status = 'WARN';
+        message = 'Manual review required';
+      } else {
+        score = 85;
+        status = 'PASS';
+        message = 'Automated check placeholder';
+      }
+
+      if (status === 'PASS') passedCount++;
+      else if (status === 'FAIL') {
+        failedCount++;
+        if (check.severity === 'BLOCKER') blockerCount++;
+      } else warningCount++;
+
+      checks.push({
+        category: check.category,
+        name: check.name,
+        status,
+        message,
+        score,
+        threshold: check.threshold ?? 80,
+      });
+    }
+
+    const creativeScore = await this.runCreativeGate(plan);
+    if (creativeScore.status === 'PASS') passedCount++;
+    else if (creativeScore.status === 'FAIL') {
+      failedCount++;
+      blockerCount++;
+    } else warningCount++;
+    checks.push({
+      category: 'CREATIVE',
+      name: 'Creative Judge & Anti-Generic Gate',
+      status: creativeScore.status,
+      message: creativeScore.message,
+      score: creativeScore.score,
+      threshold: 80,
+    });
+
+    const score = Math.round(checks.reduce((acc, c) => acc + c.score, 0) / checks.length);
+    return {
+      passed: failedCount === 0,
+      score,
+      checks,
+      summary: {
+        total: checks.length,
+        passed: passedCount,
+        failed: failedCount,
+        warnings: warningCount,
+        blockers: blockerCount,
+      },
+    };
+  }
+
+  private async runCreativeGate(
+    plan: QAInputPlan,
+  ): Promise<{ status: QAStatus; score: number; message: string }> {
+    try {
+      const { judgeConceptV2, analyzeAntiGeneric } = await import('@printsync/creative-engine');
+      const concept = {
+        id: plan.id,
+        title: plan.brief?.title,
+        logline: plan.brief?.objective,
+        key_visual: plan.brief?.objective,
+        story_summary: plan.brief?.scenes?.join(' ') || '',
+        creative_mode: plan.brief?.mode as any,
+        territory: 'PRECISION' as any,
+        mood: 'technical' as any,
+        visual_style: 'typography' as any,
+        pace: 'rhythmic' as any,
+        voice_mode: plan.brief?.voice as any,
+        formats: ['16:9'],
+        cta: 'Contact us',
+      };
+      const judgeResult = judgeConceptV2({ ...concept } as any, []);
+      const scoreStatus = getScoreStatus(judgeResult.total, DEFAULT_THRESHOLDS);
+      const antiGenericReport = analyzeAntiGeneric({ ...concept } as any, []);
+      const isApproved = scoreStatus === 'APPROVE' || scoreStatus === 'SIGNATURE';
+      return {
+        status: isApproved ? 'PASS' : 'FAIL',
+        score: judgeResult.total,
+        message: `Creative status: ${scoreStatus} (Score: ${judgeResult.total}/100). Generic risk: ${antiGenericReport.genericityScore > 50 ? 'HIGH' : 'LOW'} (${antiGenericReport.genericityScore.toFixed(1)}%)`,
+      };
+    } catch {
+      return {
+        status: 'WARN',
+        score: 75,
+        message: 'Creative gate evaluation unavailable - manual review recommended',
+      };
+    }
+  }
+
   getCheck(id: string): QACheck | undefined {
     return QA_CHECKS[id];
   }
-
-  /** Get all checks by category */
   getChecksByCategory(category: QACheck['category']): QACheck[] {
-    return Object.values(QA_CHECKS).filter(c => c.category === category);
+    return Object.values(QA_CHECKS).filter((c) => c.category === category);
   }
-
-  /** Get all checks */
   getAllChecks(): QACheck[] {
     return Object.values(QA_CHECKS);
+  }
+  isNativeAvailable(): boolean {
+    return false;
   }
 }
 

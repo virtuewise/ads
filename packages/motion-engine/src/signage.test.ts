@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { toSceneUnits } from './print-items.js';
 import {
+  getRoadSign,
   ROAD_SIGN_IDS,
   ROAD_SIGNS,
-  SIGN_PANEL_MM,
-  getRoadSign,
   roadSignAspect,
   roadSignOutlinePoints,
   roadSignSceneHeight,
   roadSignSceneMountHeight,
   roadSignSceneWidth,
+  SIGN_PANEL_MM,
 } from './signage.js';
-import { toSceneUnits } from './print-items.js';
 
 describe('ROAD_SIGNS', () => {
   it('has unique ids', () => {
@@ -109,7 +109,13 @@ describe('roadSignOutlinePoints', () => {
   });
 
   it('returns a unit rectangle for every rectangular sign', () => {
-    for (const kind of ['regulation', 'prohibition', 'direction', 'chevron', 'information'] as const) {
+    for (const kind of [
+      'regulation',
+      'prohibition',
+      'direction',
+      'chevron',
+      'information',
+    ] as const) {
       const points = roadSignOutlinePoints(kind);
       expect(points).toHaveLength(4);
       const xs = points.map((p) => p[0]);

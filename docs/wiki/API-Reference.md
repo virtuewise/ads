@@ -119,7 +119,7 @@ const report = await runDailyCreativeEngine(history, services, 'AWARENESS');
 
 ## `@printsync/brand-engine`
 
-Authoritative interface to the PrintSync brand files. Everything flows through here.
+Authoritative interface to the PrintSync brand template files (the default brand within Virtue Studio). Everything flows through here.
 
 ```typescript
 import { BrandEngine } from '@printsync/brand-engine';

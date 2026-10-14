@@ -1,18 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { type CityBuilding, type CityOptions, cityPalette, generateCityLayout } from './city.js';
 import {
-  generateCityLayout,
-  cityPalette,
-  type CityBuilding,
-  type CityOptions,
-} from './city.js';
-import {
+  generateCityShopfronts,
   SHOPFRONT_HEIGHT_M,
   SHOPFRONT_HERO_Z,
   SHOPFRONT_MAX_HEIGHT_M,
   SHOPFRONT_PIER_M,
-  generateCityShopfronts,
-  shopfrontCopy,
   type ShopfrontTrade,
+  shopfrontCopy,
 } from './shopfronts.js';
 
 const options = (overrides: Partial<CityOptions> = {}): CityOptions => ({
@@ -76,7 +71,9 @@ describe('generateCityShopfronts', () => {
       expect(shop.span - shop.width).toBeLessThanOrEqual(SHOPFRONT_PIER_M * 2 + 0.4);
       expect(shop.height).toBeGreaterThanOrEqual(3.9);
       expect(shop.height).toBeLessThanOrEqual(4.5);
-      expect(shop.awning === 'none' || shop.awning === 'straight' || shop.awning === 'wedge').toBe(true);
+      expect(shop.awning === 'none' || shop.awning === 'straight' || shop.awning === 'wedge').toBe(
+        true,
+      );
     }
   });
 

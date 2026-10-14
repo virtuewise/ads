@@ -1,11 +1,11 @@
-﻿import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
-import {
-  DEFAULT_BRAND_TOKENS,
-  PRINTSYNC_MARK,
+﻿import {
   type ArtworkSpec,
   type BrandMark,
   type BrandMarkTone,
+  DEFAULT_BRAND_TOKENS,
+  PRINTSYNC_MARK,
 } from '@printsync/motion-engine';
+import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
 
 const SIZE = 1024;
 export const ARTWORK_FONT = "'Arial Black', 'Helvetica Neue', Arial, sans-serif";
@@ -220,7 +220,13 @@ export function roundRect(
   ctx.closePath();
 }
 
-function registrationMark(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, color: string): void {
+function registrationMark(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  color: string,
+): void {
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.beginPath();

@@ -1,26 +1,26 @@
-import { RepeatWrapping, type CanvasTexture } from 'three';
 import {
-  mulberry32,
-  roadSignOutlinePoints,
   type CityPalette,
+  mulberry32,
   type OohArtworkSpec,
   type RoadSignKind,
   type RoadSignSpec,
+  roadSignOutlinePoints,
   type ShopfrontBackWall,
   type ShopfrontFasciaKind,
   type ShopfrontWindowKind,
   type TimeOfDay,
 } from '@printsync/motion-engine';
+import { type CanvasTexture, RepeatWrapping } from 'three';
 import {
   ARTWORK_FONT,
   ARTWORK_FONT_TEXT,
+  type BrandMarkOptions,
   canvasTexture,
   createCanvas,
   drawBrandMark,
   drawLabel,
   roundRect,
   wrapText,
-  type BrandMarkOptions,
 } from '../artwork';
 
 /** Window emissive variants the city can draw from. */
@@ -127,7 +127,10 @@ const SKY_HORIZON_ROW = SKY_HEIGHT * 0.5;
  * point features (stars, moon, sun) at their correct places on the dome. It is
  * deterministic: the same palette always paints the same sky.
  */
-export function createSkyTexture(palette: CityPalette, timeOfDay: TimeOfDay = 'night'): CanvasTexture {
+export function createSkyTexture(
+  palette: CityPalette,
+  timeOfDay: TimeOfDay = 'night',
+): CanvasTexture {
   const { canvas, ctx } = createCanvas(SKY_WIDTH, SKY_HEIGHT);
   const rand = mulberry32(0x5ee1 ^ Math.round(palette.sunIntensity * 1000));
 
@@ -143,7 +146,10 @@ export function createSkyTexture(palette: CityPalette, timeOfDay: TimeOfDay = 'n
   // horizon. This is what makes a night skyline read as a living city.
   const dome = ctx.createLinearGradient(0, SKY_HORIZON_ROW - SKY_HEIGHT * 0.34, 0, SKY_HORIZON_ROW);
   dome.addColorStop(0, 'rgba(0,0,0,0)');
-  dome.addColorStop(0.55, timeOfDay === 'day' ? 'rgba(255,255,255,0.06)' : 'rgba(255,176,102,0.16)');
+  dome.addColorStop(
+    0.55,
+    timeOfDay === 'day' ? 'rgba(255,255,255,0.06)' : 'rgba(255,176,102,0.16)',
+  );
   dome.addColorStop(1, timeOfDay === 'day' ? 'rgba(255,255,255,0.02)' : 'rgba(255,150,86,0.05)');
   ctx.fillStyle = dome;
   ctx.fillRect(0, SKY_HORIZON_ROW - SKY_HEIGHT * 0.34, SKY_WIDTH, SKY_HEIGHT * 0.34);
@@ -310,9 +316,10 @@ export function createBrandSignTexture(
   const markX = pad + lockupSize / 2;
   drawBrandMark(ctx, markX, H / 2, {
     size: lockupSize,
-    colours: mount === 'facade'
-      ? { primary: paper, secondary: paper, ink: paper }
-      : { primary, secondary: paper, ink: paper },
+    colours:
+      mount === 'facade'
+        ? { primary: paper, secondary: paper, ink: paper }
+        : { primary, secondary: paper, ink: paper },
   });
 
   ctx.fillStyle = paper;
@@ -471,7 +478,17 @@ export function createOohTexture(spec: OohArtworkSpec): CanvasTexture {
     spec.paper,
     'right',
   );
-  drawLabel(ctx, spec.kicker.toUpperCase(), pad, H * 0.065, Math.min(W, H) * 0.032, spec.paper, 'left', 700, ARTWORK_FONT_TEXT);
+  drawLabel(
+    ctx,
+    spec.kicker.toUpperCase(),
+    pad,
+    H * 0.065,
+    Math.min(W, H) * 0.032,
+    spec.paper,
+    'left',
+    700,
+    ARTWORK_FONT_TEXT,
+  );
 
   // Headline block.
   const headlineSize = Math.min(W, H) * 0.14;
@@ -507,7 +524,12 @@ export function createOohTexture(spec: OohArtworkSpec): CanvasTexture {
 
   // CTA strip.
   ctx.fillStyle = spec.primary;
-  ctx.fillRect(pad + W * 0.32, blockY + blockH - Math.min(W, H) * 0.07, W - pad * 2 - W * 0.32, Math.min(W, H) * 0.07);
+  ctx.fillRect(
+    pad + W * 0.32,
+    blockY + blockH - Math.min(W, H) * 0.07,
+    W - pad * 2 - W * 0.32,
+    Math.min(W, H) * 0.07,
+  );
   drawLabel(
     ctx,
     'PRINTSYNC.EXAMPLE / INSTALLED NATIONWIDE',
@@ -545,7 +567,14 @@ export function createDigitalTexture(spec: OohArtworkSpec): CanvasTexture {
   ctx.fillRect(0, 0, W, H);
 
   // Radial brand glow.
-  const glow = ctx.createRadialGradient(W * 0.72, H * 0.34, 0, W * 0.72, H * 0.34, Math.max(W, H) * 0.7);
+  const glow = ctx.createRadialGradient(
+    W * 0.72,
+    H * 0.34,
+    0,
+    W * 0.72,
+    H * 0.34,
+    Math.max(W, H) * 0.7,
+  );
   glow.addColorStop(0, `${spec.primary}cc`);
   glow.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = glow;
@@ -553,7 +582,17 @@ export function createDigitalTexture(spec: OohArtworkSpec): CanvasTexture {
 
   ctx.fillStyle = spec.accent;
   ctx.fillRect(pad, pad, Math.min(W, H) * 0.09, Math.min(W, H) * 0.012);
-  drawLabel(ctx, spec.kicker.toUpperCase(), pad, pad + Math.min(W, H) * 0.05, Math.min(W, H) * 0.034, '#ffffff', 'left', 700, ARTWORK_FONT_TEXT);
+  drawLabel(
+    ctx,
+    spec.kicker.toUpperCase(),
+    pad,
+    pad + Math.min(W, H) * 0.05,
+    Math.min(W, H) * 0.034,
+    '#ffffff',
+    'left',
+    700,
+    ARTWORK_FONT_TEXT,
+  );
 
   const headlineSize = Math.min(W, H) * 0.155;
   ctx.fillStyle = '#ffffff';
@@ -966,7 +1005,12 @@ export function createWindowVinylTexture(
     ctx.fillText(label, cx, cy);
     const textWidth = ctx.measureText(label).width;
     ctx.fillStyle = banded ? withAlpha('#111418', 0.55) : withAlpha('#ffffff', 0.75);
-    ctx.fillRect(cx, cy + size * 0.8, Math.min(textWidth, VINYL_W * 0.72), Math.max(3, size * 0.09));
+    ctx.fillRect(
+      cx,
+      cy + size * 0.8,
+      Math.min(textWidth, VINYL_W * 0.72),
+      Math.max(3, size * 0.09),
+    );
   }
 
   // Opening hours and a founding date etched along the base of the glass.

@@ -16,7 +16,7 @@ const LogoMark: React.FC<LogoMarkProps> = ({ frame, fps }) => {
   const rotationX = Math.sin(time * 0.8) * 0.22;
   const scale = interpolate(frame, [0, 24], [0.6, 1], {
     extrapolateRight: 'clamp',
-    easing: (t) => 1 - Math.pow(1 - t, 3),
+    easing: (t) => 1 - (1 - t) ** 3,
   });
 
   return (
@@ -46,11 +46,7 @@ export const Logo3D: React.FC = () => {
   const { width, height, fps } = useVideoConfig();
 
   return (
-    <ThreeCanvas
-      width={width}
-      height={height}
-      camera={{ position: [0, 0, 5], fov: 42 }}
-    >
+    <ThreeCanvas width={width} height={height} camera={{ position: [0, 0, 5], fov: 42 }}>
       <ambientLight intensity={0.5} />
       <directionalLight position={[3, 4, 5]} intensity={2.4} color="#ffffff" />
       <pointLight position={[4, -3, -4]} intensity={45} color={BRAND} />

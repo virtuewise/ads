@@ -4,7 +4,7 @@
  */
 
 import type { Concept, DiversityAnalysis } from '@printsync/shared';
-import { generateCreativeGenome, calculateCreativeSimilarity } from './campaign-functions.js';
+import { calculateCreativeSimilarity, generateCreativeGenome } from './campaign-functions.js';
 
 /**
  * Analyze diversity of the top concepts.
@@ -12,7 +12,7 @@ import { generateCreativeGenome, calculateCreativeSimilarity } from './campaign-
 export function analyzeDiversity(concepts: Concept[]): DiversityAnalysis {
   if (concepts.length < 2) {
     return {
-      topConcepts: concepts.map(c => c.title),
+      topConcepts: concepts.map((c) => c.title),
       diversityScore: 100,
       dimensions: {},
       verdict: 'DIVERSE',
@@ -20,11 +20,19 @@ export function analyzeDiversity(concepts: Concept[]): DiversityAnalysis {
     };
   }
 
-  const genomes = concepts.map(c => generateCreativeGenome(c));
+  const genomes = concepts.map((c) => generateCreativeGenome(c));
   const dimensions: Record<string, number[]> = {};
 
   // Calculate pairwise similarity for each dimension
-  const dimensionNames = ['creativeMode', 'narrativeStructure', 'service', 'visualTerritory', 'typography', 'motion', 'tone'];
+  const dimensionNames = [
+    'creativeMode',
+    'narrativeStructure',
+    'service',
+    'visualTerritory',
+    'typography',
+    'motion',
+    'tone',
+  ];
 
   for (const dim of dimensionNames) {
     dimensions[dim] = [];
@@ -39,7 +47,8 @@ export function analyzeDiversity(concepts: Concept[]): DiversityAnalysis {
 
   // Calculate overall diversity score
   const allScores = Object.values(dimensions).flat();
-  const averageSimilarity = allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
+  const averageSimilarity =
+    allScores.length > 0 ? allScores.reduce((a, b) => a + b, 0) / allScores.length : 0;
   const diversityScore = Math.round((1 - averageSimilarity) * 100);
 
   // Determine verdict
@@ -55,18 +64,18 @@ export function analyzeDiversity(concepts: Concept[]): DiversityAnalysis {
   }
 
   // Check for specific repetitive patterns
-  const creativeModes = new Set(concepts.map(c => c.creative_mode));
+  const creativeModes = new Set(concepts.map((c) => c.creative_mode));
   if (creativeModes.size === 1) {
     issues.push('All top concepts use the same creative mode');
   }
 
-  const territories = new Set(concepts.map(c => c.territory));
+  const territories = new Set(concepts.map((c) => c.territory));
   if (territories.size === 1) {
     issues.push('All top concepts use the same visual territory');
   }
 
   return {
-    topConcepts: concepts.map(c => c.title),
+    topConcepts: concepts.map((c) => c.title),
     diversityScore,
     dimensions,
     verdict,
@@ -102,7 +111,10 @@ export function selectDiverseTop3(concepts: Concept[]): Concept[] {
   maxDiversity = -1;
   maxIndex = 0;
   for (let i = 0; i < remaining.length; i++) {
-    const diversity = (calculateDiversityScore(selected[0]!, remaining[i]!) + calculateDiversityScore(selected[1]!, remaining[i]!)) / 2;
+    const diversity =
+      (calculateDiversityScore(selected[0]!, remaining[i]!) +
+        calculateDiversityScore(selected[1]!, remaining[i]!)) /
+      2;
     if (diversity > maxDiversity) {
       maxDiversity = diversity;
       maxIndex = i;

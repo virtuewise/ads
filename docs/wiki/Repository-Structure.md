@@ -41,7 +41,7 @@ ads/
 
 ## Brand brain
 
-`brand/printsync/` is the machine-readable and human-readable brand source of truth:
+`brand/printsync/` is the machine-readable and human-readable brand source of truth for the PrintSync brand template. Virtue Studio supports multiple brands — PrintSync is the default/featured implementation:
 
 | File | Contents |
 |---|---|

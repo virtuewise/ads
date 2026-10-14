@@ -1,16 +1,16 @@
-import { useMemo } from 'react';
-import { BufferAttribute, ExtrudeGeometry, Shape, ShapeGeometry } from 'three';
 import {
-  SIGN_PANEL_MM,
+  type CityPalette,
+  type CitySign,
+  type RoadSignSpec,
   roadSignOutlinePoints,
   roadSignSceneHeight,
   roadSignSceneMountHeight,
   roadSignSceneWidth,
+  SIGN_PANEL_MM,
   toSceneUnits,
-  type CityPalette,
-  type CitySign,
-  type RoadSignSpec,
 } from '@printsync/motion-engine';
+import { useMemo } from 'react';
+import { BufferAttribute, ExtrudeGeometry, Shape, ShapeGeometry } from 'three';
 import { createSignFaceTexture } from './cityArtwork';
 
 interface RoadSignProps {
@@ -83,10 +83,7 @@ export const RoadSign: React.FC<RoadSignProps> = ({ slot, sign, palette }) => {
       </mesh>
 
       {/* Printed, retro-reflective face. */}
-      <mesh
-        geometry={faceGeometry}
-        position={[0, mount + height / 2, thickness / 2 + 0.003]}
-      >
+      <mesh geometry={faceGeometry} position={[0, mount + height / 2, thickness / 2 + 0.003]}>
         <meshStandardMaterial
           map={face}
           emissiveMap={face}

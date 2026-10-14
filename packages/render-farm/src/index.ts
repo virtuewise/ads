@@ -18,6 +18,6 @@
  * keeps a laptop render and a farm render on exactly the same plan.
  */
 
-export * from './plan.js';
-export * from './lambda.js';
 export * from './ffmpeg.js';
+export * from './lambda.js';
+export * from './plan.js';

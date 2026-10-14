@@ -1,12 +1,19 @@
-import { describe, it, expect } from 'vitest';
-import { getPrintItem, PRINT_ITEMS, PRINT_ITEMS_HERO_ANIMATIONS, PRINT_ITEMS_HERO_IDS, heroPrintItems, resolveChoreography } from './print-items.js';
+import { describe, expect, it } from 'vitest';
 import {
+  type BrandTokens,
   buildArtworkSpec,
   DEFAULT_BRAND_TOKENS,
   resolveArtworkShape,
   resolveArtworkVariant,
-  type BrandTokens,
 } from './artwork.js';
+import {
+  getPrintItem,
+  heroPrintItems,
+  PRINT_ITEMS,
+  PRINT_ITEMS_HERO_ANIMATIONS,
+  PRINT_ITEMS_HERO_IDS,
+  resolveChoreography,
+} from './print-items.js';
 
 const BOTTLE = getPrintItem('bottle-500')!;
 const CARD = getPrintItem('business-card')!;
@@ -107,9 +114,7 @@ describe('PRINT_ITEMS_HERO_IDS', () => {
 
   it('spans every catalogue category', () => {
     const categories = new Set(
-      PRINT_ITEMS_HERO_IDS.map((id) => getPrintItem(id)?.category).filter(
-        (c) => c !== undefined,
-      ),
+      PRINT_ITEMS_HERO_IDS.map((id) => getPrintItem(id)?.category).filter((c) => c !== undefined),
     );
     expect([...categories].sort()).toEqual(['banner', 'box', 'container', 'flat']);
   });
@@ -140,17 +145,19 @@ describe('resolveChoreography', () => {
   });
 
   it('honours explicit animation and phase overrides', () => {
-    const resolved = resolveChoreography(['can-330'], [
-      { id: 'can-330', animation: 'spin', phase: 42 },
-    ]);
+    const resolved = resolveChoreography(
+      ['can-330'],
+      [{ id: 'can-330', animation: 'spin', phase: 42 }],
+    );
     expect(resolved[0]?.animation).toBe('spin');
     expect(resolved[0]?.phase).toBe(42);
   });
 
   it('ignores unknown animation names and falls back to the default', () => {
-    const resolved = resolveChoreography(['can-330'], [
-      { id: 'can-330', animation: 'does-not-exist' },
-    ]);
+    const resolved = resolveChoreography(
+      ['can-330'],
+      [{ id: 'can-330', animation: 'does-not-exist' }],
+    );
     // can-330 is index 0 out of context, so the curated first move applies.
     expect(resolved[0]?.animation).toBe(PRINT_ITEMS_HERO_ANIMATIONS[0]);
   });

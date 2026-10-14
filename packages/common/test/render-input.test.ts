@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   BrandTokensSchema,
   CameraPathSchema,
   CompositionIdSchema,
-  RenderOutputSchema,
   RenderInputsSchema,
   RenderItemSchema,
+  RenderOutputSchema,
   validateRenderInputs,
 } from '../src/render-input.js';
 
@@ -40,15 +40,9 @@ describe('BrandTokensSchema', () => {
 
 describe('CompositionIdSchema', () => {
   it('accepts known compositions', () => {
-    expect(CompositionIdSchema.parse('PrintSyncSignatureFilm')).toBe(
-      'PrintSyncSignatureFilm',
-    );
-    expect(CompositionIdSchema.parse('PrintSyncProductLine')).toBe(
-      'PrintSyncProductLine',
-    );
-    expect(CompositionIdSchema.parse('PrintSyncBrandFilm')).toBe(
-      'PrintSyncBrandFilm',
-    );
+    expect(CompositionIdSchema.parse('PrintSyncSignatureFilm')).toBe('PrintSyncSignatureFilm');
+    expect(CompositionIdSchema.parse('PrintSyncProductLine')).toBe('PrintSyncProductLine');
+    expect(CompositionIdSchema.parse('PrintSyncBrandFilm')).toBe('PrintSyncBrandFilm');
   });
 
   it('rejects unknown compositions', () => {
@@ -69,19 +63,17 @@ describe('CameraPathSchema', () => {
 
 describe('RenderOutputSchema', () => {
   it('accepts a valid output', () => {
-    expect(
-      RenderOutputSchema.parse({ format: 'mp4', width: 1920, height: 1080 }),
-    ).toMatchObject({ format: 'mp4', width: 1920, height: 1080 });
+    expect(RenderOutputSchema.parse({ format: 'mp4', width: 1920, height: 1080 })).toMatchObject({
+      format: 'mp4',
+      width: 1920,
+      height: 1080,
+    });
   });
   it('rejects a bad format', () => {
-    expect(() =>
-      RenderOutputSchema.parse({ format: 'avi', width: 1920, height: 1080 }),
-    ).toThrow();
+    expect(() => RenderOutputSchema.parse({ format: 'avi', width: 1920, height: 1080 })).toThrow();
   });
   it('rejects non-positive dimensions', () => {
-    expect(() =>
-      RenderOutputSchema.parse({ format: 'mp4', width: 0, height: 1080 }),
-    ).toThrow();
+    expect(() => RenderOutputSchema.parse({ format: 'mp4', width: 0, height: 1080 })).toThrow();
   });
 });
 
@@ -94,9 +86,7 @@ describe('RenderItemSchema', () => {
     });
   });
   it('rejects unknown animations', () => {
-    expect(() =>
-      RenderItemSchema.parse({ id: 'x', animation: 'explode' }),
-    ).toThrow();
+    expect(() => RenderItemSchema.parse({ id: 'x', animation: 'explode' })).toThrow();
   });
 });
 
@@ -142,9 +132,7 @@ describe('RenderInputsSchema / validateRenderInputs', () => {
   });
 
   it('rejects an empty items list', () => {
-    expect(() =>
-      validateRenderInputs({ ...valid, items: [] }),
-    ).toThrow();
+    expect(() => validateRenderInputs({ ...valid, items: [] })).toThrow();
   });
 
   it('rejects a missing brand', () => {
@@ -153,8 +141,6 @@ describe('RenderInputsSchema / validateRenderInputs', () => {
   });
 
   it('rejects a bad composition', () => {
-    expect(() =>
-      validateRenderInputs({ ...valid, composition: 'Nope' }),
-    ).toThrow();
+    expect(() => validateRenderInputs({ ...valid, composition: 'Nope' })).toThrow();
   });
 });

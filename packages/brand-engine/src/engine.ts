@@ -10,15 +10,15 @@ import type {
   BrandIdentity,
   BrandPersonality as BrandPersonalitySchema,
   BrandVoice as BrandVoiceSchema,
-  CreativeDNA,
-  VisualSystem,
-  TypographySystem,
   ColorSystem,
-  MotionLanguage,
-  ServiceDefinition,
-  MessagingSystem,
+  CreativeDNA,
   ForbiddenStyle,
   LogoRules,
+  MessagingSystem,
+  MotionLanguage,
+  ServiceDefinition,
+  TypographySystem,
+  VisualSystem,
 } from '@printsync/shared';
 
 export interface BrandEngineConfig {
@@ -69,7 +69,8 @@ export class BrandEngine {
     return {
       name: 'PrintSync',
       tagline: 'Your Vision. Our Precision.',
-      positioning: 'Premium printing, branding, signage and visual communication solutions that transform ideas into tangible brand experiences.',
+      positioning:
+        'Premium printing, branding, signage and visual communication solutions that transform ideas into tangible brand experiences.',
       pillars: ['CONSISTENCY', 'PERSEVERANCE', 'CREATIVITY', 'PRECISION'],
     };
   }
@@ -80,9 +81,18 @@ export class BrandEngine {
   getBrandPersonality(): BrandPersonalitySchema {
     return {
       traits: [
-        'precise', 'creative', 'intelligent', 'modern', 'reliable',
-        'ambitious', 'technically capable', 'premium', 'energetic',
-        'persistent', 'detail-oriented', 'confident',
+        'precise',
+        'creative',
+        'intelligent',
+        'modern',
+        'reliable',
+        'ambitious',
+        'technically capable',
+        'premium',
+        'energetic',
+        'persistent',
+        'detail-oriented',
+        'confident',
       ],
       creativeRule: 'Never look generic.',
       coreMessage: 'Your Vision. Our Precision.',
@@ -104,7 +114,7 @@ export class BrandEngine {
         technical: 'Every micron matters. Every registration is precise.',
         creative: 'Where digital ambition meets physical impact.',
         premium: 'Not just printed. Perfected.',
-        direct: 'Your vision. Our precision. Let\'s build something real.',
+        direct: "Your vision. Our precision. Let's build something real.",
       },
     };
   }
@@ -190,11 +200,24 @@ export class BrandEngine {
       primaryFont: 'Inter',
       secondaryFont: 'JetBrains Mono',
       kineticBehaviors: [
-        'TYPE-SLAM', 'TYPE-BUILD', 'TYPE-SCAN', 'TYPE-SLICE',
-        'TYPE-EXPLODE', 'TYPE-MORPH', 'TYPE-STRETCH', 'TYPE-TRACK',
-        'TYPE-LOCK', 'TYPE-REVEAL', 'TYPE-IMPACT', 'TYPE-PARTICLE',
-        'TYPE-MATERIALIZE', 'TYPE-PRINT', 'TYPE-CUT', 'TYPE-FOLD',
-        'TYPE-STACK', 'TYPE-SCALE',
+        'TYPE-SLAM',
+        'TYPE-BUILD',
+        'TYPE-SCAN',
+        'TYPE-SLICE',
+        'TYPE-EXPLODE',
+        'TYPE-MORPH',
+        'TYPE-STRETCH',
+        'TYPE-TRACK',
+        'TYPE-LOCK',
+        'TYPE-REVEAL',
+        'TYPE-IMPACT',
+        'TYPE-PARTICLE',
+        'TYPE-MATERIALIZE',
+        'TYPE-PRINT',
+        'TYPE-CUT',
+        'TYPE-FOLD',
+        'TYPE-STACK',
+        'TYPE-SCALE',
       ],
       principles: {
         typeIsCharacter: true,
@@ -262,7 +285,8 @@ export class BrandEngine {
         id: 'digital-printing',
         name: 'Digital Printing',
         category: 'print',
-        description: 'High-quality digital printing for short runs, quick turnaround, and variable data',
+        description:
+          'High-quality digital printing for short runs, quick turnaround, and variable data',
         customerProblems: ['need fast turnaround', 'small print runs', 'variable data printing'],
         applications: ['brochures', 'flyers', 'business cards', 'booklets'],
         visualOpportunities: ['precision registration', 'color accuracy', 'short-run efficiency'],
@@ -286,12 +310,17 @@ export class BrandEngine {
         id: 'large-format-printing',
         name: 'Large Format Printing',
         category: 'print',
-        description: 'Oversized printing for banners, signage, displays, and environmental graphics',
+        description:
+          'Oversized printing for banners, signage, displays, and environmental graphics',
         customerProblems: ['need visibility', 'large-scale branding', 'outdoor durability'],
         applications: ['banners', 'billboards', 'building wraps', 'vehicle graphics'],
         visualOpportunities: ['scale', 'transformation', 'environmental impact', 'visibility'],
         proofAssets: ['large installations', 'building wraps', 'outdoor signage'],
-        campaignAngles: ['big ideas need big print', 'impossible to ignore', 'scale that transforms'],
+        campaignAngles: [
+          'big ideas need big print',
+          'impossible to ignore',
+          'scale that transforms',
+        ],
         ctaOptions: ['Go big with PrintSync', 'Request large-format quote'],
       },
       {
@@ -361,7 +390,11 @@ export class BrandEngine {
         description: 'Professional graphic design for print and digital media',
         customerProblems: ['need professional design', 'stand out from competitors'],
         applications: ['marketing materials', 'digital graphics', 'print design'],
-        visualOpportunities: ['visual communication', 'creative concepts', 'professional execution'],
+        visualOpportunities: [
+          'visual communication',
+          'creative concepts',
+          'professional execution',
+        ],
         proofAssets: ['design portfolios', 'client work'],
         campaignAngles: ['design that communicates', 'visual impact'],
         ctaOptions: ['Start your design', 'Request design portfolio'],
@@ -488,10 +521,22 @@ export class BrandEngine {
         tertiary: 'From screen to something real.',
       },
       valuePropositions: [
-        { headline: 'Precision-Engineered Print', body: 'Every project is executed with technical precision.' },
-        { headline: 'Brand Thinking, Print Execution', body: "We don't just print. We engineer brand experiences." },
-        { headline: 'Scale Without Compromise', body: 'From one business card to ten thousand banners.' },
-        { headline: 'Creative Capability, Technical Excellence', body: 'Premium printing, branding, signage and visual communication.' },
+        {
+          headline: 'Precision-Engineered Print',
+          body: 'Every project is executed with technical precision.',
+        },
+        {
+          headline: 'Brand Thinking, Print Execution',
+          body: "We don't just print. We engineer brand experiences.",
+        },
+        {
+          headline: 'Scale Without Compromise',
+          body: 'From one business card to ten thousand banners.',
+        },
+        {
+          headline: 'Creative Capability, Technical Excellence',
+          body: 'Premium printing, branding, signage and visual communication.',
+        },
       ],
       proofPoints: [
         'CMYK-calibrated color management',
@@ -514,11 +559,36 @@ export class BrandEngine {
    */
   getForbiddenStyles(): ForbiddenStyle[] {
     return [
-      { category: 'generic_corporate', description: 'Generic corporate advertising', indicators: ['generic office workers', 'handshakes', 'stock photography'], weight: 10 },
-      { category: 'template_aesthetics', description: 'Template aesthetics', indicators: ['Canva-style layouts', 'template-looking social posts', 'generic gradients'], weight: 10 },
-      { category: 'visual_cliches', description: 'Visual cliches', indicators: ['excessive gradients', 'generic printer imagery', 'AI-looking typography'], weight: 8 },
-      { category: 'content', description: 'Content violations', indicators: ['empty buzzwords', 'fake testimonials', 'invented statistics'], weight: 10 },
-      { category: 'ai_specific', description: 'AI-specific issues', indicators: ['uncanny humans', 'inconsistent lighting', 'morphing artifacts'], weight: 15 },
+      {
+        category: 'generic_corporate',
+        description: 'Generic corporate advertising',
+        indicators: ['generic office workers', 'handshakes', 'stock photography'],
+        weight: 10,
+      },
+      {
+        category: 'template_aesthetics',
+        description: 'Template aesthetics',
+        indicators: ['Canva-style layouts', 'template-looking social posts', 'generic gradients'],
+        weight: 10,
+      },
+      {
+        category: 'visual_cliches',
+        description: 'Visual cliches',
+        indicators: ['excessive gradients', 'generic printer imagery', 'AI-looking typography'],
+        weight: 8,
+      },
+      {
+        category: 'content',
+        description: 'Content violations',
+        indicators: ['empty buzzwords', 'fake testimonials', 'invented statistics'],
+        weight: 10,
+      },
+      {
+        category: 'ai_specific',
+        description: 'AI-specific issues',
+        indicators: ['uncanny humans', 'inconsistent lighting', 'morphing artifacts'],
+        weight: 15,
+      },
     ];
   }
 
@@ -530,8 +600,17 @@ export class BrandEngine {
       filePath: 'assets/logo/printsync-official-logo.svg',
       clearSpace: '25% of logo width on all sides',
       minimumSize: { digital: '120px width', print: '25mm width' },
-      colorUsage: ['Primary: Red (#C8001C) on white', 'Reversed: White on dark', 'Monochrome: Charcoal on light'],
-      incorrectUsage: ['Changing logo colors', 'Adding effects', 'Rotating or skewing', 'Placing on low-contrast backgrounds'],
+      colorUsage: [
+        'Primary: Red (#C8001C) on white',
+        'Reversed: White on dark',
+        'Monochrome: Charcoal on light',
+      ],
+      incorrectUsage: [
+        'Changing logo colors',
+        'Adding effects',
+        'Rotating or skewing',
+        'Placing on low-contrast backgrounds',
+      ],
     };
   }
 
@@ -539,14 +618,14 @@ export class BrandEngine {
    * Get a service by ID.
    */
   getServiceById(id: string): ServiceDefinition | undefined {
-    return this.getServices().find(s => s.id === id);
+    return this.getServices().find((s) => s.id === id);
   }
 
   /**
    * Get services by category.
    */
   getServicesByCategory(category: string): ServiceDefinition[] {
-    return this.getServices().filter(s => s.category === category);
+    return this.getServices().filter((s) => s.category === category);
   }
 
   /**

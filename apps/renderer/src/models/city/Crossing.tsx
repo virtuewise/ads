@@ -1,6 +1,6 @@
+import type { CityCrossing } from '@printsync/motion-engine';
 import { useMemo } from 'react';
 import type { CanvasTexture } from 'three';
-import type { CityCrossing } from '@printsync/motion-engine';
 import { getCrossingTexture } from './cityArtwork';
 
 interface CrossingProps {
@@ -29,7 +29,13 @@ export const Crossing: React.FC<CrossingProps> = ({ crossing, texture }) => {
       rotation={[-Math.PI / 2, 0, 0]}
     >
       <planeGeometry args={[crossing.width, crossing.depth]} />
-      <meshBasicMaterial map={map} transparent alphaTest={0.35} depthWrite={false} toneMapped={false} />
+      <meshBasicMaterial
+        map={map}
+        transparent
+        alphaTest={0.35}
+        depthWrite={false}
+        toneMapped={false}
+      />
     </mesh>
   );
 };

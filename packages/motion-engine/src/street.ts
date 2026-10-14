@@ -12,18 +12,17 @@ import {
   CITY_BOULEVARD_HALF_WIDTH,
   CITY_EXTENT_M,
   CITY_SIDEWALK_WIDTH,
-  hashSeed,
-  mulberry32,
   type CityBuilding,
   type CityOptions,
+  hashSeed,
+  mulberry32,
 } from './city.js';
 
 /** Distance from the city centre to each cross-street junction, in metres. */
 export const CITY_JUNCTION_Z = CITY_EXTENT_M - 20;
 
 /** Centre of the pavement each side of the carriageway. */
-export const CITY_PAVEMENT_CENTRE =
-  CITY_BOULEVARD_HALF_WIDTH + CITY_SIDEWALK_WIDTH / 2;
+export const CITY_PAVEMENT_CENTRE = CITY_BOULEVARD_HALF_WIDTH + CITY_SIDEWALK_WIDTH / 2;
 
 export type CityPropKind =
   | 'bollard'
@@ -145,7 +144,11 @@ export function generateCityProps(options: CityOptions): CityProp[] {
     props.push({
       id: `shelter-${side > 0 ? 'r' : 'l'}`,
       kind: 'shelter',
-      position: [side * (CITY_BOULEVARD_HALF_WIDTH + CITY_SIDEWALK_WIDTH - 1.2), 0, -extent * 0.45 * side],
+      position: [
+        side * (CITY_BOULEVARD_HALF_WIDTH + CITY_SIDEWALK_WIDTH - 1.2),
+        0,
+        -extent * 0.45 * side,
+      ],
       rotationY: facing(side),
     });
   }

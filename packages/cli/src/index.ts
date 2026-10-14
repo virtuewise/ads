@@ -2,24 +2,24 @@
 
 /**
  * Virtue Studio — CLI
- * Command-line interface for the PrintSync advertising engine.
+ * Command-line interface for the Virtue Studio advertising engine.
  */
 
-import { Command } from 'commander';
 import chalk from 'chalk';
+import { Command } from 'commander';
 import { adsCreate } from './commands/ads-create.js';
 import { adsDaily } from './commands/ads-daily.js';
 import { campaignCreate } from './commands/campaign-create.js';
+import { creativeJudge } from './commands/creative-judge.js';
 import { filmCreate } from './commands/film-create.js';
 import { posterCreate } from './commands/poster-create.js';
 import { socialCreate } from './commands/social-create.js';
-import { creativeJudge } from './commands/creative-judge.js';
 
 const program = new Command();
 
 program
-  .name('printsync')
-  .description('PrintSync Creative Operating System')
+  .name('virtue')
+  .description('Virtue Studio — Brand-aware advertising engine')
   .version('0.1.0');
 
 program
@@ -33,7 +33,7 @@ program
 
 program
   .command('ads:daily')
-  .description('Generate today\'s advert automatically')
+  .description("Generate today's advert automatically")
   .option('-b, --brand <brand>', 'Brand name', 'printsync')
   .option('-f, --formats <formats>', 'Output formats (comma-separated)')
   .action(adsDaily);
@@ -77,7 +77,7 @@ program
 
 // ─── Banner ─────────────────────────────────────────────────────────────────
 
-console.log(chalk.red.bold('PRINTSYNC CREATIVE OS'));
-console.log(chalk.gray('Precision in motion. Ideas becoming physical impact.\n'));
+console.log(chalk.red.bold('VIRTUE STUDIO'));
+console.log(chalk.gray('Premium visual storytelling. Precision in motion.\n'));
 
 program.parse();

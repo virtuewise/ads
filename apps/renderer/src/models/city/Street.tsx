@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-import type { CanvasTexture } from 'three';
 import {
   CITY_BOULEVARD_HALF_WIDTH,
   CITY_EXTENT_M,
@@ -7,7 +5,9 @@ import {
   type CityPalette,
   type CityRoad,
 } from '@printsync/motion-engine';
-import { ROAD_TILE_METRES, createRoadTexture } from './cityArtwork';
+import { useMemo } from 'react';
+import type { CanvasTexture } from 'three';
+import { createRoadTexture, ROAD_TILE_METRES } from './cityArtwork';
 
 /** Height of the kerb / pavement above the carriageway, in metres. */
 export const KERB_HEIGHT = 0.18;
@@ -65,11 +65,7 @@ export const Street: React.FC<StreetProps> = ({ roads, palette }) => {
       ))}
 
       {[-1, 1].map((side) => (
-        <mesh
-          key={side}
-          position={[side * pavementCentre, KERB_HEIGHT / 2, 0]}
-          receiveShadow
-        >
+        <mesh key={side} position={[side * pavementCentre, KERB_HEIGHT / 2, 0]} receiveShadow>
           <boxGeometry args={[CITY_SIDEWALK_WIDTH, KERB_HEIGHT, pavementLength]} />
           <meshStandardMaterial color={palette.facade} roughness={0.92} metalness={0.05} />
         </mesh>

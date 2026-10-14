@@ -11,18 +11,44 @@ interface FatigueDimension {
 }
 
 const FATIGUE_DIMENSIONS: FatigueDimension[] = [
-  { name: 'Kinetic Typography', extract: (g) => g.typographyBehaviors.length > 0 ? ['typography'] : [] },
-  { name: 'Dark Technical Aesthetic', extract: (g) => g.colorProfile.includes('dark') || g.colorProfile.includes('monochrome') ? ['dark-technical'] : [] },
-  { name: 'Large Format Service', extract: (g) => g.service === 'large-format-printing' ? ['large-format'] : [] },
-  { name: 'Detective Narrative', extract: (g) => g.narrativeStructure.includes('MYSTERY') ? ['detective'] : [] },
-  { name: 'Humour', extract: (g) => g.humorLevel > 3 ? ['humour'] : [] },
-  { name: 'Human Storytelling', extract: (g) => g.humanPresence > 5 ? ['human-story'] : [] },
-  { name: 'Packaging', extract: (g) => g.service === 'packaging' ? ['packaging'] : [] },
-  { name: 'Minimalist Print Photography', extract: (g) => g.colorProfile.includes('monochrome') && g.cinematicLevel < 5 ? ['minimal-photo'] : [] },
-  { name: 'Cinematic Film', extract: (g) => g.cinematicLevel > 7 ? ['cinematic'] : [] },
-  { name: 'Technical Grids', extract: (g) => g.technicalLevel > 7 ? ['technical-grids'] : [] },
-  { name: 'Particle Effects', extract: (g) => g.motionBehaviors.some(b => b.includes('particle')) ? ['particles'] : [] },
-  { name: 'Scale Transitions', extract: (g) => g.motionBehaviors.some(b => b.includes('scale')) ? ['scale-transitions'] : [] },
+  {
+    name: 'Kinetic Typography',
+    extract: (g) => (g.typographyBehaviors.length > 0 ? ['typography'] : []),
+  },
+  {
+    name: 'Dark Technical Aesthetic',
+    extract: (g) =>
+      g.colorProfile.includes('dark') || g.colorProfile.includes('monochrome')
+        ? ['dark-technical']
+        : [],
+  },
+  {
+    name: 'Large Format Service',
+    extract: (g) => (g.service === 'large-format-printing' ? ['large-format'] : []),
+  },
+  {
+    name: 'Detective Narrative',
+    extract: (g) => (g.narrativeStructure.includes('MYSTERY') ? ['detective'] : []),
+  },
+  { name: 'Humour', extract: (g) => (g.humorLevel > 3 ? ['humour'] : []) },
+  { name: 'Human Storytelling', extract: (g) => (g.humanPresence > 5 ? ['human-story'] : []) },
+  { name: 'Packaging', extract: (g) => (g.service === 'packaging' ? ['packaging'] : []) },
+  {
+    name: 'Minimalist Print Photography',
+    extract: (g) =>
+      g.colorProfile.includes('monochrome') && g.cinematicLevel < 5 ? ['minimal-photo'] : [],
+  },
+  { name: 'Cinematic Film', extract: (g) => (g.cinematicLevel > 7 ? ['cinematic'] : []) },
+  { name: 'Technical Grids', extract: (g) => (g.technicalLevel > 7 ? ['technical-grids'] : []) },
+  {
+    name: 'Particle Effects',
+    extract: (g) => (g.motionBehaviors.some((b) => b.includes('particle')) ? ['particles'] : []),
+  },
+  {
+    name: 'Scale Transitions',
+    extract: (g) =>
+      g.motionBehaviors.some((b) => b.includes('scale')) ? ['scale-transitions'] : [],
+  },
 ];
 
 /**
@@ -32,7 +58,7 @@ export function detectCreativeFatigue(genomes: CreativeGenome[]): CreativeFatigu
   const reports: CreativeFatigueReport[] = [];
 
   for (const dimension of FATIGUE_DIMENSIONS) {
-    const matchingGenomes = genomes.filter(g => dimension.extract(g).length > 0);
+    const matchingGenomes = genomes.filter((g) => dimension.extract(g).length > 0);
     const recentGenomes = matchingGenomes.slice(-5);
     const totalCount = matchingGenomes.length;
     const recentCount = recentGenomes.length;
@@ -63,16 +89,12 @@ export function detectCreativeFatigue(genomes: CreativeGenome[]): CreativeFatigu
  * Get underused creative dimensions (opportunities).
  */
 export function getUnderusedDimensions(reports: CreativeFatigueReport[]): string[] {
-  return reports
-    .filter(r => r.usageLevel === 'LOW')
-    .map(r => r.dimension);
+  return reports.filter((r) => r.usageLevel === 'LOW').map((r) => r.dimension);
 }
 
 /**
  * Get overused creative dimensions (fatigue).
  */
 export function getOverusedDimensions(reports: CreativeFatigueReport[]): string[] {
-  return reports
-    .filter(r => r.usageLevel === 'HIGH')
-    .map(r => r.dimension);
+  return reports.filter((r) => r.usageLevel === 'HIGH').map((r) => r.dimension);
 }

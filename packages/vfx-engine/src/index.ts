@@ -1,5 +1,5 @@
 // VFX Engine – visual effects planning
-import { Shot, VFXPlan } from "@printsync/common";
+import type { Shot, VFXPlan } from '@printsync/common';
 
 export interface VFXEffect {
   id: string;

@@ -4,7 +4,16 @@
  * Service × Audience × Emotion × Narrative × Visual Metaphor × Creative Mode
  */
 
-import type { Concept, CreativeMode, VoiceMode, NarrativeStructure, CreativeTerritory, Mood, VisualStyle, Pace } from '@printsync/shared';
+import type {
+  Concept,
+  CreativeMode,
+  CreativeTerritory,
+  Mood,
+  NarrativeStructure,
+  Pace,
+  VisualStyle,
+  VoiceMode,
+} from '@printsync/shared';
 import { VISUAL_METAPHORS } from './metaphors.js';
 
 interface ConceptSeed {
@@ -74,7 +83,13 @@ export function generateConceptSeeds(count: number = 10): ConceptSeed[] {
 
 function generateDiverseSeed(index: number, _usedCombinations: Set<string>): ConceptSeed {
   // Rotate through different creative territories
-  const territories: CreativeTerritory[] = ['PRECISION', 'TRANSFORMATION', 'SCALE', 'HUMAN_IMPACT', 'PLAY'];
+  const territories: CreativeTerritory[] = [
+    'PRECISION',
+    'TRANSFORMATION',
+    'SCALE',
+    'HUMAN_IMPACT',
+    'PLAY',
+  ];
   const territory = territories[index % territories.length]!;
 
   // Select service based on territory
@@ -95,7 +110,7 @@ function generateDiverseSeed(index: number, _usedCombinations: Set<string>): Con
   const narrative = narratives[index % narratives.length]!;
 
   // Select metaphor
-  const metaphors = VISUAL_METAPHORS.filter(m => m.territories.includes(territory));
+  const metaphors = VISUAL_METAPHORS.filter((m) => m.territories.includes(territory));
   const metaphor = (metaphors[index % metaphors.length] ?? VISUAL_METAPHORS[0]!).name;
 
   // Select mood based on territory
@@ -237,9 +252,8 @@ function generateLogline(seed: ConceptSeed): string {
 }
 
 function generateKeyVisual(seed: ConceptSeed): string {
-  const metaphor = VISUAL_METAPHORS.find(m => m.name === seed.metaphor);
+  const metaphor = VISUAL_METAPHORS.find((m) => m.name === seed.metaphor);
   return metaphor?.visualDescription ?? 'PrintSync precision in action.';
-  void seed;
 }
 
 function generateStorySummary(seed: ConceptSeed): string {

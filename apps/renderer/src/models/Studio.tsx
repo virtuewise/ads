@@ -1,4 +1,4 @@
-import { Environment, Lightformer, ContactShadows } from '@react-three/drei';
+import { ContactShadows, Environment, Lightformer } from '@react-three/drei';
 
 /**
  * A single, shared studio rig. Every composition that renders catalogue items

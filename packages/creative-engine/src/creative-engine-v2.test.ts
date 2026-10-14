@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { analyzeAntiGeneric } from './anti-generic-v2.js';
-import { judgeConceptV2, judgeConceptsV2 } from './judge-v2.js';
-import { reworkConcept } from './rework.js';
-import { analyzeDiversity, selectDiverseTop3 } from './diversity.js';
-import { generateCreativeBrief } from './brief-generator.js';
-import { generateConceptSeeds, seedToConcept } from './seeds.js';
-import { VISUAL_METAPHORS, getMetaphorsForService, getMetaphorsForTerritory } from './metaphors.js';
-import { runDailyCreativeEngine } from './daily-v2.js';
 import type { Concept, CreativeHistoryEntry } from '@printsync/shared';
+import { describe, expect, it } from 'vitest';
+import { analyzeAntiGeneric } from './anti-generic-v2.js';
+import { generateCreativeBrief } from './brief-generator.js';
+import { runDailyCreativeEngine } from './daily-v2.js';
+import { analyzeDiversity, selectDiverseTop3 } from './diversity.js';
+import { judgeConceptsV2, judgeConceptV2 } from './judge-v2.js';
+import { getMetaphorsForService, getMetaphorsForTerritory, VISUAL_METAPHORS } from './metaphors.js';
+import { reworkConcept } from './rework.js';
+import { generateConceptSeeds, seedToConcept } from './seeds.js';
 
 describe('Creative Engine V2', () => {
   const goodConcept: Concept = {
@@ -21,8 +21,10 @@ describe('Creative Engine V2', () => {
     visual_style: 'typography',
     pace: 'rhythmic',
     voice_mode: 'TYPOGRAPHY_ONLY',
-    key_visual: 'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
-    story_summary: 'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
+    key_visual:
+      'A mechanical engine made of print components — gears of paper, pistons of ink — comes to life with precision.',
+    story_summary:
+      'A mechanical engine constructed from print components comes to life, showing how PrintSync digital printing is precision-engineered for maximum impact.',
     target_duration_seconds: 20,
     formats: ['16:9', '9:16', '1:1'],
     cta: 'Engineer your brand',
@@ -164,7 +166,7 @@ describe('Creative Engine V2', () => {
 
     it('seeds are diverse', () => {
       const seeds = generateConceptSeeds(10);
-      const territories = new Set(seeds.map(s => s.territory));
+      const territories = new Set(seeds.map((s) => s.territory));
       expect(territories.size).toBeGreaterThan(1);
     });
 

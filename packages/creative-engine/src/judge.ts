@@ -4,7 +4,12 @@
  * Rejects weak concepts. Approves only the strongest.
  */
 
-import type { Concept, CreativeScore, CreativeScoreThresholds, CreativeHistoryEntry } from '@printsync/shared';
+import type {
+  Concept,
+  CreativeHistoryEntry,
+  CreativeScore,
+  CreativeScoreThresholds,
+} from '@printsync/shared';
 import { DEFAULT_THRESHOLDS, getScoreStatus } from '@printsync/shared';
 import { checkAntiGeneric } from './anti-generic.js';
 
@@ -14,7 +19,7 @@ export class CreativeJudge {
 
   constructor(
     history: CreativeHistoryEntry[] = [],
-    thresholds: CreativeScoreThresholds = DEFAULT_THRESHOLDS
+    thresholds: CreativeScoreThresholds = DEFAULT_THRESHOLDS,
   ) {
     this.history = history;
     this.thresholds = thresholds;
@@ -37,8 +42,12 @@ export class CreativeJudge {
     const service_relevance = this.scoreServiceRelevance(concept);
     const non_generic_quality = this.scoreNonGeneric(antiGeneric);
 
+    // Each dimension is scored 0–10. Average them, then scale to the shared
+    // 0–100 rubric so `getScoreStatus` and every consumer (the band thresholds
+    // 70/80/90, the CLI's `${total}/100`) see the scale the thresholds are
+    // defined in.
     const total = Math.round(
-      (brand_fit +
+      ((brand_fit +
         originality +
         commercial_value +
         visual_potential +
@@ -48,7 +57,8 @@ export class CreativeJudge {
         production_quality +
         service_relevance +
         non_generic_quality) /
-        10
+        10) *
+        10,
     );
 
     const status = getScoreStatus(total, this.thresholds);
@@ -87,7 +97,7 @@ export class CreativeJudge {
    */
   scoreConcepts(concepts: Concept[]): Concept[] {
     return concepts
-      .map(c => ({
+      .map((c) => ({
         ...c,
         score: this.scoreConcept(c),
       }))
@@ -106,15 +116,35 @@ export class CreativeJudge {
     const score = this.scoreConcept(concept);
 
     if (score.status === 'SIGNATURE') {
-      return { approved: true, score, action: 'APPROVE', reason: 'SIGNATURE CONCEPT — Exceptional creative quality' };
+      return {
+        approved: true,
+        score,
+        action: 'APPROVE',
+        reason: 'SIGNATURE CONCEPT — Exceptional creative quality',
+      };
     }
     if (score.status === 'APPROVE') {
-      return { approved: true, score, action: 'APPROVE', reason: 'APPROVED — Strong creative concept' };
+      return {
+        approved: true,
+        score,
+        action: 'APPROVE',
+        reason: 'APPROVED — Strong creative concept',
+      };
     }
     if (score.status === 'REWORK') {
-      return { approved: false, score, action: 'REWORK', reason: 'NEEDS REWORK — Good foundation but requires improvement' };
+      return {
+        approved: false,
+        score,
+        action: 'REWORK',
+        reason: 'NEEDS REWORK — Good foundation but requires improvement',
+      };
     }
-    return { approved: false, score, action: 'REJECT', reason: 'REJECTED — Does not meet PrintSync creative standards' };
+    return {
+      approved: false,
+      score,
+      action: 'REJECT',
+      reason: 'REJECTED — Does not meet PrintSync creative standards',
+    };
   }
 
   // ─── Scoring Dimensions ───────────────────────────────────────────────────
@@ -148,7 +178,7 @@ export class CreativeJudge {
 
     // Check for repetition
     const recentSimilar = this.history.filter(
-      h => h.creative_mode === concept.creative_mode && h.territory === concept.territory
+      (h) => h.creative_mode === concept.creative_mode && h.territory === concept.territory,
     ).length;
     score -= recentSimilar * 1.5;
 
@@ -258,7 +288,7 @@ export class CreativeJudge {
     // Check if concept mentions specific services
     const text = `${concept.title} ${concept.logline} ${concept.story_summary}`.toLowerCase();
     const services = ['print', 'sign', 'brand', 'label', 'packag', 'banner', 'poster', 'display'];
-    const matches = services.filter(s => text.includes(s)).length;
+    const matches = services.filter((s) => text.includes(s)).length;
     score += Math.min(3, matches);
 
     return Math.min(10, Math.max(1, Math.round(score)));
@@ -271,7 +301,10 @@ export class CreativeJudge {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private generateFeedback(_concept: Concept, scores: Omit<CreativeScore, 'total' | 'status' | 'feedback'>): string[] {
+  private generateFeedback(
+    _concept: Concept,
+    scores: Omit<CreativeScore, 'total' | 'status' | 'feedback'>,
+  ): string[] {
     const feedback: string[] = [];
 
     if (scores.brand_fit < 7) feedback.push('Strengthen PrintSync brand connection');

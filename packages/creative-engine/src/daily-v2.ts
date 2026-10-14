@@ -4,32 +4,59 @@
  */
 
 import type {
+  CampaignObjective,
   Concept,
-  CreativeHistoryEntry,
   CreativeFatigueReport,
+  CreativeHistoryEntry,
   CreativeOpportunity,
   DiversityAnalysis,
   EnhancedCreativeBrief,
   JudgeVerdict,
-  CampaignObjective,
 } from '@printsync/shared';
-import { generateCreativeGenome, detectCreativeFatigue, identifyCreativeOpportunities } from './campaign-functions.js';
-import { generateConceptSeeds, seedToConcept } from './seeds.js';
-import { judgeConceptsV2 } from './judge-v2.js';
-import { analyzeDiversity, selectDiverseTop3 } from './diversity.js';
-import { reworkConcept } from './rework.js';
 import { generateCreativeBrief } from './brief-generator.js';
+import {
+  detectCreativeFatigue,
+  generateCreativeGenome,
+  identifyCreativeOpportunities,
+} from './campaign-functions.js';
+import { analyzeDiversity, selectDiverseTop3 } from './diversity.js';
+import { judgeConceptsV2 } from './judge-v2.js';
+import { reworkConcept } from './rework.js';
+import { generateConceptSeeds, seedToConcept } from './seeds.js';
 
 export interface DailyCreativeReport {
   date: string;
   creativeOpportunity: CreativeOpportunity | null;
   creativeFatigue: CreativeFatigueReport[];
   concepts: Concept[];
-  antiGenericReports: Map<string, { genericityScore: number; originalityScore: number; distinctivenessScore: number; brandSpecificityScore: number; detectedPatterns: string[]; recommendations: string[]; verdict: 'PASS' | 'REWORK' | 'REJECT'; competitorTest: { passes: boolean; issues: string[] } }>;
+  antiGenericReports: Map<
+    string,
+    {
+      genericityScore: number;
+      originalityScore: number;
+      distinctivenessScore: number;
+      brandSpecificityScore: number;
+      detectedPatterns: string[];
+      recommendations: string[];
+      verdict: 'PASS' | 'REWORK' | 'REJECT';
+      competitorTest: { passes: boolean; issues: string[] };
+    }
+  >;
   judgeResults: Array<{ concept: Concept; verdict: JudgeVerdict }>;
   diversityAnalysis: DiversityAnalysis;
   topThree: Concept[];
-  reworkResults: Array<{ original: Concept; result: { originalScore: number; reworkedConcept: unknown; newScore: number; improvements: string[]; remainingIssues: string[]; iterations: number; status: 'IMPROVED' | 'UNCHANGED' | 'REJECTED' } }>;
+  reworkResults: Array<{
+    original: Concept;
+    result: {
+      originalScore: number;
+      reworkedConcept: unknown;
+      newScore: number;
+      improvements: string[];
+      remainingIssues: string[];
+      iterations: number;
+      status: 'IMPROVED' | 'UNCHANGED' | 'REJECTED';
+    };
+  }>;
   winner: Concept | null;
   creativeBrief: EnhancedCreativeBrief | null;
   campaignGenome: ReturnType<typeof generateCreativeGenome> | null;
@@ -41,28 +68,30 @@ export interface DailyCreativeReport {
 export async function runDailyCreativeEngine(
   history: CreativeHistoryEntry[],
   availableServices: string[],
-  objective: CampaignObjective = 'AWARENESS'
+  objective: CampaignObjective = 'AWARENESS',
 ): Promise<DailyCreativeReport> {
   const date = new Date().toISOString().split('T')[0]!;
 
   // Step 1: Calculate creative fatigue
-  const genomes = history.map(() => generateCreativeGenome({
-    id: 'temp',
-    title: 'temp',
-    logline: 'temp',
-    creative_mode: 'CINEMATIC_BRAND_FILM',
-    narrative_structure: 'IDEA_DESIGN_MACHINE_MATERIAL_SCALE_IMPACT',
-    territory: 'PRECISION',
-    mood: 'technical',
-    visual_style: 'typography',
-    pace: 'rhythmic',
-    voice_mode: 'TYPOGRAPHY_ONLY',
-    key_visual: 'temp',
-    story_summary: 'temp',
-    target_duration_seconds: 30,
-    formats: ['16:9'],
-    cta: 'temp',
-  }));
+  const genomes = history.map(() =>
+    generateCreativeGenome({
+      id: 'temp',
+      title: 'temp',
+      logline: 'temp',
+      creative_mode: 'CINEMATIC_BRAND_FILM',
+      narrative_structure: 'IDEA_DESIGN_MACHINE_MATERIAL_SCALE_IMPACT',
+      territory: 'PRECISION',
+      mood: 'technical',
+      visual_style: 'typography',
+      pace: 'rhythmic',
+      voice_mode: 'TYPOGRAPHY_ONLY',
+      key_visual: 'temp',
+      story_summary: 'temp',
+      target_duration_seconds: 30,
+      formats: ['16:9'],
+      cta: 'temp',
+    }),
+  );
   const creativeFatigue = detectCreativeFatigue(genomes);
 
   // Step 2: Identify creative opportunities
@@ -85,7 +114,7 @@ export async function runDailyCreativeEngine(
   const judgeResults = judgeConceptsV2(concepts, history);
 
   // Step 6: Diversity analysis
-  const topConcepts = judgeResults.slice(0, 5).map(j => j.concept);
+  const topConcepts = judgeResults.slice(0, 5).map((j) => j.concept);
   const diversityAnalysis = analyzeDiversity(topConcepts);
 
   // Step 7: Select diverse top 3
@@ -94,7 +123,7 @@ export async function runDailyCreativeEngine(
   // Step 8: Rework if necessary
   const reworkResults = [];
   for (const concept of topThree) {
-    const verdict = judgeResults.find(j => j.concept.id === concept.id)?.verdict;
+    const verdict = judgeResults.find((j) => j.concept.id === concept.id)?.verdict;
     if (verdict && (verdict.status === 'REWORK' || verdict.status === 'REJECT')) {
       const result = reworkConcept(concept, history);
       reworkResults.push({ original: concept, result });

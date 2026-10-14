@@ -30,10 +30,17 @@ enum Command {
         path: Option<PathBuf>,
     },
 
+    /// Run Biome formatting (writes files in place)
+    BiomeFormat {
+        /// Path to format (default: repo root)
+        #[arg(short, long)]
+        path: Option<PathBuf>,
+    },
+
     /// Generate Zod schemas from Rust types
     GenerateSchemas {
-        /// Output directory (default: packages/common/src)
-        #[arg(short, long, default_value = "../../packages/common/src")]
+        /// Output directory (default: packages/common/src/generated)
+        #[arg(short, long, default_value = "packages/common/src/generated")]
         output: PathBuf,
     },
 
@@ -68,6 +75,7 @@ async fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Command::BiomeCheck { fix, path } => biome::run(fix, path).await,
+        Command::BiomeFormat { path } => biome::format(path).await,
         Command::GenerateSchemas { output } => schema_gen::run(output).await,
         Command::BuildNative { release, target } => native_build::run(release, target).await,
         Command::Ci { no_native } => run_ci(no_native).await,
@@ -83,7 +91,7 @@ async fn run_ci(no_native: bool) -> anyhow::Result<()> {
     println!("✅ Biome check passed");
 
     // 2. Schema generation
-    schema_gen::run("../../packages/common/src".into()).await?;
+    schema_gen::run("packages/common/src/generated".into()).await?;
     println!("✅ Schemas generated");
 
     // 3. Native build (optional)
@@ -129,12 +137,9 @@ async fn install_hooks() -> anyhow::Result<()> {
         .await?;
 
     if !status.success() {
-        println!("📦 Installing lefthook via cargo...");
-        let status = tokio::process::Command::new("cargo")
-            .args(["install", "lefthook"])
-            .status()
-            .await?;
-        anyhow::ensure!(status.success(), "Failed to install lefthook");
+        anyhow::bail!(
+            "lefthook is not available on PATH. Run `pnpm install` and then `pnpm exec lefthook install`."
+        );
     }
 
     // Install hooks

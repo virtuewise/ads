@@ -4,10 +4,7 @@
 
 import chalk from 'chalk';
 
-export async function socialCreate(options: {
-  platform?: string;
-  format?: string;
-}): Promise<void> {
+export async function socialCreate(options: { platform?: string; format?: string }): Promise<void> {
   console.log(chalk.red.bold('\n📱 PRINTSYNC SOCIAL ENGINE\n'));
 
   const platform = options.platform ?? 'instagram';

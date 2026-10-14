@@ -3,7 +3,7 @@
  * Produces a full Creative Brief before script generation.
  */
 
-import type { EnhancedCreativeBrief, Concept, CampaignObjective } from '@printsync/shared';
+import type { CampaignObjective, Concept, EnhancedCreativeBrief } from '@printsync/shared';
 
 /**
  * Generate a complete Creative Brief from a winning concept.
@@ -11,7 +11,7 @@ import type { EnhancedCreativeBrief, Concept, CampaignObjective } from '@printsy
 export function generateCreativeBrief(
   concept: Concept,
   objective: CampaignObjective = 'AWARENESS',
-  audience: string = 'businesses needing premium print and branding solutions'
+  audience: string = 'businesses needing premium print and branding solutions',
 ): EnhancedCreativeBrief {
   return {
     brand: 'PrintSync',
@@ -46,22 +46,33 @@ function extractService(concept: Concept): string {
 
 function extractEmotionalGoal(concept: Concept): string {
   switch (concept.mood) {
-    case 'dramatic': return 'awe and confidence';
-    case 'playful': return 'amusement and interest';
-    case 'technical': return 'confidence in precision';
-    case 'minimal': return 'clarity and focus';
-    case 'cinematic': return 'inspiration and desire';
-    default: return 'confidence and trust';
+    case 'dramatic':
+      return 'awe and confidence';
+    case 'playful':
+      return 'amusement and interest';
+    case 'technical':
+      return 'confidence in precision';
+    case 'minimal':
+      return 'clarity and focus';
+    case 'cinematic':
+      return 'inspiration and desire';
+    default:
+      return 'confidence and trust';
   }
 }
 
 function mapVoiceMode(mode: string): 'VOICEOVER' | 'NO_VOICE' | 'DIALOGUE' | 'MUSIC_ONLY' {
   switch (mode) {
-    case 'VOICEOVER': return 'VOICEOVER';
-    case 'TYPOGRAPHY_ONLY': return 'NO_VOICE';
-    case 'DIALOGUE': return 'DIALOGUE';
-    case 'MUSIC_ONLY': return 'MUSIC_ONLY';
-    default: return 'VOICEOVER';
+    case 'VOICEOVER':
+      return 'VOICEOVER';
+    case 'TYPOGRAPHY_ONLY':
+      return 'NO_VOICE';
+    case 'DIALOGUE':
+      return 'DIALOGUE';
+    case 'MUSIC_ONLY':
+      return 'MUSIC_ONLY';
+    default:
+      return 'VOICEOVER';
   }
 }
 

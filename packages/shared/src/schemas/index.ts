@@ -1,84 +1,80 @@
 /**
  * PrintSync Shared Schemas
- * Central export for all type definitions used across the creative OS.
+ * Central export for all type definitions used across Virtue Studio.
  */
 
 export type {
-  Brand,
-  BrandPersonality,
-  BrandVoice,
-  BrandAudience,
-  BrandColors,
-  ColorDefinition,
-  BrandTypography,
-  FontDefinition,
-  BrandAsset,
-} from './brand.js';
-
-export type {
-  CreativeMode,
-  VoiceMode,
-  NarrativeStructure,
-  CreativeTerritory,
-  Mood,
-  VisualStyle,
-  Pace,
-  CreativeBrief,
-  Concept,
-  CreativeScore,
-  CreativeScoreThresholds,
-  AntiGenericCheck,
-  StoryGrammar,
-  StoryBeat,
-  CreativeHistoryEntry,
-} from './creative.js';
-
-export { DEFAULT_THRESHOLDS, getScoreStatus } from './creative.js';
-
-export type {
-  Campaign,
-  CampaignStatus,
-  CampaignOutput,
-  CampaignHistory,
-  DailyCampaignResult,
-} from './campaign.js';
-
-export type {
-  AssetType,
-  AssetMetadata,
-  ShotInfo,
-  TimeRange,
   Asset,
+  AssetMetadata,
   AssetQuery,
   AssetRegistry,
+  AssetType,
+  ShotInfo,
+  TimeRange,
 } from './asset.js';
-
+export type {
+  Brand,
+  BrandAsset,
+  BrandAudience,
+  BrandColors,
+  BrandPersonality,
+  BrandTypography,
+  BrandVoice,
+  ColorDefinition,
+  FontDefinition,
+} from './brand.js';
 // Phase 2 exports
 export type {
+  BrandContext,
   BrandIdentity,
   BrandPersonality as BrandPersonalitySchema,
   BrandVoice as BrandVoiceSchema,
-  CreativeDNA,
-  VisualSystem,
-  TypographySystem,
   ColorSystem,
-  MotionLanguage,
-  ServiceDefinition,
-  MessagingSystem,
+  CreativeDNA,
   ForbiddenStyle,
   LogoRules,
-  BrandContext,
+  MessagingSystem,
+  MotionLanguage,
+  ServiceDefinition,
+  TypographySystem,
+  VisualSystem,
 } from './brand-context.js';
 
 export type {
-  CreativeGenome,
-  SimilarityResult,
-  CreativeFatigueReport,
-  CreativeOpportunity,
-  DiversityAnalysis,
-  ReworkResult,
+  Campaign,
+  CampaignHistory,
+  CampaignOutput,
+  CampaignStatus,
+  DailyCampaignResult,
+} from './campaign.js';
+export type {
+  AntiGenericCheck,
+  Concept,
+  CreativeBrief,
+  CreativeHistoryEntry,
+  CreativeMode,
+  CreativeScore,
+  CreativeScoreThresholds,
+  CreativeTerritory,
+  Mood,
+  NarrativeStructure,
+  Pace,
+  StoryBeat,
+  StoryGrammar,
+  VisualStyle,
+  VoiceMode,
+} from './creative.js';
+export { DEFAULT_THRESHOLDS, getScoreStatus } from './creative.js';
+
+export type {
   AntiGenericReport,
   CampaignObjective,
+  CreativeFatigueReport,
+  CreativeGenome,
+  CreativeOpportunity,
+  DiversityAnalysis,
   EnhancedCreativeBrief,
   JudgeVerdict,
+  ReworkResult,
+  SimilarityResult,
 } from './creative-genome.js';

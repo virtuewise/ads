@@ -1,24 +1,24 @@
 import {
+  type CapSpec,
+  type MaterialPreset,
+  type PrintItemSpec,
+  type ProfilePoint,
+  printItemBevelMm,
+  printItemBodyHeight,
+  printItemFlapThickness,
+  printItemSealHeight,
+  ROLLUP_BASE_MM,
+  toSceneUnits,
+} from '@printsync/motion-engine';
+import {
+  type BufferGeometry,
   CylinderGeometry,
   ExtrudeGeometry,
   LatheGeometry,
   Path,
   Shape,
   Vector2,
-  type BufferGeometry,
 } from 'three';
-import {
-  toSceneUnits,
-  printItemBevelMm,
-  printItemBodyHeight,
-  printItemFlapThickness,
-  printItemSealHeight,
-  ROLLUP_BASE_MM,
-  type CapSpec,
-  type MaterialPreset,
-  type PrintItemSpec,
-  type ProfilePoint,
-} from '@printsync/motion-engine';
 
 /** Smoothness for rounded outlines and revolved surfaces. */
 const CURVE_SEGMENTS = 28;
@@ -42,11 +42,7 @@ function ground(geometry: BufferGeometry): BufferGeometry {
   geometry.computeBoundingBox();
   const box = geometry.boundingBox;
   if (box) {
-    geometry.translate(
-      -(box.min.x + box.max.x) / 2,
-      -box.min.y,
-      -(box.min.z + box.max.z) / 2,
-    );
+    geometry.translate(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
   }
   return geometry;
 }
@@ -270,11 +266,7 @@ function cartonParts(spec: PrintItemSpec): ItemPart[] {
   // Front tuck tab: hangs over the leading edge of the top flap.
   const tabHeight = Math.min(16, bodyHeight * 0.2);
   const tab = slabGeometry(width * 0.5, tabHeight, 0.8, 1, 0.2);
-  tab.translate(
-    0,
-    toSceneUnits(flap + bodyHeight - tabHeight),
-    toSceneUnits(depth / 2),
-  );
+  tab.translate(0, toSceneUnits(flap + bodyHeight - tabHeight), toSceneUnits(depth / 2));
 
   return [
     { geometry: bottom, material: spec.material },
@@ -310,13 +302,7 @@ function pouchParts(spec: PrintItemSpec): ItemPart[] {
   sealGeometry.translate(0, toSceneUnits(bodyHeight), 0);
 
   // Bottom gusset fold: the flared "Doy" base that lets the pouch stand up.
-  const gusset = panelGeometry(
-    width * 0.94,
-    depth * GUSSET_DEPTH_RATIO,
-    GUSSET_HEIGHT_MM,
-    3,
-    0.6,
-  );
+  const gusset = panelGeometry(width * 0.94, depth * GUSSET_DEPTH_RATIO, GUSSET_HEIGHT_MM, 3, 0.6);
 
   return [
     { geometry: gusset, material: spec.material },
@@ -373,7 +359,12 @@ export function createItemParts(spec: PrintItemSpec): ItemPart[] {
 
   switch (spec.kind) {
     case 'slab':
-      parts = [{ geometry: slabGeometry(width, height, depth, radius, PAPER_BEVEL_MM), material: spec.material }];
+      parts = [
+        {
+          geometry: slabGeometry(width, height, depth, radius, PAPER_BEVEL_MM),
+          material: spec.material,
+        },
+      ];
       break;
 
     case 'roundedBox':
@@ -390,7 +381,12 @@ export function createItemParts(spec: PrintItemSpec): ItemPart[] {
       break;
 
     case 'disk':
-      parts = [{ geometry: diskGeometry(width, depth, spec.radialSegments ?? 96), material: spec.material }];
+      parts = [
+        {
+          geometry: diskGeometry(width, depth, spec.radialSegments ?? 96),
+          material: spec.material,
+        },
+      ];
       break;
 
     case 'revolve': {

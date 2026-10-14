@@ -1,15 +1,10 @@
 //! Biome linting & formatting integration
 
 use anyhow::{Context, Result};
-use biome::{
-    configuration::{Configuration, ConfigurationDiagnostic},
-    fs::FileSystem,
-    workspace::Workspace,
-};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tokio::process::Command;
 
-const BIOME_CONFIG: &str = include_str!("../../biome.json");
+const BIOME_CONFIG: &str = include_str!("../../../biome.json");
 
 pub async fn run(fix: bool, path: Option<PathBuf>) -> Result<()> {
     let workspace_path = path.unwrap_or_else(|| PathBuf::from("."));

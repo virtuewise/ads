@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   CITY_BOULEVARD_HALF_WIDTH,
   CITY_SIDEWALK_WIDTH,
-  generateCityLayout,
   type CityOptions,
+  generateCityLayout,
 } from './city.js';
+import { PRINT_ITEMS_HERO_IDS } from './print-items.js';
 import {
   CITY_JUNCTION_Z,
   CITY_PAVEMENT_CENTRE,
@@ -13,7 +14,6 @@ import {
   generateCityJunctions,
   generateCityProps,
 } from './street.js';
-import { PRINT_ITEMS_HERO_IDS } from './print-items.js';
 
 const baseOptions: CityOptions = {
   seed: 'test-city',
@@ -112,9 +112,7 @@ describe('generateCityBrandSigns', () => {
     expect(roofSigns).toHaveLength(towers.length);
 
     for (const sign of signs) {
-      const owner = layout.buildings.find(
-        (building) => building.position[2] === sign.position[2],
-      );
+      const owner = layout.buildings.find((building) => building.position[2] === sign.position[2]);
       expect(owner).toBeDefined();
       expect(sign.width).toBeGreaterThan(2);
       expect(sign.height).toBeGreaterThan(0);

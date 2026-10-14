@@ -6,8 +6,6 @@ use serde_json::to_string_pretty;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
-use schemas::{brief, production, render};
-
 pub async fn run(output_dir: PathBuf) -> Result<()> {
     println!("📝 Generating Zod schemas...");
 

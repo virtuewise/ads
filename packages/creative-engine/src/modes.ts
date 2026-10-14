@@ -9,7 +9,14 @@
  * is the default runtime of the motion master for each mode.
  */
 
-import type { CreativeMode, VoiceMode, Mood, VisualStyle, Pace, CreativeTerritory } from '@printsync/shared';
+import type {
+  CreativeMode,
+  CreativeTerritory,
+  Mood,
+  Pace,
+  VisualStyle,
+  VoiceMode,
+} from '@printsync/shared';
 
 export interface CreativeModeDefinition {
   mode: CreativeMode;
@@ -456,9 +463,9 @@ export function getAllCreativeModes(): CreativeModeDefinition[] {
 }
 
 export function getModesByTerritory(territory: CreativeTerritory): CreativeModeDefinition[] {
-  return Object.values(CREATIVE_MODES).filter(m => m.territories.includes(territory));
+  return Object.values(CREATIVE_MODES).filter((m) => m.territories.includes(territory));
 }
 
 export function getModesByMood(mood: Mood): CreativeModeDefinition[] {
-  return Object.values(CREATIVE_MODES).filter(m => m.default_mood === mood);
+  return Object.values(CREATIVE_MODES).filter((m) => m.default_mood === mood);
 }

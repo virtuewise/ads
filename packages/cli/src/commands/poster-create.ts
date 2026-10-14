@@ -4,10 +4,7 @@
 
 import chalk from 'chalk';
 
-export async function posterCreate(options: {
-  size?: string;
-  title?: string;
-}): Promise<void> {
+export async function posterCreate(options: { size?: string; title?: string }): Promise<void> {
   console.log(chalk.red.bold('\n🖼️  PRINTSYNC POSTER ENGINE\n'));
 
   const size = options.size ?? 'A2';

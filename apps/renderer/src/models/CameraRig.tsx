@@ -1,5 +1,5 @@
-import { useThree } from '@react-three/fiber';
 import type { CameraPose } from '@printsync/motion-engine';
+import { useThree } from '@react-three/fiber';
 
 interface CameraRigProps {
   /** Resolved camera pose, in scene units. */

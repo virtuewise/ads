@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import type { CityPalette, TimeOfDay } from '@printsync/motion-engine';
 import { Environment } from '@react-three/drei';
+import { useMemo } from 'react';
 import { staticFile } from 'remotion';
 import { BackSide, Euler } from 'three';
-import type { CityPalette, TimeOfDay } from '@printsync/motion-engine';
 import { createSkyTexture } from './cityArtwork';
 
 /**
@@ -33,11 +33,7 @@ interface CityEnvironmentProps {
  * window emissives carry the illumination, which is both accurate for a night
  * city and keeps the render fast.
  */
-export const CityEnvironment: React.FC<CityEnvironmentProps> = ({
-  palette,
-  timeOfDay,
-  extent,
-}) => {
+export const CityEnvironment: React.FC<CityEnvironmentProps> = ({ palette, timeOfDay, extent }) => {
   const sky = useMemo(() => createSkyTexture(palette, timeOfDay), [palette, timeOfDay]);
   const domeRadius = extent * 3;
   const groundSize = extent * 6;

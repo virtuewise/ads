@@ -3,7 +3,7 @@
 
 > **Premium visual storytelling, motion graphics, and cinematic advertising solutions that transform ideas into compelling brand experiences.**
 
-A persistent, brand‑aware advertising engine that can ideate, strategize, write, design, generate, animate, edit, critique, adapt, archive, and continuously improve Virtue Studio advertising.
+A persistent, brand‑aware advertising engine that can ideate, strategize, write, design, generate, animate, edit, critique, adapt, archive, and continuously improve advertising for any brand.
 
 ---
 
@@ -295,4 +295,4 @@ Every concept is scored against 10 dimensions:
 
 ## License
 
-Private — PrintSync Creative Operating System
+Private — Virtue Studio

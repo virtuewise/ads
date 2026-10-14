@@ -1,30 +1,47 @@
 # lefthook configuration for Virtue Studio
-# Install: `lefthook install`
+# Install with: `pnpm exec lefthook install`
+#
+# Biome (the JS/TS/CSS/JSON gate) runs through pnpm and is always available.
+# The Rust-based tools (typos-cli, cargo-make) are optional; their hooks skip
+# gracefully when the toolchain is not installed so commits are never blocked.
 
 pre-commit:
   parallel: true
   commands:
-    biome-check:
+    biome:
       glob: "*.{ts,tsx,js,jsx,json,css}"
-      run: cargo make biome-check
+      run: pnpm exec biome check --write {staged_files}
       stage_fixed: true
 
     typos:
       glob: "*.{ts,tsx,js,jsx,md,txt,rs,toml,json,yml,yaml}"
-      run: typos
+      run: |
+        if command -v typos >/dev/null 2>&1; then
+          typos {staged_files}
+        else
+          echo "typos-cli not installed — skipping spell check"
+        fi
 
     schema-sync:
       glob: "rust/schemas/src/**/*.rs"
-      run: cargo make generate-schemas
+      run: |
+        if command -v cargo >/dev/null 2>&1; then
+          cargo make generate-schemas
+        else
+          echo "cargo not installed — skipping schema sync"
+        fi
       stage_fixed: true
 
 pre-push:
   commands:
     full-ci:
-      run: cargo make ci
+      run: |
+        if command -v cargo >/dev/null 2>&1; then
+          cargo make ci
+        else
+          pnpm test
+        fi
       stage_fixed: false
 
 # Global settings
-skip_output_if_success: true
-report_summary: true
 colors: true

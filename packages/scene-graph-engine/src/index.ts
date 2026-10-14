@@ -1,5 +1,5 @@
 // Scene Graph Engine – builds a rich relational graph from shots
-import { Shot, SceneGraph, SceneNode, SceneEdge } from "@printsync/common";
+import type { SceneEdge, SceneGraph, SceneNode, Shot } from '@printsync/common';
 
 export class SceneGraphEngine {
   /**
@@ -65,8 +65,10 @@ export class SceneGraphEngine {
     }
 
     // Hierarchy edges (establishing -> detail)
-    const establishing = shots.find(s => s.purpose === 'HOOK' || s.camera.type === 'ESTABLISHING');
-    const details = shots.filter(s => s.purpose === 'SOLUTION' || s.purpose === 'BENEFIT');
+    const establishing = shots.find(
+      (s) => s.purpose === 'HOOK' || s.camera.type === 'ESTABLISHING',
+    );
+    const details = shots.filter((s) => s.purpose === 'SOLUTION' || s.purpose === 'BENEFIT');
     if (establishing && details.length > 0) {
       for (const detail of details) {
         edges.push({ from: establishing.id, to: detail.id, relation: 'ESTABLISHES' });

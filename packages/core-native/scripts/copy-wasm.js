@@ -1,8 +1,13 @@
 // Copy WASM artifacts to package dist/wasm/
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const CARGO_TARGET_DIR = path.resolve(__dirname, '../../rust/target/wasm32-unknown-unknown/release');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CARGO_TARGET_DIR = path.resolve(
+  __dirname,
+  '../../rust/target/wasm32-unknown-unknown/release',
+);
 const DIST_DIR = path.resolve(__dirname, '../dist/wasm');
 
 if (!fs.existsSync(DIST_DIR)) {

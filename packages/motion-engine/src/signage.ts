@@ -239,9 +239,7 @@ export function roadSignSceneMountHeight(sign: RoadSignSpec): number {
  * the panel and its printed legend can never disagree about the shape. Y points
  * up in the returned space; the renderer flips it into scene space itself.
  */
-export function roadSignOutlinePoints(
-  kind: RoadSignKind,
-): readonly (readonly [number, number])[] {
+export function roadSignOutlinePoints(kind: RoadSignKind): readonly (readonly [number, number])[] {
   switch (kind) {
     case 'warning':
       return [

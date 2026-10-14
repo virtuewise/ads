@@ -1,8 +1,14 @@
 // Script Engine – deterministic script generation
-import { CreativeBrief, VisualGrammar, StoryOutline, Script, ScriptStep } from "@printsync/common";
-import { SubjectInfo } from "@printsync/subject-engine";
+import type {
+  CreativeBrief,
+  Script,
+  ScriptStep,
+  StoryOutline,
+  VisualGrammar,
+} from '@printsync/common';
+import type { SubjectInfo } from '@printsync/subject-engine';
 
-export const SCRIPT_ENGINE_VERSION = "1.0.0";
+export const SCRIPT_ENGINE_VERSION = '1.0.0';
 
 /** Dialogue templates per voice mode */
 const DIALOGUE_TEMPLATES: Record<string, Record<string, string>> = {
@@ -35,12 +41,18 @@ const DIALOGUE_TEMPLATES: Record<string, Record<string, string>> = {
 };
 
 /** Generate dialogue for a beat */
-function generateDialogue(beat: StoryOutline['beats'][0], brief: CreativeBrief, subject: SubjectInfo): string {
+function generateDialogue(
+  beat: StoryOutline['beats'][0],
+  brief: CreativeBrief,
+  subject: SubjectInfo,
+): string {
   const voice = brief.voice.toUpperCase();
-  const templates = (DIALOGUE_TEMPLATES[voice] ?? DIALOGUE_TEMPLATES.NARRATION) as NonNullable<typeof DIALOGUE_TEMPLATES[typeof voice]>;
+  const templates = (DIALOGUE_TEMPLATES[voice] ?? DIALOGUE_TEMPLATES.NARRATION) as NonNullable<
+    (typeof DIALOGUE_TEMPLATES)[typeof voice]
+  >;
   const template = templates[beat.purpose] ?? templates.HOOK ?? '';
 
-  const brand = subject.keyEntities.find(e => e.type === 'BRAND')?.name || 'PrintSync';
+  const brand = subject.keyEntities.find((e) => e.type === 'BRAND')?.name || 'PrintSync';
   const problem = subject.primaryGoal.description;
   const solution = subject.keyMessages[1] || 'the solution you need';
   const proof = 'proven results';
@@ -122,9 +134,7 @@ export class ScriptEngine {
 
   /** Generate voiceover script from steps */
   generateVoiceover(steps: ScriptStep[]): string[] {
-    return steps
-      .filter(s => s.dialogue && s.dialogue.trim())
-      .map(s => s.dialogue!);
+    return steps.filter((s) => s.dialogue && s.dialogue.trim()).map((s) => s.dialogue!);
   }
 }
 

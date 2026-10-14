@@ -10,61 +10,53 @@
  * stays free of validation concerns and of any extra runtime dependency.
  */
 
-import { DEFAULT_BRAND_TOKENS, type BrandTokens } from './artwork.js';
+import { type BrandTokens, DEFAULT_BRAND_TOKENS } from './artwork.js';
+import { CAMERA_PATHS, type CameraPath, type CityShotSubject } from './camera.js';
 import {
-  CAMERA_PATHS,
-  type CameraPath,
-  type CityShotSubject,
-} from './camera.js';
-import {
-  PRINT_ITEMS_HERO_ANIMATIONS,
-  PRINT_ITEMS_HERO_IDS,
-  getPrintItem,
-  heroPrintItems,
-  resolveChoreography,
-  type PrintItemSpec,
-  type ResolvedChoreography,
-} from './print-items.js';
-import {
-  generateCityLayout,
-  generateCityRoute,
   type CityBillboard,
   type CityLayout,
   type CityRoute,
   type CitySign,
+  generateCityLayout,
+  generateCityRoute,
   type TimeOfDay,
 } from './city.js';
 import {
-  generateCityVehicles,
-  VEHICLE_SIZES,
-  type CityVehicle,
-} from './vehicles.js';
+  getOohFormat,
+  OOH_PLAYLIST,
+  type OohHeadline,
+  type OohSpec,
+  oohSceneHeight,
+  oohSceneWidth,
+} from './ooh.js';
 import {
-  generateCityBrandSigns,
-  generateCityCrossings,
-  generateCityJunctions,
-  generateCityProps,
+  getPrintItem,
+  heroPrintItems,
+  PRINT_ITEMS_HERO_ANIMATIONS,
+  PRINT_ITEMS_HERO_IDS,
+  type PrintItemSpec,
+  type ResolvedChoreography,
+  resolveChoreography,
+} from './print-items.js';
+import { type CityShopfront, generateCityShopfronts } from './shopfronts.js';
+import {
+  getRoadSign,
+  type RoadSignSpec,
+  roadSignSceneHeight,
+  roadSignSceneMountHeight,
+  roadSignSceneWidth,
+} from './signage.js';
+import {
   type CityBrandSign,
   type CityCrossing,
   type CityJunction,
   type CityProp,
+  generateCityBrandSigns,
+  generateCityCrossings,
+  generateCityJunctions,
+  generateCityProps,
 } from './street.js';
-import { generateCityShopfronts, type CityShopfront } from './shopfronts.js';
-import {
-  OOH_PLAYLIST,
-  getOohFormat,
-  oohSceneHeight,
-  oohSceneWidth,
-  type OohHeadline,
-  type OohSpec,
-} from './ooh.js';
-import {
-  getRoadSign,
-  roadSignSceneHeight,
-  roadSignSceneMountHeight,
-  roadSignSceneWidth,
-  type RoadSignSpec,
-} from './signage.js';
+import { type CityVehicle, generateCityVehicles, VEHICLE_SIZES } from './vehicles.js';
 
 /** Per-item choreography override from a render input. */
 export interface ItemChoreographyOverride {
@@ -146,9 +138,7 @@ export function resolveProductLineInputs(
     brand: merged.brand ?? DEFAULT_PRODUCT_LINE_INPUTS.brand,
     specs,
     choreography,
-    cameraPath: coerceCameraPath(
-      merged.cameraPath ?? DEFAULT_PRODUCT_LINE_INPUTS.cameraPath,
-    ),
+    cameraPath: coerceCameraPath(merged.cameraPath ?? DEFAULT_PRODUCT_LINE_INPUTS.cameraPath),
   };
 }
 
@@ -267,11 +257,7 @@ function liftAboveShop(
 const SHOT_PARKING_CLEARANCE_M = 1.5;
 
 /** How far the nearest kerbside parked vehicle's body is from a station, in metres. */
-function kerbsideClearance(
-  vehicles: readonly CityVehicle[],
-  side: -1 | 1,
-  z: number,
-): number {
+function kerbsideClearance(vehicles: readonly CityVehicle[], side: -1 | 1, z: number): number {
   let nearest = Number.POSITIVE_INFINITY;
   for (const vehicle of vehicles) {
     if (!vehicle.parked) continue;
@@ -315,30 +301,21 @@ function resolveShotSubjects(
     (entry) =>
       entry.slot.medium === 'digital' &&
       entry.slot.mount === 'kerb' &&
-      kerbsideClearance(
-        vehicles,
-        entry.slot.position[0] > 0 ? 1 : -1,
-        entry.slot.position[2],
-      ) >= SHOT_PARKING_CLEARANCE_M,
+      kerbsideClearance(vehicles, entry.slot.position[0] > 0 ? 1 : -1, entry.slot.position[2]) >=
+        SHOT_PARKING_CLEARANCE_M,
   );
   boards.sort((a, b) => {
     const byArea =
       oohSceneWidth(b.format) * oohSceneHeight(b.format) -
       oohSceneWidth(a.format) * oohSceneHeight(a.format);
     if (Math.abs(byArea) > 1e-9) return byArea;
-    return (
-      Math.abs(a.slot.position[2] - anchorZ) - Math.abs(b.slot.position[2] - anchorZ)
-    );
+    return Math.abs(a.slot.position[2] - anchorZ) - Math.abs(b.slot.position[2] - anchorZ);
   });
   const board = boards[0];
   if (board) {
     subjects.push({
       kind: 'billboard',
-      position: [
-        board.slot.position[0],
-        board.slot.position[1],
-        board.slot.position[2],
-      ],
+      position: [board.slot.position[0], board.slot.position[1], board.slot.position[2]],
       size: [oohSceneWidth(board.format), oohSceneHeight(board.format)],
       facing: board.slot.rotationY,
     });
@@ -346,20 +323,15 @@ function resolveShotSubjects(
 
   const clearSigns = signs.filter(
     (entry) =>
-      kerbsideClearance(
-        vehicles,
-        entry.slot.position[0] > 0 ? 1 : -1,
-        entry.slot.position[2],
-      ) >= SHOT_PARKING_CLEARANCE_M,
+      kerbsideClearance(vehicles, entry.slot.position[0] > 0 ? 1 : -1, entry.slot.position[2]) >=
+      SHOT_PARKING_CLEARANCE_M,
   );
   clearSigns.sort((a, b) => {
     const byArea =
       roadSignSceneWidth(b.sign) * roadSignSceneHeight(b.sign) -
       roadSignSceneWidth(a.sign) * roadSignSceneHeight(a.sign);
     if (Math.abs(byArea) > 1e-9) return byArea;
-    return (
-      Math.abs(a.slot.position[2] - anchorZ) - Math.abs(b.slot.position[2] - anchorZ)
-    );
+    return Math.abs(a.slot.position[2] - anchorZ) - Math.abs(b.slot.position[2] - anchorZ);
   });
   const sign = clearSigns[0];
   if (sign) {
@@ -420,9 +392,7 @@ export function resolveCityInputs(inputs?: Partial<CityInputs>): ResolvedCityInp
   const junctions = generateCityJunctions();
   const brandSigns = generateCityBrandSigns(options, layout.buildings);
   const shopfronts = generateCityShopfronts(options, layout.buildings);
-  const shopByBuilding = new Map(
-    shopfronts.map((shop) => [shop.buildingId, shop] as const),
-  );
+  const shopByBuilding = new Map(shopfronts.map((shop) => [shop.buildingId, shop] as const));
 
   const billboards: ResolvedCityBillboard[] = [];
   for (const slot of layout.billboards) {
@@ -432,12 +402,8 @@ export function resolveCityInputs(inputs?: Partial<CityInputs>): ResolvedCityInp
     // A wall panel and a shopfront both want the street frontage of the same
     // block. The shop takes the ground floor, so the panel rides up over it.
     const shop =
-      slot.mount === 'facade' && slot.buildingId
-        ? shopByBuilding.get(slot.buildingId)
-        : undefined;
-    const lifted = shop
-      ? liftAboveShop(slot, oohSceneHeight(format), shop)
-      : undefined;
+      slot.mount === 'facade' && slot.buildingId ? shopByBuilding.get(slot.buildingId) : undefined;
+    const lifted = shop ? liftAboveShop(slot, oohSceneHeight(format), shop) : undefined;
     billboards.push({
       slot: lifted ?? slot,
       format,

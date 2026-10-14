@@ -3,10 +3,20 @@
  * Analyzes recent campaigns and identifies creative gaps and opportunities.
  */
 
-import type { CreativeOpportunity, CreativeFatigueReport, CreativeGenome } from '@printsync/shared';
-import { getUnderusedDimensions, getOverusedDimensions } from './fatigue.js';
+import type { CreativeFatigueReport, CreativeGenome, CreativeOpportunity } from '@printsync/shared';
+import { getOverusedDimensions, getUnderusedDimensions } from './fatigue.js';
 
-void (0 as unknown as { service: string; territory: string; narrative: string; mode: string; confidence: number; novelty: number; brandFit: number; reasoning: string; fatigueDimensions: string[] });
+void (0 as unknown as {
+  service: string;
+  territory: string;
+  narrative: string;
+  mode: string;
+  confidence: number;
+  novelty: number;
+  brandFit: number;
+  reasoning: string;
+  fatigueDimensions: string[];
+});
 
 /**
  * Analyze campaign history and identify creative opportunities.
@@ -14,7 +24,7 @@ void (0 as unknown as { service: string; territory: string; narrative: string; m
 export function identifyCreativeOpportunities(
   genomes: CreativeGenome[],
   fatigueReports: CreativeFatigueReport[],
-  availableServices: string[]
+  availableServices: string[],
 ): CreativeOpportunity[] {
   const underused = getUnderusedDimensions(fatigueReports);
   const _overused = getOverusedDimensions(fatigueReports);
@@ -22,14 +32,14 @@ export function identifyCreativeOpportunities(
   const opportunities: CreativeOpportunity[] = [];
 
   // Find services that are underused
-  const underusedServices = availableServices.filter(service =>
-    !genomes.some(g => g.service === service)
+  const underusedServices = availableServices.filter(
+    (service) => !genomes.some((g) => g.service === service),
   );
 
   // Find territories that are underused
   const allTerritories = ['PRECISION', 'TRANSFORMATION', 'SCALE', 'HUMAN_IMPACT', 'PLAY'];
-  const usedTerritories = new Set(genomes.map(g => g.visualTerritories[0]));
-  const underusedTerritories = allTerritories.filter(t => !usedTerritories.has(t));
+  const usedTerritories = new Set(genomes.map((g) => g.visualTerritories[0]));
+  const underusedTerritories = allTerritories.filter((t) => !usedTerritories.has(t));
 
   // Find narrative structures that are underused
   const allNarratives = [
@@ -40,13 +50,17 @@ export function identifyCreativeOpportunities(
     'BORING_PRINTSYNC_TRANSFORMATION',
     'DIGITAL_PHYSICAL_EXPERIENCE',
   ];
-  const usedNarratives = new Set(genomes.map(g => g.narrativeStructure));
-  const underusedNarratives = allNarratives.filter(n => !usedNarratives.has(n));
+  const usedNarratives = new Set(genomes.map((g) => g.narrativeStructure));
+  const underusedNarratives = allNarratives.filter((n) => !usedNarratives.has(n));
 
   // Generate opportunities based on underused dimensions
   for (const service of underusedServices.slice(0, 3)) {
-    const territory = underusedTerritories[Math.floor(Math.random() * underusedTerritories.length)] ?? 'TRANSFORMATION';
-    const narrative = underusedNarratives[Math.floor(Math.random() * underusedNarratives.length)] ?? 'IDEA_DESIGN_MACHINE_MATERIAL_SCALE_IMPACT';
+    const territory =
+      underusedTerritories[Math.floor(Math.random() * underusedTerritories.length)] ??
+      'TRANSFORMATION';
+    const narrative =
+      underusedNarratives[Math.floor(Math.random() * underusedNarratives.length)] ??
+      'IDEA_DESIGN_MACHINE_MATERIAL_SCALE_IMPACT';
     const mode = selectModeForTerritory(territory);
 
     const confidence = calculateConfidence(service, territory, narrative, genomes);
@@ -68,9 +82,12 @@ export function identifyCreativeOpportunities(
 
   // Generate opportunities based on fatigue dimensions
   for (const dimension of underused.slice(0, 3)) {
-    const service = availableServices[Math.floor(Math.random() * availableServices.length)] ?? 'branding';
+    const service =
+      availableServices[Math.floor(Math.random() * availableServices.length)] ?? 'branding';
     const territory = allTerritories[Math.floor(Math.random() * allTerritories.length)] ?? 'PLAY';
-    const narrative = allNarratives[Math.floor(Math.random() * allNarratives.length)] ?? 'CHAOS_PRECISION_CONTROL_RESULT';
+    const narrative =
+      allNarratives[Math.floor(Math.random() * allNarratives.length)] ??
+      'CHAOS_PRECISION_CONTROL_RESULT';
     const mode = selectModeForTerritory(territory);
 
     const confidence = calculateConfidence(service, territory, narrative, genomes) * 0.9;
@@ -91,9 +108,7 @@ export function identifyCreativeOpportunities(
   }
 
   // Sort by confidence and return top opportunities
-  return opportunities
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 5);
+  return opportunities.sort((a, b) => b.confidence - a.confidence).slice(0, 5);
 }
 
 function selectModeForTerritory(territory: string): string {
@@ -107,32 +122,42 @@ function selectModeForTerritory(territory: string): string {
   return modeMap[territory] ?? 'CINEMATIC_BRAND_FILM';
 }
 
-function calculateConfidence(service: string, territory: string, narrative: string, genomes: CreativeGenome[]): number {
+function calculateConfidence(
+  service: string,
+  territory: string,
+  narrative: string,
+  genomes: CreativeGenome[],
+): number {
   let confidence = 70;
 
   // Boost if service is completely unused
-  if (!genomes.some(g => g.service === service)) confidence += 15;
+  if (!genomes.some((g) => g.service === service)) confidence += 15;
 
   // Boost if territory is unused
-  if (!genomes.some(g => g.visualTerritories.includes(territory))) confidence += 10;
+  if (!genomes.some((g) => g.visualTerritories.includes(territory))) confidence += 10;
 
   // Boost if narrative is unused
-  if (!genomes.some(g => g.narrativeStructure === narrative)) confidence += 5;
+  if (!genomes.some((g) => g.narrativeStructure === narrative)) confidence += 5;
 
   return Math.min(100, confidence);
 }
 
-function calculateNovelty(service: string, territory: string, narrative: string, genomes: CreativeGenome[]): number {
+function calculateNovelty(
+  service: string,
+  territory: string,
+  narrative: string,
+  genomes: CreativeGenome[],
+): number {
   let novelty = 60;
 
   // Boost if service is completely unused
-  if (!genomes.some(g => g.service === service)) novelty += 20;
+  if (!genomes.some((g) => g.service === service)) novelty += 20;
 
   // Boost if territory is unused
-  if (!genomes.some(g => g.visualTerritories.includes(territory))) novelty += 15;
+  if (!genomes.some((g) => g.visualTerritories.includes(territory))) novelty += 15;
 
   // Boost if narrative is unused
-  if (!genomes.some(g => g.narrativeStructure === narrative)) novelty += 5;
+  if (!genomes.some((g) => g.narrativeStructure === narrative)) novelty += 5;
 
   return Math.min(100, novelty);
 }
