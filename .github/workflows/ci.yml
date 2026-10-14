@@ -1,5 +1,8 @@
 name: CI
-
+permissions:
+  contents: read
+  actions: read
+  security-events: write
 on:
   push:
     branches: [main, master]
