@@ -4,6 +4,10 @@
 # Biome (the JS/TS/CSS/JSON gate) runs through pnpm and is always available.
 # The Rust-based tools (typos-cli, cargo-make) are optional; their hooks skip
 # gracefully when the toolchain is not installed so commits are never blocked.
+#
+# NOTE: every `run` value below is intentionally a SINGLE line. Multi-line
+# shell blocks break on Windows checkouts, because Git's autocrlf converts
+# LF to CRLF and the shell then receives `fi\r`, which is not a valid token.
 
 pre-commit:
   parallel: true
@@ -15,32 +19,17 @@ pre-commit:
 
     typos:
       glob: "*.{ts,tsx,js,jsx,md,txt,rs,toml,json,yml,yaml}"
-      run: |
-        if command -v typos >/dev/null 2>&1; then
-          typos {staged_files}
-        else
-          echo "typos-cli not installed — skipping spell check"
-        fi
+      run: "if command -v typos >/dev/null 2>&1; then typos {staged_files}; else echo 'typos-cli not installed - skipping spell check'; fi"
 
     schema-sync:
       glob: "rust/schemas/src/**/*.rs"
-      run: |
-        if command -v cargo >/dev/null 2>&1; then
-          cargo make generate-schemas
-        else
-          echo "cargo not installed — skipping schema sync"
-        fi
+      run: "if command -v cargo >/dev/null 2>&1; then cargo make generate-schemas; else echo 'cargo not installed - skipping schema sync'; fi"
       stage_fixed: true
 
 pre-push:
   commands:
     full-ci:
-      run: |
-        if command -v cargo >/dev/null 2>&1; then
-          cargo make ci
-        else
-          pnpm test
-        fi
+      run: "if command -v cargo >/dev/null 2>&1; then cargo make ci; else pnpm test; fi"
       stage_fixed: false
 
 # Global settings
