@@ -1,5 +1,5 @@
 // Build native module with graceful fallback
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,9 +21,8 @@ function hasCargo() {
 }
 
 function runCargo(args) {
-  const cmd = `cargo ${args.join(' ')}`;
-  console.log(`Running: ${cmd}`);
-  execSync(cmd, { stdio: 'inherit', cwd: path.dirname(CARGO_MANIFEST) });
+  console.log(`Running: cargo ${args.join(' ')}`);
+  execFileSync('cargo', args, { stdio: 'inherit', cwd: path.dirname(CARGO_MANIFEST) });
 }
 
 function copyArtifacts() {
