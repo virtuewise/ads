@@ -23,13 +23,15 @@ pre-commit:
 
     schema-sync:
       glob: "rust/schemas/src/**/*.rs"
-      run: "if command -v cargo >/dev/null 2>&1; then cargo make generate-schemas; else echo 'cargo not installed - skipping schema sync'; fi"
+      run: "if command -v cargo-make >/dev/null 2>&1; then cargo make generate-schemas; else echo 'cargo-make not installed - skipping schema sync'; fi"
       stage_fixed: true
 
 pre-push:
   commands:
     full-ci:
-      run: "if command -v cargo >/dev/null 2>&1; then cargo make ci; else pnpm test; fi"
+      # `cargo make` needs the cargo-make crate; a bare `cargo` is not enough,
+      # so gate on the `cargo-make` binary and fall back to the JS test task.
+      run: "if command -v cargo-make >/dev/null 2>&1; then cargo make ci; else pnpm test; fi"
       stage_fixed: false
 
 # Global settings
