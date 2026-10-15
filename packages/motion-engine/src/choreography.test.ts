@@ -6,8 +6,9 @@ import {
   type Transform,
 } from './choreography.js';
 import { getPrintItem } from './print-items.js';
+import { required } from './test-support.js';
 
-const BOTTLE = getPrintItem('bottle-500')!;
+const BOTTLE = required(getPrintItem('bottle-500'), 'bottle-500 is in the catalogue');
 
 const ANIMATIONS: PrintObjectAnimation[] = [
   'rise',

@@ -134,7 +134,9 @@ export class ScriptEngine {
 
   /** Generate voiceover script from steps */
   generateVoiceover(steps: ScriptStep[]): string[] {
-    return steps.filter((s) => s.dialogue && s.dialogue.trim()).map((s) => s.dialogue!);
+    return steps
+      .map((s) => s.dialogue)
+      .filter((dialogue): dialogue is string => Boolean(dialogue?.trim()));
   }
 }
 

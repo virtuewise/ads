@@ -1,5 +1,11 @@
 // QA Engine – quality assurance checks
-import { DEFAULT_THRESHOLDS, getScoreStatus } from '@printsync/shared';
+import {
+  type Concept,
+  type CreativeMode,
+  DEFAULT_THRESHOLDS,
+  getScoreStatus,
+  type VoiceMode,
+} from '@printsync/shared';
 
 export interface QACheck {
   id: string;
@@ -319,7 +325,7 @@ export class QAEngine {
     const results: Record<string, AutomatedResult> = {};
     for (const checkId of checks) {
       const check = QA_CHECKS[checkId];
-      if (!check || !check.automated) {
+      if (!check?.automated) {
         results[checkId] = { score: 0, status: 'WARN', details: 'Manual review required' };
         continue;
       }
@@ -489,24 +495,32 @@ export class QAEngine {
   ): Promise<{ status: QAStatus; score: number; message: string }> {
     try {
       const { judgeConceptV2, analyzeAntiGeneric } = await import('@printsync/creative-engine');
-      const concept = {
-        id: plan.id,
-        title: plan.brief?.title,
-        logline: plan.brief?.objective,
-        key_visual: plan.brief?.objective,
-        story_summary: plan.brief?.scenes?.join(' ') || '',
-        creative_mode: plan.brief?.mode as any,
-        territory: 'PRECISION' as any,
-        mood: 'technical' as any,
-        visual_style: 'typography' as any,
-        pace: 'rhythmic' as any,
-        voice_mode: plan.brief?.voice as any,
+
+      // Project the production plan onto a complete Concept for the Creative
+      // Judge. The plan does not carry every field, so absent values fall back
+      // to neutral choices that score the same as leaving them unset.
+      const concept: Concept = {
+        id: plan.id ?? 'qa-plan',
+        title: plan.brief?.title ?? 'Untitled',
+        logline: plan.brief?.objective ?? '',
+        key_visual: plan.brief?.objective ?? '',
+        story_summary: plan.brief?.scenes?.join(' ') ?? '',
+        creative_mode: (plan.brief?.mode as CreativeMode | undefined) ?? 'SERVICE_AD',
+        narrative_structure: 'CHAOS_PRECISION_CONTROL_RESULT',
+        territory: 'PRECISION',
+        mood: 'technical',
+        visual_style: 'typography',
+        pace: 'rhythmic',
+        voice_mode: (plan.brief?.voice as VoiceMode | undefined) ?? 'VOICEOVER',
+        // No duration is available here; keep it above the short-form thresholds
+        // so the social stop-power dimension is scored neutrally.
+        target_duration_seconds: 45,
         formats: ['16:9'],
         cta: 'Contact us',
       };
-      const judgeResult = judgeConceptV2({ ...concept } as any, []);
+      const judgeResult = judgeConceptV2(concept, []);
       const scoreStatus = getScoreStatus(judgeResult.total, DEFAULT_THRESHOLDS);
-      const antiGenericReport = analyzeAntiGeneric({ ...concept } as any, []);
+      const antiGenericReport = analyzeAntiGeneric(concept, []);
       const isApproved = scoreStatus === 'APPROVE' || scoreStatus === 'SIGNATURE';
       return {
         status: isApproved ? 'PASS' : 'FAIL',

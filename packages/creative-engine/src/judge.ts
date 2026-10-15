@@ -241,8 +241,8 @@ export class CreativeJudge {
     if (concept.title.length < 20) score += 0.5;
 
     // Reward alliteration and wordplay
-    const words = concept.title.split(' ');
-    if (words.length >= 2 && words[0]![0] === words[1]![0]) score += 1;
+    const [firstWord, secondWord] = concept.title.split(' ');
+    if (firstWord && secondWord && firstWord[0] === secondWord[0]) score += 1;
 
     // Reward unique concepts
     if (concept.creative_mode === 'DETECTIVE_AD') score += 1;

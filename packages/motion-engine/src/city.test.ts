@@ -17,6 +17,7 @@ import {
 import { getOohFormat } from './ooh.js';
 import { PRINT_ITEMS_HERO_IDS } from './print-items.js';
 import { getRoadSign } from './signage.js';
+import { required } from './test-support.js';
 
 const baseOptions: CityOptions = {
   seed: 'test-city',
@@ -224,7 +225,9 @@ describe('generateCityRoute', () => {
   it('runs monotonically down the street', () => {
     const route = generateCityRoute(baseOptions);
     for (let i = 1; i < route.points.length; i++) {
-      expect(route.points[i]!.z).toBeGreaterThan(route.points[i - 1]!.z);
+      const point = required(route.points[i], `route point ${i}`);
+      const previous = required(route.points[i - 1], `route point ${i - 1}`);
+      expect(point.z).toBeGreaterThan(previous.z);
     }
   });
 
@@ -250,8 +253,11 @@ describe('sampleCityRoute', () => {
     const route = generateCityRoute(baseOptions);
     const start = sampleCityRoute(route, 0);
     const end = sampleCityRoute(route, 1);
-    expect(start.z).toBeCloseTo(route.points[0]!.z, 12);
-    expect(end.z).toBeCloseTo(route.points[route.points.length - 1]!.z, 12);
+    expect(start.z).toBeCloseTo(required(route.points[0], 'route start point').z, 12);
+    expect(end.z).toBeCloseTo(
+      required(route.points[route.points.length - 1], 'route end point').z,
+      12,
+    );
   });
 
   it('clamps outside [0, 1]', () => {

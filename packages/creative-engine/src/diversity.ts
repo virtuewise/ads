@@ -4,6 +4,7 @@
  */
 
 import type { Concept, DiversityAnalysis } from '@printsync/shared';
+import { at } from './arrays.js';
 import { calculateCreativeSimilarity, generateCreativeGenome } from './campaign-functions.js';
 
 /**
@@ -38,7 +39,7 @@ export function analyzeDiversity(concepts: Concept[]): DiversityAnalysis {
     dimensions[dim] = [];
     for (let i = 0; i < genomes.length; i++) {
       for (let j = i + 1; j < genomes.length; j++) {
-        const similarity = calculateCreativeSimilarity(genomes[i]!, genomes[j]!);
+        const similarity = calculateCreativeSimilarity(at(genomes, i), at(genomes, j));
         const dimScore = similarity.details[dim] ?? 0;
         dimensions[dim].push(dimScore);
       }
@@ -93,34 +94,36 @@ export function selectDiverseTop3(concepts: Concept[]): Concept[] {
   const remaining = [...concepts];
 
   // First concept: highest scored
-  selected.push(remaining.shift()!);
+  const first = remaining.shift();
+  if (!first) return selected;
+  selected.push(first);
 
   // Second concept: most different from first
   let maxDiversity = -1;
   let maxIndex = 0;
   for (let i = 0; i < remaining.length; i++) {
-    const diversity = calculateDiversityScore(selected[0]!, remaining[i]!);
+    const diversity = calculateDiversityScore(at(selected, 0), at(remaining, i));
     if (diversity > maxDiversity) {
       maxDiversity = diversity;
       maxIndex = i;
     }
   }
-  selected.push(remaining.splice(maxIndex, 1)[0]!);
+  selected.push(at(remaining.splice(maxIndex, 1), 0));
 
   // Third concept: most different from both selected
   maxDiversity = -1;
   maxIndex = 0;
   for (let i = 0; i < remaining.length; i++) {
     const diversity =
-      (calculateDiversityScore(selected[0]!, remaining[i]!) +
-        calculateDiversityScore(selected[1]!, remaining[i]!)) /
+      (calculateDiversityScore(at(selected, 0), at(remaining, i)) +
+        calculateDiversityScore(at(selected, 1), at(remaining, i))) /
       2;
     if (diversity > maxDiversity) {
       maxDiversity = diversity;
       maxIndex = i;
     }
   }
-  selected.push(remaining.splice(maxIndex, 1)[0]!);
+  selected.push(at(remaining.splice(maxIndex, 1), 0));
 
   return selected;
 }

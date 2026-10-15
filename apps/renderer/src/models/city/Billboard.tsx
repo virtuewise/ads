@@ -40,18 +40,23 @@ export const Billboard: React.FC<BillboardProps> = ({
   const isDigital = format.medium === 'digital';
 
   const { texture, emissiveIntensity } = useMemo(() => {
+    // A panel always advertises at least one headline; a missing playlist is a
+    // configuration error rather than something to assert inside the render.
+    const fallbackHeadline = playlist[0];
+    if (!fallbackHeadline) throw new Error('Billboard requires a non-empty playlist');
+
     if (isDigital) {
       const spec = buildOohArtworkSpec(
         format,
         brand,
-        playlist[activeIndex % playlist.length] ?? playlist[0]!,
+        playlist[activeIndex % playlist.length] ?? fallbackHeadline,
       );
       return { texture: createDigitalTexture(spec), emissiveIntensity: 1 };
     }
     const spec = buildOohArtworkSpec(
       format,
       brand,
-      playlist[slot.playlistIndex % playlist.length] ?? playlist[0]!,
+      playlist[slot.playlistIndex % playlist.length] ?? fallbackHeadline,
       item?.id,
     );
     // Kerbside units are backlit lightboxes; roadside paper is floodlit.

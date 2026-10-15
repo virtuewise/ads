@@ -11,6 +11,7 @@ import {
   oohSceneWidth,
 } from './ooh.js';
 import { toSceneUnits } from './print-items.js';
+import { required } from './test-support.js';
 
 describe('OOH_FORMATS', () => {
   it('has unique ids', () => {
@@ -65,14 +66,14 @@ describe('getOohFormat', () => {
 
 describe('ooh scene helpers', () => {
   it('converts format dimensions into shared scene units', () => {
-    const format = getOohFormat('ooh-96sheet')!;
+    const format = required(getOohFormat('ooh-96sheet'), 'ooh-96sheet is a known format');
     expect(oohSceneWidth(format)).toBeCloseTo(toSceneUnits(12192), 12);
     expect(oohSceneHeight(format)).toBeCloseTo(toSceneUnits(3048), 12);
     expect(oohSceneMountHeight(format)).toBeCloseTo(toSceneUnits(3000), 12);
   });
 
   it('reports the panel aspect ratio', () => {
-    const format = getOohFormat('ooh-96sheet')!;
+    const format = required(getOohFormat('ooh-96sheet'), 'ooh-96sheet is a known format');
     expect(oohAspect(format)).toBeCloseTo(4, 12);
   });
 });
@@ -105,10 +106,15 @@ describe('buildOohArtworkSpec', () => {
     paper: '#F5F1EA',
     ink: '#141414',
   };
-  const headline = OOH_PLAYLIST[0]!;
+  const headline = required(OOH_PLAYLIST[0], 'OOH playlist has a first entry');
 
   it('carries the format, brand and headline through', () => {
-    const spec = buildOohArtworkSpec(getOohFormat('ooh-48sheet')!, brand, headline, 'can-330');
+    const spec = buildOohArtworkSpec(
+      required(getOohFormat('ooh-48sheet'), 'ooh-48sheet is a known format'),
+      brand,
+      headline,
+      'can-330',
+    );
     expect(spec.formatId).toBe('ooh-48sheet');
     expect(spec.medium).toBe('paper');
     expect(spec.aspect).toBeCloseTo(2, 12);
@@ -118,20 +124,26 @@ describe('buildOohArtworkSpec', () => {
   });
 
   it('omits the item for digital formats without one', () => {
-    const spec = buildOohArtworkSpec(getOohFormat('ooh-digital-96')!, brand, headline);
+    const spec = buildOohArtworkSpec(
+      required(getOohFormat('ooh-digital-96'), 'ooh-digital-96 is a known format'),
+      brand,
+      headline,
+    );
     expect(spec.itemId).toBeUndefined();
     expect(spec.medium).toBe('digital');
   });
 
   it('is deterministic', () => {
-    const a = buildOohArtworkSpec(getOohFormat('ooh-6sheet')!, brand, headline, 'rigid-box');
-    const b = buildOohArtworkSpec(getOohFormat('ooh-6sheet')!, brand, headline, 'rigid-box');
+    const format = required(getOohFormat('ooh-6sheet'), 'ooh-6sheet is a known format');
+    const a = buildOohArtworkSpec(format, brand, headline, 'rigid-box');
+    const b = buildOohArtworkSpec(format, brand, headline, 'rigid-box');
     expect(a).toEqual(b);
   });
 
   it('changes the seed when the content changes', () => {
-    const a = buildOohArtworkSpec(getOohFormat('ooh-6sheet')!, brand, headline, 'rigid-box');
-    const b = buildOohArtworkSpec(getOohFormat('ooh-6sheet')!, brand, headline, 'can-330');
+    const format = required(getOohFormat('ooh-6sheet'), 'ooh-6sheet is a known format');
+    const a = buildOohArtworkSpec(format, brand, headline, 'rigid-box');
+    const b = buildOohArtworkSpec(format, brand, headline, 'can-330');
     expect(a.seed).not.toBe(b.seed);
   });
 });

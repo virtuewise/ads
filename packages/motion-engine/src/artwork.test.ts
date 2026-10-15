@@ -14,10 +14,11 @@ import {
   PRINT_ITEMS_HERO_IDS,
   resolveChoreography,
 } from './print-items.js';
+import { required } from './test-support.js';
 
-const BOTTLE = getPrintItem('bottle-500')!;
-const CARD = getPrintItem('business-card')!;
-const STICKER = getPrintItem('sticker-round-60')!;
+const BOTTLE = required(getPrintItem('bottle-500'), 'bottle-500 is in the catalogue');
+const CARD = required(getPrintItem('business-card'), 'business-card is in the catalogue');
+const STICKER = required(getPrintItem('sticker-round-60'), 'sticker-round-60 is in the catalogue');
 const CUSTOM_BRAND: BrandTokens = {
   wordmark: 'ACME',
   tagline: 'Built different',

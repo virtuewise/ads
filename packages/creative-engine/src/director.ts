@@ -17,6 +17,7 @@ import type {
   VoiceMode,
 } from '@printsync/shared';
 import { checkAntiGeneric } from './anti-generic.js';
+import { rotate } from './arrays.js';
 import { CREATIVE_MODES } from './modes.js';
 import { getStoryTemplate } from './story-grammar.js';
 
@@ -158,7 +159,7 @@ export class CreativeDirector {
     const concepts: Concept[] = [];
 
     for (let i = 0; i < 10; i++) {
-      const seed = seeds[i % seeds.length]!;
+      const seed = rotate(seeds, i);
       const mode = this.selectCreativeMode(brief, i);
       const territory = this.selectTerritory(brief, i);
       const mood = this.selectMood(brief, i);
@@ -262,7 +263,11 @@ export class CreativeDirector {
 
   private getConceptSeeds(brief: CreativeBrief): ConceptSeed[] {
     const serviceKey = brief.service.toLowerCase().replace(/\s+/g, '-');
-    return CONCEPT_LIBRARY[serviceKey] ?? CONCEPT_LIBRARY['default']!;
+    const seeds = CONCEPT_LIBRARY[serviceKey] ?? CONCEPT_LIBRARY.default;
+    if (!seeds) {
+      throw new Error(`No concept seeds configured for service "${brief.service}"`);
+    }
+    return seeds;
   }
 
   private selectCreativeMode(brief: CreativeBrief, index: number): CreativeMode {
@@ -272,7 +277,7 @@ export class CreativeDirector {
     // Rotate through modes based on history to avoid repetition
     const recentModes = this.history.slice(-3).map((h) => h.creative_mode);
     const available = modes.filter((m) => !recentModes.includes(m));
-    return available[index % available.length] ?? modes[index % modes.length]!;
+    return available.length > 0 ? rotate(available, index) : rotate(modes, index);
   }
 
   private selectTerritory(brief: CreativeBrief, index: number): CreativeTerritory {
@@ -287,7 +292,7 @@ export class CreativeDirector {
     ];
     const recentTerritories = this.history.slice(-3).map((h) => h.territory);
     const available = territories.filter((t: CreativeTerritory) => !recentTerritories.includes(t));
-    return available[index % available.length] ?? territories[index % territories.length]!;
+    return available.length > 0 ? rotate(available, index) : rotate(territories, index);
   }
 
   private selectMood(brief: CreativeBrief, index: number): Mood {
@@ -296,7 +301,7 @@ export class CreativeDirector {
     const moods: Mood[] = ['cinematic', 'playful', 'technical', 'minimal', 'dramatic'];
     const recentMoods = this.history.slice(-3).map((h) => h.mood);
     const available = moods.filter((m) => !recentMoods.includes(m));
-    return available[index % available.length] ?? moods[index % moods.length]!;
+    return available.length > 0 ? rotate(available, index) : rotate(moods, index);
   }
 
   private selectVisualStyle(brief: CreativeBrief, index: number): VisualStyle {
@@ -305,14 +310,14 @@ export class CreativeDirector {
     const styles: VisualStyle[] = ['typography', 'product', 'vfx', 'live_action', 'mixed'];
     const recentStyles = this.history.slice(-3).map((h) => h.visual_style as string);
     const available = styles.filter((s) => !recentStyles.includes(s));
-    return available[index % available.length] ?? styles[index % styles.length]!;
+    return available.length > 0 ? rotate(available, index) : rotate(styles, index);
   }
 
   private selectPace(brief: CreativeBrief, index: number): Pace {
     if (brief.pace) return brief.pace;
 
     const paces: Pace[] = ['slow_premium', 'fast_energetic', 'rhythmic'];
-    return paces[index % paces.length]!;
+    return rotate(paces, index);
   }
 
   private selectVoiceMode(mode: CreativeMode, index: number): VoiceMode {
@@ -320,7 +325,7 @@ export class CreativeDirector {
     if (modeDef.default_voice_mode) return modeDef.default_voice_mode;
 
     const modes: VoiceMode[] = ['VOICEOVER', 'TYPOGRAPHY_ONLY', 'MUSIC_ONLY', 'DIALOGUE', 'HYBRID'];
-    return modes[index % modes.length]!;
+    return rotate(modes, index);
   }
 
   private selectNarrativeStructure(index: number): NarrativeStructure {
@@ -334,7 +339,7 @@ export class CreativeDirector {
     ];
     const recentStructures = this.history.slice(-3).map((h) => h.narrative_structure);
     const available = structures.filter((s: NarrativeStructure) => !recentStructures.includes(s));
-    return available[index % available.length] ?? structures[index % structures.length]!;
+    return available.length > 0 ? rotate(available, index) : rotate(structures, index);
   }
 
   private estimateDuration(mode: CreativeMode, brief: CreativeBrief): number {

@@ -29,9 +29,10 @@ function buildRibbon(
   const indices: number[] = [];
 
   for (let i = 0; i < count; i++) {
-    const point = points[i]!;
-    const previous = points[Math.max(0, i - 1)]!;
-    const next = points[Math.min(count - 1, i + 1)]!;
+    const point = points[i];
+    const previous = points[Math.max(0, i - 1)];
+    const next = points[Math.min(count - 1, i + 1)];
+    if (!point || !previous || !next) continue;
     const dx = next.x - previous.x;
     const dz = next.z - previous.z;
     const length = Math.hypot(dx, dz) || 1;

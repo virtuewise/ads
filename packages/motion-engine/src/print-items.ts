@@ -535,8 +535,9 @@ export function printItemBevelMm(spec: PrintItemSpec): number {
 export function revolveRadiusAt(profile: readonly ProfilePoint[], t: number): number {
   if (profile.length === 0) return 0;
   for (let i = 0; i < profile.length - 1; i++) {
-    const a = profile[i]!;
-    const b = profile[i + 1]!;
+    const a = profile[i];
+    const b = profile[i + 1];
+    if (!a || !b) continue;
     if (t >= a.t && t <= b.t) {
       const span = b.t - a.t;
       if (span <= 0) return b.r;

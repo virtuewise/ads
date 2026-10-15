@@ -39,7 +39,8 @@ export async function adsCreate(options: {
 
   console.log(chalk.yellow('TOP 3 CONCEPTS:\n'));
   for (const concept of scored.slice(0, 3)) {
-    const score = concept.score!;
+    const { score } = concept;
+    if (!score) continue;
     const statusColor =
       score.status === 'SIGNATURE'
         ? chalk.red.bold

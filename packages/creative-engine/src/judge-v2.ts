@@ -191,10 +191,10 @@ export function judgeConceptV2(concept: Concept, history: CreativeHistoryEntry[]
 
   // Check hard gates
   const hardGates: Record<string, boolean> = {
-    BRAND_FIT: (dimensions['BRAND_FIT'] ?? 0) >= HARD_GATES.BRAND_FIT,
-    SERVICE_CLARITY: (dimensions['SERVICE_CLARITY'] ?? 0) >= HARD_GATES.SERVICE_CLARITY,
-    ORIGINALITY: (dimensions['ORIGINALITY'] ?? 0) >= HARD_GATES.ORIGINALITY,
-    NON_GENERIC: (dimensions['NON_GENERIC_QUALITY'] ?? 0) >= HARD_GATES.NON_GENERIC,
+    BRAND_FIT: (dimensions.BRAND_FIT ?? 0) >= HARD_GATES.BRAND_FIT,
+    SERVICE_CLARITY: (dimensions.SERVICE_CLARITY ?? 0) >= HARD_GATES.SERVICE_CLARITY,
+    ORIGINALITY: (dimensions.ORIGINALITY ?? 0) >= HARD_GATES.ORIGINALITY,
+    NON_GENERIC: (dimensions.NON_GENERIC_QUALITY ?? 0) >= HARD_GATES.NON_GENERIC,
   };
 
   // Run competitor test

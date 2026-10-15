@@ -35,7 +35,8 @@ const DAILY_ROTATION = [
 export async function adsDaily(_options: { brand?: string; formats?: string }): Promise<void> {
   const today = new Date();
   const dayOfWeek = today.getDay();
-  const rotation = DAILY_ROTATION[dayOfWeek]!;
+  const rotation = DAILY_ROTATION[dayOfWeek];
+  if (!rotation) throw new Error(`No daily rotation configured for day ${dayOfWeek}`);
 
   console.log(chalk.red.bold('\n📅 PRINTSYNC DAILY ADVERTISING ENGINE V2\n'));
   console.log(chalk.gray(`Date: ${today.toISOString().split('T')[0]}`));

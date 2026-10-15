@@ -181,7 +181,9 @@ export const liftPanelAboveShop_ts = (
 export const cityGridPositions_ts = (
   extent: number,
   slotSpacing: number,
-  buildingWidthRange: [number, number],
+  // Part of the native signature contract (see `NativeModule.cityGridPositions`),
+  // but slot positions only depend on extent and spacing in this fallback.
+  _buildingWidthRange: [number, number],
 ): number[] => {
   const positions: number[] = [];
   let z = -extent + slotSpacing * 0.5;

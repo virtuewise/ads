@@ -1,0 +1,42 @@
+# Virtue Studio — line-ending policy
+#
+# Normalize to LF in both the repository and the working tree, regardless of
+# any developer's `core.autocrlf` setting. Biome enforces `lineEnding: "lf"`
+# (see biome.json), so CRLF checkouts make `pnpm lint` fail on every file git
+# converted; this file makes the checkout match the formatter everywhere.
+* text=auto eol=lf
+
+# Known binaries — never apply line-ending conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.bmp binary
+*.tiff binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.mp4 binary
+*.mov binary
+*.webm binary
+*.mkv binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.m4a binary
+*.wasm binary
+*.node binary
+*.so binary
+*.dll binary
+*.dylib binary
+*.pem binary
+*.key binary

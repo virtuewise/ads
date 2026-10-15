@@ -434,8 +434,9 @@ export function sampleCityRoute(route: CityRoute, t: number): CityRouteSample {
   const scaled = clamped * last;
   const index = Math.min(last - 1, Math.floor(scaled));
   const local = scaled - index;
-  const a = points[index]!;
-  const b = points[index + 1]!;
+  const a = points[index];
+  const b = points[index + 1];
+  if (!a || !b) return { x: 0, z: 0, heading: 0 };
 
   return {
     x: a.x + (b.x - a.x) * local,

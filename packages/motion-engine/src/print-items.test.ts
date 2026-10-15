@@ -16,6 +16,7 @@ import {
   SCENE_UNITS_PER_MM,
   toSceneUnits,
 } from './print-items.js';
+import { requireItem, requireProfile } from './test-support.js';
 
 const MATERIAL_PRESETS = [
   'paperMatte',
@@ -139,11 +140,13 @@ describe('revolve profiles', () => {
       expect(profile[profile.length - 1]?.r).toBe(0);
 
       for (let i = 0; i < profile.length; i++) {
-        const point = profile[i]!;
+        const point = profile[i];
+        if (!point) continue;
         expect(point.t).toBeGreaterThanOrEqual(0);
         expect(point.t).toBeLessThanOrEqual(1);
-        if (i > 0) {
-          expect(point.t).toBeGreaterThanOrEqual(profile[i - 1]!.t);
+        const previous = i > 0 ? profile[i - 1] : undefined;
+        if (previous) {
+          expect(point.t).toBeGreaterThanOrEqual(previous.t);
         }
         const isEndpoint = i === 0 || i === profile.length - 1;
         if (!isEndpoint) {
@@ -163,69 +166,70 @@ describe('revolve profiles', () => {
 
 describe('shape helpers', () => {
   it('reports body height as overall height minus the closure', () => {
-    const bottle = getPrintItem('bottle-500')!;
+    const bottle = requireItem('bottle-500');
     expect(printItemCapHeight(bottle)).toBe(0);
     expect(printItemBodyHeight(bottle)).toBe(220);
 
-    const wine = getPrintItem('wine-bottle-750')!;
+    const wine = requireItem('wine-bottle-750');
     expect(printItemCapHeight(wine)).toBe(18);
     expect(printItemBodyHeight(wine)).toBe(282);
 
-    const jar = getPrintItem('jam-jar-250')!;
+    const jar = requireItem('jam-jar-250');
     expect(printItemCapHeight(jar)).toBe(14);
     expect(printItemBodyHeight(jar)).toBe(82);
   });
 
   it('reports flap thickness only for cartons', () => {
-    expect(printItemFlapThickness(getPrintItem('folding-carton')!)).toBeGreaterThan(0);
-    expect(printItemFlapThickness(getPrintItem('business-card')!)).toBe(0);
+    expect(printItemFlapThickness(requireItem('folding-carton'))).toBeGreaterThan(0);
+    expect(printItemFlapThickness(requireItem('business-card'))).toBe(0);
   });
 
   it('reports seal height only for pouches', () => {
-    expect(printItemSealHeight(getPrintItem('coffee-pouch')!)).toBeGreaterThan(0);
-    expect(printItemSealHeight(getPrintItem('rigid-box')!)).toBe(0);
+    expect(printItemSealHeight(requireItem('coffee-pouch'))).toBeGreaterThan(0);
+    expect(printItemSealHeight(requireItem('rigid-box'))).toBe(0);
   });
 
   it('rounds rigid boxes by their radius and papers by a fine bevel', () => {
-    expect(printItemBevelMm(getPrintItem('rigid-box')!)).toBe(5);
-    expect(printItemBevelMm(getPrintItem('mailer-box')!)).toBe(6);
-    expect(printItemBevelMm(getPrintItem('business-card')!)).toBeCloseTo(0.4, 12);
-    expect(printItemBevelMm(getPrintItem('cereal-carton')!)).toBeCloseTo(0.8, 12);
+    expect(printItemBevelMm(requireItem('rigid-box'))).toBe(5);
+    expect(printItemBevelMm(requireItem('mailer-box'))).toBe(6);
+    expect(printItemBevelMm(requireItem('business-card'))).toBeCloseTo(0.4, 12);
+    expect(printItemBevelMm(requireItem('cereal-carton'))).toBeCloseTo(0.8, 12);
   });
 
   it('interpolates revolve radii linearly between profile points', () => {
-    const bottle = getPrintItem('bottle-500')!;
-    expect(revolveRadiusAt(bottle.profile!, 0.5)).toBeCloseTo(32.5, 12);
-    expect(revolveRadiusAt(bottle.profile!, 0.65)).toBeCloseTo(31.25, 12);
+    const bottle = requireItem('bottle-500');
+    expect(revolveRadiusAt(requireProfile(bottle), 0.5)).toBeCloseTo(32.5, 12);
+    expect(revolveRadiusAt(requireProfile(bottle), 0.65)).toBeCloseTo(31.25, 12);
     // Just below the closing point the neck rim is still the widest radius.
-    expect(revolveRadiusAt(bottle.profile!, 0.99)).toBeCloseTo(16, 12);
+    expect(revolveRadiusAt(requireProfile(bottle), 0.99)).toBeCloseTo(16, 12);
   });
 
   it('places a front decal on flat, box and carton fronts', () => {
-    const card = printItemDecalRect(getPrintItem('business-card')!);
+    const card = printItemDecalRect(requireItem('business-card'));
     expect(card).toEqual({ width: 84.2, height: 54.2, centerY: 27.5, z: 0.2 });
 
-    const carton = printItemDecalRect(getPrintItem('folding-carton')!);
+    const carton = printItemDecalRect(requireItem('folding-carton'));
     expect(carton?.centerY).toBeCloseTo(90, 9);
     expect(carton?.z).toBe(30);
 
-    const rollup = printItemDecalRect(getPrintItem('rollup-850')!);
+    const rollup = printItemDecalRect(requireItem('rollup-850'));
     expect(rollup?.centerY).toBeCloseTo(1045, 9);
   });
 
   it('returns no front decal for revolve or disk items', () => {
-    expect(printItemDecalRect(getPrintItem('bottle-500')!)).toBeNull();
-    expect(printItemDecalRect(getPrintItem('sticker-round-60')!)).toBeNull();
+    expect(printItemDecalRect(requireItem('bottle-500'))).toBeNull();
+    expect(printItemDecalRect(requireItem('sticker-round-60'))).toBeNull();
   });
 
   it('places a wrap band on revolved containers', () => {
-    const band = printItemWrapBand(getPrintItem('bottle-500')!);
+    const band = printItemWrapBand(requireItem('bottle-500'));
     expect(band).not.toBeNull();
-    expect(band!.radius).toBeCloseTo(32.8, 9);
-    expect(band!.centerY).toBeCloseTo(88, 9);
-    expect(band!.thetaLength).toBeLessThanOrEqual(Math.PI * 0.55);
+    if (!band) throw new Error('Expected a wrap band for bottle-500');
+    expect(band.radius).toBeCloseTo(32.8, 9);
+    expect(band.centerY).toBeCloseTo(88, 9);
+    expect(band.thetaLength).toBeLessThanOrEqual(Math.PI * 0.55);
 
-    expect(printItemWrapBand(getPrintItem('business-card')!)).toBeNull();
+    expect(printItemWrapBand(requireItem('business-card'))).toBeNull();
   });
 });
 
@@ -238,7 +242,7 @@ describe('unit scale & derived measures', () => {
   });
 
   it('computes the front aspect ratio exactly', () => {
-    const card = getPrintItem('business-card')!;
+    const card = requireItem('business-card');
     expect(printItemFrontAspect(card)).toBeCloseTo(85 / 55, 12);
   });
 
@@ -246,7 +250,7 @@ describe('unit scale & derived measures', () => {
     for (const item of PRINT_ITEMS) {
       expect(printItemBoundingRadius(item)).toBeGreaterThan(0);
     }
-    const card = getPrintItem('business-card')!;
+    const card = requireItem('business-card');
     const expected = (Math.hypot(85, 55, 0.4) / 2) * 0.001;
     expect(printItemBoundingRadius(card)).toBeCloseTo(expected, 12);
   });

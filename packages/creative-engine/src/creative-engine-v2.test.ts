@@ -1,6 +1,7 @@
 import type { Concept, CreativeHistoryEntry } from '@printsync/shared';
 import { describe, expect, it } from 'vitest';
 import { analyzeAntiGeneric } from './anti-generic-v2.js';
+import { at } from './arrays.js';
 import { generateCreativeBrief } from './brief-generator.js';
 import { runDailyCreativeEngine } from './daily-v2.js';
 import { analyzeDiversity, selectDiverseTop3 } from './diversity.js';
@@ -101,7 +102,7 @@ describe('Creative Engine V2', () => {
       const concepts = [goodConcept, genericConcept];
       const results = judgeConceptsV2(concepts, emptyHistory);
       expect(results.length).toBe(2);
-      expect(results[0]!.verdict.total).toBeGreaterThanOrEqual(results[1]!.verdict.total);
+      expect(at(results, 0).verdict.total).toBeGreaterThanOrEqual(at(results, 1).verdict.total);
     });
 
     it('rejects weak concepts', () => {
@@ -172,7 +173,7 @@ describe('Creative Engine V2', () => {
 
     it('converts seed to concept', () => {
       const seeds = generateConceptSeeds(1);
-      const concept = seedToConcept(seeds[0]!, 0);
+      const concept = seedToConcept(at(seeds, 0), 0);
       expect(concept).toBeDefined();
       expect(concept.title).toBeDefined();
       expect(concept.creative_mode).toBeDefined();

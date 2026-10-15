@@ -1,7 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { CreativeBrief } from '@printsync/common';
 import { buildProductionPlan, finalizeProductionPlan } from '@printsync/production-orchestrator';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 
 const boxBriefPath = join(__dirname, '../../../samples/box_brief.json');

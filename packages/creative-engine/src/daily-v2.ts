@@ -70,7 +70,7 @@ export async function runDailyCreativeEngine(
   availableServices: string[],
   objective: CampaignObjective = 'AWARENESS',
 ): Promise<DailyCreativeReport> {
-  const date = new Date().toISOString().split('T')[0]!;
+  const date = new Date().toISOString().slice(0, 10);
 
   // Step 1: Calculate creative fatigue
   const genomes = history.map(() =>

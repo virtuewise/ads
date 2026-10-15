@@ -31,9 +31,13 @@ export interface BrandEngineConfig {
  * Load and normalize all PrintSync brand files into a single immutable context.
  */
 export class BrandEngine {
-  constructor(_config: BrandEngineConfig) {
-    // Config stored for future use
+  /** Brand file locations and options, retained for brand-file loading. */
+  readonly config: BrandEngineConfig;
+
+  constructor(config: BrandEngineConfig) {
+    this.config = config;
   }
+
   private cachedContext: BrandContext | null = null;
 
   /**

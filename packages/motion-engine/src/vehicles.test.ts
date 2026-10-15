@@ -6,6 +6,7 @@ import {
   generateCityLayout,
 } from './city.js';
 import { PRINT_ITEMS_HERO_IDS } from './print-items.js';
+import { required } from './test-support.js';
 import {
   CITY_LANES,
   CITY_PARKING_OFFSET,
@@ -147,7 +148,9 @@ describe('vehiclePoseAt', () => {
     const layout = generateCityLayout(baseOptions);
     const vehicles = generateCityVehicles(baseOptions);
     for (const vehicle of vehicles) {
-      expect(Math.abs(vehicle.lane)).toBeLessThan(layout.roads[0]!.width / 2);
+      expect(Math.abs(vehicle.lane)).toBeLessThan(
+        required(layout.roads[0], 'city road 0').width / 2,
+      );
     }
   });
 });

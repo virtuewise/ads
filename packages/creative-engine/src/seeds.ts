@@ -14,6 +14,7 @@ import type {
   VisualStyle,
   VoiceMode,
 } from '@printsync/shared';
+import { at, rotate } from './arrays.js';
 import { VISUAL_METAPHORS } from './metaphors.js';
 
 interface ConceptSeed {
@@ -90,7 +91,7 @@ function generateDiverseSeed(index: number, _usedCombinations: Set<string>): Con
     'HUMAN_IMPACT',
     'PLAY',
   ];
-  const territory = territories[index % territories.length]!;
+  const territory = rotate(territories, index);
 
   // Select service based on territory
   const service = selectServiceForTerritory(territory, index);
@@ -107,11 +108,11 @@ function generateDiverseSeed(index: number, _usedCombinations: Set<string>): Con
     'BORING_PRINTSYNC_TRANSFORMATION',
     'DIGITAL_PHYSICAL_EXPERIENCE',
   ];
-  const narrative = narratives[index % narratives.length]!;
+  const narrative = rotate(narratives, index);
 
   // Select metaphor
   const metaphors = VISUAL_METAPHORS.filter((m) => m.territories.includes(territory));
-  const metaphor = (metaphors[index % metaphors.length] ?? VISUAL_METAPHORS[0]!).name;
+  const metaphor = (metaphors.length > 0 ? rotate(metaphors, index) : at(VISUAL_METAPHORS, 0)).name;
 
   // Select mood based on territory
   const mood = selectMoodForTerritory(territory);
@@ -126,10 +127,10 @@ function generateDiverseSeed(index: number, _usedCombinations: Set<string>): Con
   const voiceMode = selectVoiceModeForMode(mode);
 
   // Select audience
-  const audience = AUDIENCES[index % AUDIENCES.length]!;
+  const audience = rotate(AUDIENCES, index);
 
   // Select emotion
-  const emotion = EMOTIONS[index % EMOTIONS.length]!;
+  const emotion = rotate(EMOTIONS, index);
 
   return {
     service,

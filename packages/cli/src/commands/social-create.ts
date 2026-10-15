@@ -14,14 +14,18 @@ export async function socialCreate(options: { platform?: string; format?: string
   console.log(chalk.blue('Format:'), format);
   console.log();
 
-  const specs: Record<string, { width: number; height: number; duration?: number }> = {
-    '1:1': { width: 1080, height: 1080 },
+  type SocialSpec = { width: number; height: number; duration?: number };
+
+  // The 1:1 spec doubles as the fallback for unknown formats.
+  const fallbackSpec: SocialSpec = { width: 1080, height: 1080 };
+  const specs: Record<string, SocialSpec> = {
+    '1:1': fallbackSpec,
     '4:5': { width: 1080, height: 1350 },
     '9:16': { width: 1080, height: 1920, duration: 15 },
     '16:9': { width: 1920, height: 1080, duration: 30 },
   };
 
-  const spec = specs[format] ?? specs['1:1']!;
+  const spec = specs[format] ?? fallbackSpec;
 
   console.log(chalk.yellow('SOCIAL CONTENT SPECIFICATIONS:\n'));
   console.log(`  Platform: ${platform}`);

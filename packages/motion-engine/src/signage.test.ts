@@ -11,6 +11,7 @@ import {
   roadSignSceneWidth,
   SIGN_PANEL_MM,
 } from './signage.js';
+import { required } from './test-support.js';
 
 describe('ROAD_SIGNS', () => {
   it('has unique ids', () => {
@@ -72,14 +73,16 @@ describe('getRoadSign', () => {
 
 describe('roadSign geometry helpers', () => {
   it('converts faces and mount heights into shared scene units', () => {
-    const sign = getRoadSign('sign-direction')!;
+    const sign = required(getRoadSign('sign-direction'), 'sign-direction is a known sign');
     expect(roadSignSceneWidth(sign)).toBeCloseTo(toSceneUnits(1200), 12);
     expect(roadSignSceneHeight(sign)).toBeCloseTo(toSceneUnits(300), 12);
     expect(roadSignSceneMountHeight(sign)).toBeCloseTo(toSceneUnits(2400), 12);
   });
 
   it('reports the face aspect ratio', () => {
-    expect(roadSignAspect(getRoadSign('sign-direction')!)).toBeCloseTo(4, 12);
+    expect(
+      roadSignAspect(required(getRoadSign('sign-direction'), 'sign-direction is a known sign')),
+    ).toBeCloseTo(4, 12);
   });
 
   it('defaults panel thickness to 3 mm', () => {

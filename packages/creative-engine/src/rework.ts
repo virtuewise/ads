@@ -78,16 +78,16 @@ function generateReworkStrategy(
   const strategies: string[] = [];
 
   // Address hard gate failures
-  if (!verdict.hardGates['BRAND_FIT']) {
+  if (!verdict.hardGates.BRAND_FIT) {
     strategies.push('Strengthen PrintSync brand connection');
   }
-  if (!verdict.hardGates['SERVICE_CLARITY']) {
+  if (!verdict.hardGates.SERVICE_CLARITY) {
     strategies.push('Clarify service connection');
   }
-  if (!verdict.hardGates['ORIGINALITY']) {
+  if (!verdict.hardGates.ORIGINALITY) {
     strategies.push('Increase originality — avoid familiar patterns');
   }
-  if (!verdict.hardGates['NON_GENERIC']) {
+  if (!verdict.hardGates.NON_GENERIC) {
     strategies.push('Reduce generic indicators');
   }
 

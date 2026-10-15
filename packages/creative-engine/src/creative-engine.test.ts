@@ -5,6 +5,7 @@
 import type { Concept, CreativeBrief } from '@printsync/shared';
 import { describe, expect, it } from 'vitest';
 import { checkAntiGeneric, generateAntiGenericSuggestions } from './anti-generic.js';
+import { at } from './arrays.js';
 import { CreativeDirector } from './director.js';
 import { CreativeJudge } from './judge.js';
 import {
@@ -62,9 +63,10 @@ describe('CreativeDirector', () => {
 
   it('develops a treatment', () => {
     const concepts = director.generateConcepts(brief);
-    const treatment = director.developConcept(concepts[0]!);
-    expect(treatment).toContain(concepts[0]!.title);
-    expect(treatment).toContain(concepts[0]!.logline);
+    const concept = at(concepts, 0);
+    const treatment = director.developConcept(concept);
+    expect(treatment).toContain(concept.title);
+    expect(treatment).toContain(concept.logline);
   });
 });
 
@@ -111,7 +113,12 @@ describe('CreativeJudge', () => {
       { ...goodConcept, id: '2', title: 'GENERIC PRINTING SOLUTION' },
     ];
     const scored = judge.scoreConcepts(concepts);
-    expect(scored[0]!.score!.total).toBeGreaterThanOrEqual(scored[1]!.score!.total);
+    const first = at(scored, 0);
+    const second = at(scored, 1);
+    if (!first.score || !second.score) {
+      throw new Error('scoreConcepts must attach a score to every concept');
+    }
+    expect(first.score.total).toBeGreaterThanOrEqual(second.score.total);
   });
 });
 

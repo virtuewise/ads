@@ -3,7 +3,6 @@ import {
   BrandTokensSchema,
   CameraPathSchema,
   CompositionIdSchema,
-  RenderInputsSchema,
   RenderItemSchema,
   RenderOutputSchema,
   validateRenderInputs,

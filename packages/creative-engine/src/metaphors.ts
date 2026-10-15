@@ -3,6 +3,8 @@
  * Reusable metaphors for PrintSync creative concepts.
  */
 
+import { at } from './arrays.js';
+
 export interface VisualMetaphor {
   name: string;
   description: string;
@@ -139,5 +141,5 @@ export function getMetaphorsForTerritory(territory: string): VisualMetaphor[] {
  * Get a random metaphor.
  */
 export function getRandomMetaphor(): VisualMetaphor {
-  return VISUAL_METAPHORS[Math.floor(Math.random() * VISUAL_METAPHORS.length)]!;
+  return at(VISUAL_METAPHORS, Math.floor(Math.random() * VISUAL_METAPHORS.length));
 }

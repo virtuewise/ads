@@ -54,7 +54,8 @@ export function createArtworkTexture(spec: ArtworkSpec): CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('2D canvas context is unavailable');
   ctx.clearRect(0, 0, SIZE, SIZE);
 
   switch (spec.shape) {

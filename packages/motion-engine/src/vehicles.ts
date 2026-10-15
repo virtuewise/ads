@@ -156,8 +156,8 @@ export function generateCityVehicles(options: CityOptions): CityVehicle[] {
   // the brand takes part in the street rather than sitting only on billboards.
   const liveriedIndex = vehicles.findIndex((vehicle) => !vehicle.parked && vehicle.kind === 'van');
   if (liveriedIndex >= 0) {
-    const van = vehicles[liveriedIndex]!;
-    vehicles[liveriedIndex] = { ...van, brand: true, colour: '#f4f5f7' };
+    const van = vehicles[liveriedIndex];
+    if (van) vehicles[liveriedIndex] = { ...van, brand: true, colour: '#f4f5f7' };
   }
 
   return vehicles;
