@@ -16,9 +16,9 @@ env:
 jobs:
   rust-toolchain:
     name: Rust Toolchain
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -36,14 +36,14 @@ jobs:
           cargo install cargo-nextest cargo-make typos-cli --locked
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 12.11.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: 'pnpm'
 
       - name: Install Node dependencies
@@ -55,19 +55,19 @@ jobs:
 
   typescript:
     name: TypeScript Build & Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 12.11.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -84,20 +84,20 @@ jobs:
 
   render:
     name: Render Verification
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [rust-toolchain, typescript]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 12.11.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 26
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -110,7 +110,7 @@ jobs:
           pnpm --filter @printsync/renderer exec remotion still src/index.ts PrintSyncLivingCity /tmp/still-board.png --frame=760 --log=error
 
       - name: Upload stills
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verification-stills
           path: /tmp/*.png
@@ -120,9 +120,9 @@ jobs:
     name: Deploy Wiki
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     needs: [rust-toolchain, typescript]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Sync wiki
         run: |
