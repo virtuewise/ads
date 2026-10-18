@@ -1,10 +1,16 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
-import { MonacoPanel } from './components/MonacoPanel';
-import { NodeGraph } from './components/NodeGraph';
+import { BrandLUTPanel } from './components/BrandLUTPanel';
+import { ExportPanel } from './components/ExportPanel';
+import { GenrePanel, GenreSelector } from './components/GenreSelector';
+import { NodeEditor } from './components/NodeEditor';
+import { SafeZoneControls, SafeZones } from './components/SafeZones';
+import { ScriptEditor } from './components/ScriptEditor';
 import { Timeline } from './components/Timeline';
 import { Toolbar } from './components/Toolbar';
 import { WebGPUCanvas } from './components/WebGPUCanvas';
+import type { GenreId, SafeZoneRatio } from './engine/types';
+import { useDAG } from './engine/useDAG';
 import type { Brief, Concept, CreativeMode } from './hooks/useEngineData';
 import { useEngineData } from './hooks/useEngineData';
 
@@ -49,12 +55,21 @@ export function App() {
   const [_zoom, _setZoom] = useState(1);
   const [leftTab, setLeftTab] = useState<'assets' | 'layers' | 'templates' | 'ai'>('assets');
   const [rightTab, setRightTab] = useState<
-    'properties' | 'effects' | 'fonts' | 'transitions' | 'threed' | 'code'
+    'properties' | 'effects' | 'fonts' | 'transitions' | 'threed' | 'code' | 'export' | 'brand'
   >('properties');
   const [quickApply, setQuickApply] = useState('');
   const [showQuickApply, setShowQuickApply] = useState(false);
   const [selectedTool, setSelectedTool] = useState('select');
   const _duration = 5;
+
+  // Genre-aware editing
+  const [genre, setGenre] = useState<GenreId>('corporate');
+  const [safeZonesActive, setSafeZonesActive] = useState(false);
+  const [safeZoneRatio, setSafeZoneRatio] = useState<SafeZoneRatio>('16:9');
+  const [brandLUT, setBrandLUT] = useState('none');
+
+  // DAG engine
+  const dag = useDAG();
 
   const _territories = Array.from(new Set(modes.flatMap((m) => m.territories)));
 
@@ -125,6 +140,11 @@ export function App() {
         </div>
       </header>
 
+      {/* ── Genre Selector ── */}
+      <div className="border-b border-line bg-ink-2">
+        <GenreSelector active={genre} onChange={setGenre} />
+      </div>
+
       {/* ── Quick Apply Palette ── */}
       <AnimatePresence>
         {showQuickApply && (
@@ -180,6 +200,7 @@ export function App() {
             ))}
           </div>
           <div className="rail--left-panel__body">
+            <GenrePanel active={genre} />
             {leftTab === 'assets' && (
               <>
                 <div className="rail__section">
@@ -332,11 +353,34 @@ export function App() {
           {activeTab === 'canvas' && (
             <div className="flex-1 relative overflow-hidden">
               <WebGPUCanvas />
+              <SafeZones
+                active={safeZonesActive}
+                ratio={safeZoneRatio}
+                onToggle={() => setSafeZonesActive(!safeZonesActive)}
+                onRatioChange={setSafeZoneRatio}
+              />
+              <div className="absolute top-2 right-2">
+                <SafeZoneControls
+                  active={safeZonesActive}
+                  ratio={safeZoneRatio}
+                  onToggle={() => setSafeZonesActive(!safeZonesActive)}
+                  onRatioChange={setSafeZoneRatio}
+                />
+              </div>
             </div>
           )}
           {activeTab === 'nodes' && (
-            <div className="flex-1 overflow-auto">
-              <NodeGraph />
+            <div className="flex-1 overflow-hidden">
+              <NodeEditor
+                dag={dag.dag}
+                selectedNode={dag.selectedNode}
+                onSelectNode={dag.setSelectedNode}
+                onAddNode={dag.addNode}
+                onRemoveNode={dag.removeNode}
+                onUpdateNode={dag.updateNode}
+                onAddEdge={dag.addEdge}
+                onRemoveEdge={dag.removeEdge}
+              />
             </div>
           )}
           {activeTab === 'timeline' && (
@@ -427,18 +471,35 @@ export function App() {
 
         <aside className="w-72 border-l border-line bg-ink-2 flex flex-col shrink-0 overflow-hidden">
           <div className="flex border-b border-line">
-            {(['properties', 'effects', 'fonts', 'transitions', 'threed', 'code'] as const).map(
-              (t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setRightTab(t)}
-                  className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-semibold transition-colors ${rightTab === t ? 'text-text border-b-2 border-accent' : 'text-muted hover:text-text'}`}
-                >
-                  {t === 'threed' ? '3D' : t === 'code' ? 'Code' : t}
-                </button>
-              ),
-            )}
+            {(
+              [
+                'properties',
+                'effects',
+                'fonts',
+                'transitions',
+                'threed',
+                'code',
+                'export',
+                'brand',
+              ] as const
+            ).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setRightTab(t)}
+                className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-semibold transition-colors ${rightTab === t ? 'text-text border-b-2 border-accent' : 'text-muted hover:text-text'}`}
+              >
+                {t === 'threed'
+                  ? '3D'
+                  : t === 'code'
+                    ? 'Code'
+                    : t === 'export'
+                      ? 'Export'
+                      : t === 'brand'
+                        ? 'LUT'
+                        : t}
+              </button>
+            ))}
           </div>
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             {rightTab === 'properties' &&
@@ -615,9 +676,15 @@ export function App() {
             )}
             {rightTab === 'code' && (
               <div className="h-full">
-                <MonacoPanel />
+                <ScriptEditor
+                  code={dag.code}
+                  onSync={dag.syncFromCode}
+                  compiledWGSL={dag.compiled.wgsl}
+                />
               </div>
             )}
+            {rightTab === 'export' && <ExportPanel />}
+            {rightTab === 'brand' && <BrandLUTPanel active={brandLUT} onChange={setBrandLUT} />}
           </div>
         </aside>
       </div>
