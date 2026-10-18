@@ -4,4 +4,6 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('studio', {
   getModes: () => ipcRenderer.invoke('engine:getModes'),
   getConcepts: () => ipcRenderer.invoke('engine:getConcepts'),
+  getMetaphors: (territory?: string) => ipcRenderer.invoke('engine:getMetaphors', territory),
+  getStats: () => ipcRenderer.invoke('engine:getStats'),
 });
