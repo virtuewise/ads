@@ -1,0 +1,7 @@
+import { contextBridge, ipcRenderer } from 'electron';
+
+// Engine-driven API surface: everything the UI needs comes from the engines.
+contextBridge.exposeInMainWorld('studio', {
+  getModes: () => ipcRenderer.invoke('engine:getModes'),
+  getConcepts: () => ipcRenderer.invoke('engine:getConcepts'),
+});

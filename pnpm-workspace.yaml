@@ -17,6 +17,7 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
   "@printsync/core-native": true
+  electron: true
 
 overrides:
   postcss: ^8.5.29

@@ -18,7 +18,9 @@
     "film:create": "pnpm --filter @printsync/cli film:create",
     "poster:create": "pnpm --filter @printsync/cli poster:create",
     "social:create": "pnpm --filter @printsync/cli social:create",
-    "creative:judge": "pnpm --filter @printsync/cli creative:judge"
+    "creative:judge": "pnpm --filter @printsync/cli creative:judge",
+    "electron:dev": "pnpm --filter @printsync/electron dev",
+    "electron:build": "pnpm --filter @printsync/electron build"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
