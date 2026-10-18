@@ -157,7 +157,7 @@ pub struct SceneGraph {
 }
 
 /// Production status
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ProductionStatus {
     Planning,
@@ -168,6 +168,8 @@ pub enum ProductionStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProductionPlan {
+    /// Schema represents the id as a string (uuid has no JsonSchema impl)
+    #[schemars(with = "String")]
     pub id: PlanId,
     pub brief: crate::brief::CreativeBrief,
     pub script: Script,

@@ -15,6 +15,7 @@ pub type BriefId = Uuid;
 #[serde(rename_all = "camelCase")]
 pub struct CreativeBrief {
     /// Unique identifier (auto-generated if not provided)
+    #[schemars(with = "Option<String>")]
     pub id: Option<BriefId>,
     /// Human-readable title
     pub title: String,
@@ -34,6 +35,7 @@ pub struct CreativeBrief {
     pub seed: Option<String>,
     /// Creation timestamp
     #[serde(default = "Utc::now")]
+    #[schemars(with = "String")]
     pub created_at: DateTime<Utc>,
 }
 

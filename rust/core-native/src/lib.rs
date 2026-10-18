@@ -6,10 +6,7 @@
 //! - Audio analysis (analyzeFrequencyBands)
 //! - City layout helpers (grid, spacing, clearance)
 
-use napi_derive::napi;
-
 /// FNV-1a 64-bit hash - deterministic procedural generation seed
-#[napi]
 pub fn fnv1a_64(data: &str) -> u64 {
     const FNV_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x100000001b3;
@@ -22,7 +19,6 @@ pub fn fnv1a_64(data: &str) -> u64 {
 }
 
 /// FNV-1a 32-bit hash (for smaller ranges)
-#[napi]
 pub fn fnv1a_32(data: &str) -> u32 {
     const FNV_OFFSET_BASIS: u32 = 0x811c9dc5;
     const FNV_PRIME: u32 = 0x01000193;
@@ -35,7 +31,6 @@ pub fn fnv1a_32(data: &str) -> u32 {
 }
 
 /// Deterministic seeded random (mulberry32) - frame-addressable
-#[napi]
 pub fn mulberry32(seed: u32) -> impl FnMut() -> f32 {
     let mut state = seed;
     move || {
@@ -51,20 +46,17 @@ pub fn mulberry32(seed: u32) -> impl FnMut() -> f32 {
 /// Frame distance from vertical FOV and visible width
 /// `visibleWidth = 2 * distance * tan(fov/2) * aspect`
 /// `distance = visibleWidth / (2 * tan(fov/2) * aspect)`
-#[napi]
 pub fn frame_distance(visible_width: f32, fov_deg: f32, aspect: f32) -> f32 {
     let half_fov_rad = (fov_deg * std::f32::consts::PI / 180.0) * 0.5;
     visible_width / (2.0 * half_fov_rad.tan() * aspect)
 }
 
 /// Boulevard camera pose (travelling pass)
-#[napi]
 pub struct BoulevardPose {
     pub position: Vec3,
     pub look_at: Vec3,
 }
 
-#[napi]
 pub fn boulevard_pose(t: f32, extent: f32, rise: f32) -> BoulevardPose {
     // t in [0, 1], extent = city half-length
     // Left lane divider at x = -5.6, y = 1.72, z = e*0.62 -> -e*0.12
@@ -83,13 +75,11 @@ pub fn boulevard_pose(t: f32, extent: f32, rise: f32) -> BoulevardPose {
 }
 
 /// Subject pose (square-on to face with push-in)
-#[napi]
 pub struct SubjectPose {
     pub position: Vec3,
     pub look_at: Vec3,
 }
 
-#[napi]
 pub fn subject_pose(
     face_center: Vec3,
     normal: Vec3,
@@ -115,7 +105,6 @@ pub fn subject_pose(
 }
 
 /// 3D vector for napi
-#[napi(object)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -123,7 +112,6 @@ pub struct Vec3 {
 }
 
 /// Audio frequency band analysis (zero-copy)
-#[napi]
 pub fn analyze_frequency_bands(spectrum: &[f32], bands: u32) -> Vec<f32> {
     if bands == 0 || spectrum.is_empty() {
         return Vec::new();
@@ -150,7 +138,6 @@ pub fn analyze_frequency_bands(spectrum: &[f32], bands: u32) -> Vec<f32> {
 }
 
 /// Kerb-side clearance (edge-based, not center-based)
-#[napi]
 pub fn kerbside_clearance(
     subject_z: f32,
     subject_half_length: f32,
@@ -168,18 +155,16 @@ pub fn kerbside_clearance(
 }
 
 /// Lift wall panel above shopfront
-#[napi]
 pub fn lift_panel_above_shop(panel_bottom: f32, shop_height: f32, panel_height: f32, gap: f32) -> f32 {
     let new_center = shop_height + gap + panel_height * 0.5;
     new_center - panel_bottom
 }
 
 /// City grid layout helpers
-#[napi]
 pub fn city_grid_positions(
     extent: f32,
     slot_spacing: f32,
-    building_width_range: (f32, f32),
+    _building_width_range: (f32, f32),
 ) -> Vec<f32> {
     let mut positions = Vec::new();
     let mut z = -extent + slot_spacing * 0.5;

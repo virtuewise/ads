@@ -204,6 +204,9 @@ export async function loadNativeModule(): Promise<NativeModule> {
   try {
     // Try to load native module
     const mod = await import('@printsync/core-native');
+    if (typeof mod.fnv1a_64 !== 'function') {
+      throw new Error('native module has no exports');
+    }
     nativeModule = mod;
     nativeAvailable = true;
     console.log('[core-native] Native module loaded successfully');

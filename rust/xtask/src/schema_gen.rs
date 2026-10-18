@@ -44,7 +44,7 @@ fn generate_render_schema() -> String {
     format_zod_schema(&schema, "RenderInputs")
 }
 
-fn format_zod_schema(schema: &schemars::schema::Schema, name: &str) -> String {
+fn format_zod_schema(schema: &schemars::schema::RootSchema, name: &str) -> String {
     let json = to_string_pretty(schema).unwrap();
     format!(
         r#"/**

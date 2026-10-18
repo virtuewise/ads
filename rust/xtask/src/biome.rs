@@ -45,7 +45,7 @@ pub async fn format(path: Option<PathBuf>) -> Result<()> {
     let absolute_path = std::fs::canonicalize(&workspace_path)?;
 
     let mut cmd = Command::new("biome");
-    cmd.args(["format", "--write", "--config-path", ".", &absolute_path]);
+    cmd.args(["format", "--write", "--config-path", ".", absolute_path.to_str().unwrap()]);
 
     let status = cmd.status().await?;
     anyhow::ensure!(status.success(), "biome format failed");
