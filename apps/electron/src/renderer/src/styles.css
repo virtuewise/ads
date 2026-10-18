@@ -775,12 +775,10 @@ body {
   border-bottom: 1px solid var(--line);
   font-size: 11px;
 }
-/* biome-ignore lint/style/noDescendingSpecificity: pseudo-class specificity equal, order irrelevant */
 .prop-grid__row span:last-child {
   font-family: var(--font-mono);
   font-size: 10px;
 }
-/* biome-ignore lint/style/noDescendingSpecificity: pseudo-class specificity equal, order irrelevant */
 .prop-grid__row span:first-child {
   color: var(--muted);
 }
