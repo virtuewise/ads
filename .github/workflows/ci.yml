@@ -104,7 +104,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build renderer and its dependencies
-        run: pnpm --filter @printsync/renderer...build
+        run: pnpm --filter "@printsync/renderer..." build
 
       - name: Render still frames (verification)
         run: |
@@ -124,6 +124,7 @@ jobs:
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     needs: [rust-toolchain, typescript]
     runs-on: ubuntu-24.04
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
