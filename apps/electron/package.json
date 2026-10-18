@@ -21,6 +21,8 @@
     "@printsync/typography-engine": "workspace:*",
     "@printsync/vfx-engine": "workspace:*",
     "@printsync/visual-grammar-engine": "workspace:*",
+    "@monaco-editor/react": "^4.7.0",
+    "@webgpu/types": "^0.1.74",
     "electron": "^44.9.0",
     "motion": "^14.3.0",
     "react": "^19.3.0",
