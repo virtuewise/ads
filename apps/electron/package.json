@@ -21,9 +21,11 @@
     "@printsync/typography-engine": "workspace:*",
     "@printsync/vfx-engine": "workspace:*",
     "@printsync/visual-grammar-engine": "workspace:*",
-    "electron": "^44.0.0",
+    "electron": "^44.9.0",
+    "motion": "^14.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
@@ -32,7 +34,8 @@
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
     "electron-vite": "^6.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
