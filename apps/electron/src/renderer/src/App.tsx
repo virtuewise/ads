@@ -2,8 +2,6 @@ import { useState } from 'react';
 import type { Brief, Concept, CreativeMode } from './hooks/useEngineData';
 import { useEngineData } from './hooks/useEngineData';
 
-type Tab = 'canvas' | 'nodes' | 'timeline' | 'ai' | 'threed';
-
 const Icon = ({ d, size = 16 }: { d: string; size?: number }) => (
   <svg
     width={size}
@@ -29,11 +27,6 @@ const ICONS = {
   pen: 'M12 19l7-7 3 3-7 7-3 0 0-3zM18 13l-1.5-1.5M5 5h.01',
   hand: 'M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15',
   zoom: 'M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
-  play: 'M5 3l14 9-14 9V3z',
-  pause: 'M6 4h4v16H6zM14 4h4v16h-4z',
-  stop: 'M6 6h12v12H6z',
-  ai: 'M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 3 3v1h-1a1 1 0 0 0-1 1v4a1 1 0 0 1-1 1h-2l-2 3-2-3H9a1 1 0 0 1-1-1v-4a1 1 0 0 0-1-1H6v-1a3 3 0 0 1 3-3h1V6a4 4 0 0 1 4-4z',
-  cube: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12',
 };
 
 export function App() {
@@ -49,10 +42,9 @@ export function App() {
   const [generated, setGenerated] = useState<Concept[]>([]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('canvas');
-  const [selectedMode, _setSelectedMode] = useState<CreativeMode | null>(null);
-  const [selectedGrammar, setSelectedGrammar] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<CreativeMode | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<string | null>(null);
+  const [selectedGrammar, setSelectedGrammar] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [playhead, setPlayhead] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -64,6 +56,7 @@ export function App() {
   const [quickApply, setQuickApply] = useState('');
   const [showQuickApply, setShowQuickApply] = useState(false);
   const [selectedTool, setSelectedTool] = useState('select');
+  const [activeView, setActiveView] = useState<'canvas' | 'nodes'>('canvas');
   const duration = 5;
 
   const territories = Array.from(new Set(modes.flatMap((m) => m.territories)));
@@ -112,23 +105,21 @@ export function App() {
 
   return (
     <div className="app">
+      <div className="noise" aria-hidden="true" />
+
+      {/* ── Top Menu Bar ── */}
       <header className="menubar">
         <div className="menubar__brand">
           <span className="menubar__logo">V</span>
           <span className="menubar__name">Virtue Studio</span>
         </div>
-        <div className="menubar__tabs">
-          {(['canvas', 'nodes', 'timeline', 'ai', 'threed'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={`menubar__tab ${activeTab === t ? 'active' : ''}`}
-              onClick={() => setActiveTab(t)}
-            >
-              {t === 'threed' ? '3D' : t.charAt(0).toUpperCase() + t.slice(1)}
+        <nav className="menubar__menus">
+          {['File', 'Edit', 'View', 'Layer', 'Window', 'Help'].map((m) => (
+            <button key={m} type="button" className="menubar__menu">
+              {m}
             </button>
           ))}
-        </div>
+        </nav>
         <div className="menubar__right">
           {stats && (
             <span className="menubar__stat">
@@ -143,8 +134,15 @@ export function App() {
         </div>
       </header>
 
+      {/* ── Quick Apply Palette ── */}
       {showQuickApply && (
-        <button type="button" className="qa-overlay" onClick={() => setShowQuickApply(false)}>
+        <button
+          type="button"
+          className="qa-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowQuickApply(false);
+          }}
+        >
           <div className="qa-panel">
             <input
               placeholder="Search effects, fonts, modes, grammars…"
@@ -163,8 +161,23 @@ export function App() {
         </button>
       )}
 
+      {/* ── Main Workspace ── */}
       <div className="workspace">
+        {/* Left: Tool Palette + Panels */}
         <aside className="rail rail--left">
+          <div className="rail__tools">
+            {tools.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                title={t.title}
+                className={`rail__tool ${selectedTool === t.id ? 'active' : ''}`}
+                onClick={() => setSelectedTool(t.id)}
+              >
+                <Icon d={t.icon} size={18} />
+              </button>
+            ))}
+          </div>
           <div className="rail__tabs">
             {(['assets', 'layers', 'templates', 'ai'] as const).map((t) => (
               <button
@@ -295,7 +308,7 @@ export function App() {
         </aside>
 
         <div className="canvas-column">
-          <div className="toolbar">
+          <div className="canvas__toolbar">
             {tools.map((t) => (
               <button
                 key={t.id}
@@ -319,9 +332,16 @@ export function App() {
               −
             </button>
             <span className="toolbar__zoom">{Math.round(zoom * 100)}%</span>
+            <div className="toolbar__sep" />
+            <button type="button" className="toolbar__btn" onClick={() => setActiveView('canvas')}>
+              Canvas
+            </button>
+            <button type="button" className="toolbar__btn" onClick={() => setActiveView('nodes')}>
+              Nodes
+            </button>
           </div>
 
-          {activeTab === 'canvas' && (
+          {activeView === 'canvas' && (
             <div className="canvas">
               <div className="canvas__surface">
                 <div className="canvas__grid" />
@@ -332,11 +352,13 @@ export function App() {
               </div>
             </div>
           )}
-          {activeTab === 'nodes' && (
+          {activeView === 'nodes' && (
             <div className="node-graph">
               <div className="node-graph__header">
-                <h3>Node Graph</h3>
-                <p>Structure motion visuals as a node tree. Connect data → transform → render.</p>
+                <h3>Node Graph — Infographic Motion</h3>
+                <p>
+                  Structure your motion visuals as a node tree. Connect data → transform → render.
+                </p>
               </div>
               <svg
                 className="node-graph__svg"
@@ -395,116 +417,6 @@ export function App() {
                   </g>
                 ))}
               </svg>
-            </div>
-          )}
-          {activeTab === 'timeline' && (
-            <div className="timeline-view">
-              <div className="timeline__transport">
-                <button type="button" onClick={() => setPlaying(!playing)}>
-                  {playing ? '⏸' : '▶'}
-                </button>
-                <button type="button" onClick={() => setPlayhead(0)}>
-                  ⏹
-                </button>
-                <span className="timeline__time">
-                  {playhead.toFixed(2)}s / {duration.toFixed(2)}s
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={duration}
-                  step={0.01}
-                  value={playhead}
-                  onChange={(e) => setPlayhead(Number(e.target.value))}
-                />
-              </div>
-              <div className="timeline__tracks">
-                {['Camera', 'Typography', 'Effects', 'Audio'].map((track) => (
-                  <div key={track} className="track">
-                    <div className="track__label">{track}</div>
-                    <div className="track__lane">
-                      <div className="track__keyframe" style={{ left: '8%' }} />
-                      <div className="track__keyframe" style={{ left: '35%' }} />
-                      <div className="track__keyframe" style={{ left: '68%' }} />
-                      <div
-                        className="track__keyframe track__keyframe--diamond"
-                        style={{ left: '90%' }}
-                      />
-                    </div>
-                  </div>
-                ))}
-                <div
-                  className="timeline__playhead"
-                  style={{ left: `${(playhead / duration) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-          {activeTab === 'ai' && (
-            <div className="ai-panel">
-              <h3>AI & Next-Level Visual Effects</h3>
-              <div className="ai-grid">
-                {[
-                  {
-                    icon: '✂',
-                    name: 'Object Matte',
-                    desc: 'AI subject isolation & tracking masks',
-                  },
-                  {
-                    icon: '⟳',
-                    name: 'Generative Extend',
-                    desc: 'Extend clip duration with AI frames',
-                  },
-                  { icon: '⊘', name: 'Unmult', desc: 'Remove black/white matted backgrounds' },
-                  { icon: '≋', name: 'Curl Noise', desc: 'Procedural fluid dynamics & particles' },
-                ].map((t) => (
-                  <div key={t.name} className="ai-card">
-                    <div className="ai-card__icon">{t.icon}</div>
-                    <div className="ai-card__name">{t.name}</div>
-                    <div className="ai-card__desc">{t.desc}</div>
-                    <button type="button" className="btn btn--sm">
-                      Run
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {activeTab === 'threed' && (
-            <div className="panel-3d">
-              <h3>Native 3D Design</h3>
-              <div className="panel-3d__viewport">
-                <div className="panel-3d__grid" />
-                <div className="panel-3d__label">3D Viewport (GPU-accelerated)</div>
-              </div>
-              <div className="panel-3d__controls">
-                <div className="prop-grid">
-                  <div>
-                    <span>Mesh</span>
-                    <span>Parametric Cube</span>
-                  </div>
-                  <div>
-                    <span>Material</span>
-                    <span>Substance 3D (1,300+)</span>
-                  </div>
-                  <div>
-                    <span>Aperture</span>
-                    <span>2.8</span>
-                  </div>
-                  <div>
-                    <span>Focus Distance</span>
-                    <span>5.0m</span>
-                  </div>
-                  <div>
-                    <span>Blur</span>
-                    <span>0.4</span>
-                  </div>
-                  <div>
-                    <span>Shadow Catcher</span>
-                    <span>On</span>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -698,7 +610,47 @@ export function App() {
         </aside>
       </div>
 
-      <section className="bottom-panel">
+      {/* ── Bottom: Timeline (full width) ── */}
+      <div className="timeline">
+        <div className="timeline__transport">
+          <button type="button" onClick={() => setPlaying(!playing)}>
+            {playing ? '⏸' : '▶'}
+          </button>
+          <button type="button" onClick={() => setPlayhead(0)}>
+            ⏹
+          </button>
+          <span className="timeline__time">
+            {playhead.toFixed(2)}s / {duration.toFixed(2)}s
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={duration}
+            step={0.01}
+            value={playhead}
+            onChange={(e) => setPlayhead(Number(e.target.value))}
+          />
+          <div className="timeline__spacer" />
+          <span className="timeline__info">30fps · 1920×1080</span>
+        </div>
+        <div className="timeline__tracks">
+          {['Video', 'Audio', 'Captions', 'Effects', 'Transitions'].map((track) => (
+            <div key={track} className="track">
+              <div className="track__label">{track}</div>
+              <div className="track__lane">
+                <div className="track__keyframe" style={{ left: '8%' }} />
+                <div className="track__keyframe" style={{ left: '35%' }} />
+                <div className="track__keyframe" style={{ left: '68%' }} />
+                <div className="track__keyframe track__keyframe--diamond" style={{ left: '90%' }} />
+              </div>
+            </div>
+          ))}
+          <div className="timeline__playhead" style={{ left: `${(playhead / duration) * 100}%` }} />
+        </div>
+      </div>
+
+      {/* ── Bottom Panel: Concept Generation ── */}
+      <div className="bottom-panel">
         <div className="bottom-panel__head">
           <h3>Generate Concepts</h3>
         </div>
@@ -770,6 +722,44 @@ export function App() {
             })}
           </div>
         )}
+      </div>
+
+      <section className="bottom-panel bottom-panel--modes">
+        <div className="bottom-panel__head">
+          <h3>Creative Modes</h3>
+          <span className="panel__count">{modes.length}</span>
+        </div>
+        <div className="mode-grid">
+          {modes.map((m) => (
+            <article
+              key={m.id}
+              className="mode-card"
+              onClick={() => setSelectedMode(m)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setSelectedMode(m);
+              }}
+            >
+              <div className="mode-card__stripe" />
+              <div className="mode-card__body">
+                <div className="mode-card__id">{m.id}</div>
+                <h3 className="mode-card__name">{m.name}</h3>
+                <p className="mode-card__desc">{m.description}</p>
+                <div className="mode-card__meta">
+                  <span>{m.mood}</span>
+                  <span>{m.pace}</span>
+                  <span>{m.duration}s</span>
+                </div>
+                <div className="mode-card__tags">
+                  {m.territories.map((t) => (
+                    <span key={t} className="tag">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   );
