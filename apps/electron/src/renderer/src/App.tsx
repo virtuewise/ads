@@ -1,9 +1,47 @@
+import { useState } from 'react';
+import type { Brief, Concept } from './hooks/useEngineData';
 import { useEngineData } from './hooks/useEngineData';
 
 export function App() {
-  const { modes, concepts, metaphors, stats, loading, error } = useEngineData();
+  const { modes, metaphors, stats, loading, error } = useEngineData();
+  const [brief, setBrief] = useState<Brief>({
+    objective: 'Build brand awareness for a new product launch',
+    service: 'branding',
+    audience: 'creative professionals',
+    emotional_objective: 'inspire',
+    platform: ['social', 'web'],
+    formats: ['16:9', '9:16'],
+  });
+  const [generated, setGenerated] = useState<Concept[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   const territories = Array.from(new Set(modes.flatMap((m) => m.territories)));
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const api = (
+        window as unknown as { studio?: { generateConcepts: (b: Brief) => Promise<Concept[]> } }
+      ).studio;
+      const result = await api?.generateConcepts?.(brief);
+      setGenerated(result ?? []);
+    } catch (e) {
+      setGenError(String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const scoreOf = (c: Concept): number | null => {
+    if (typeof c.score === 'number') return c.score;
+    if (c.score && typeof c.score === 'object') {
+      const s = c.score as { originality: number; brand_fit: number; commercial_value: number };
+      return (s.originality + s.brand_fit + s.commercial_value) / 30;
+    }
+    return null;
+  };
 
   return (
     <div className="app">
@@ -16,8 +54,8 @@ export function App() {
           <span className="hero__title-line">Engine</span>
         </h1>
         <p className="hero__lede">
-          Every surface below is rendered from the engines. No hardcoded content — modes,
-          territories, metaphors and concepts are pulled live from
+          Every surface below is rendered from the engines. No hardcoded content — modes, metaphors
+          and concepts are pulled live from
           <code>@printsync/creative-engine</code>.
         </p>
         {stats && (
@@ -35,6 +73,83 @@ export function App() {
       {error && <div className="error">{error}</div>}
 
       <main>
+        <section className="panel panel--brief">
+          <div className="panel__head">
+            <h2>Generate Concepts</h2>
+            <span className="panel__count">engine</span>
+          </div>
+          <div className="brief-form">
+            <label>
+              <span>Service</span>
+              <select
+                value={brief.service}
+                onChange={(e) => setBrief({ ...brief, service: e.target.value })}
+              >
+                <option value="branding">Branding</option>
+                <option value="signage">Signage</option>
+                <option value="large-format-printing">Large Format</option>
+                <option value="digital-printing">Digital Printing</option>
+              </select>
+            </label>
+            <label>
+              <span>Objective</span>
+              <input
+                value={brief.objective}
+                onChange={(e) => setBrief({ ...brief, objective: e.target.value })}
+              />
+            </label>
+            <label>
+              <span>Audience</span>
+              <input
+                value={brief.audience}
+                onChange={(e) => setBrief({ ...brief, audience: e.target.value })}
+              />
+            </label>
+            <label>
+              <span>Emotional objective</span>
+              <input
+                value={brief.emotional_objective}
+                onChange={(e) => setBrief({ ...brief, emotional_objective: e.target.value })}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              {generating ? 'Generating…' : 'Generate Concepts'}
+            </button>
+          </div>
+          {genError && <div className="error">{genError}</div>}
+          {generated.length > 0 && (
+            <div className="concept-list">
+              {generated.map((c) => {
+                const s = scoreOf(c);
+                return (
+                  <div key={c.title} className="concept-row">
+                    <div className="concept-row__score">
+                      <ScoreRing value={s ?? 0} />
+                    </div>
+                    <div className="concept-row__body">
+                      <h3>{c.title}</h3>
+                      <p className="concept-row__logline">{c.logline}</p>
+                      <div className="concept-row__meta">
+                        {c.territory && <span className="tag">{c.territory}</span>}
+                        {c.mood && <span className="tag tag--muted">{c.mood}</span>}
+                        {c.creative_mode && (
+                          <span className="tag tag--muted">{c.creative_mode}</span>
+                        )}
+                      </div>
+                      {c.key_visual && <p className="concept-row__kv">{c.key_visual}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         <section className="panel panel--modes">
           <div className="panel__head">
             <h2>Creative Modes</h2>
@@ -42,7 +157,7 @@ export function App() {
           </div>
           <div className="mode-grid">
             {modes.map((m) => (
-              <article key={m.id} className="mode-card" data-territory={m.territory}>
+              <article key={m.id} className="mode-card">
                 <div className="mode-card__stripe" />
                 <div className="mode-card__body">
                   <div className="mode-card__id">{m.id}</div>
@@ -62,29 +177,6 @@ export function App() {
                   </div>
                 </div>
               </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel panel--concepts">
-          <div className="panel__head">
-            <h2>Concepts</h2>
-            <span className="panel__count">{concepts.length}</span>
-          </div>
-          <div className="concept-list">
-            {concepts.map((c) => (
-              <div key={c.title} className="concept-row">
-                <div className="concept-row__score">
-                  <ScoreRing value={c.score ?? 0} />
-                </div>
-                <div className="concept-row__body">
-                  <h3>{c.title}</h3>
-                  <div className="concept-row__meta">
-                    {c.territory && <span className="tag">{c.territory}</span>}
-                    {c.mood && <span className="tag tag--muted">{c.mood}</span>}
-                  </div>
-                </div>
-              </div>
             ))}
           </div>
         </section>
@@ -112,7 +204,7 @@ export function App() {
           <div className="territory-bar">
             {territories.map((t) => {
               const count = modes.filter((m) => m.territories.includes(t)).length;
-              const pct = Math.round((count / modes.length) * 100);
+              const pct = modes.length ? Math.round((count / modes.length) * 100) : 0;
               return (
                 <div key={t} className="territory-seg">
                   <div className="territory-seg__fill" style={{ width: `${pct}%` }} />

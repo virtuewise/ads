@@ -16,10 +16,26 @@ export interface CreativeMode {
 }
 
 export interface Concept {
+  id?: string;
   title: string;
-  score?: number;
+  logline?: string;
+  score?:
+    | {
+        brand_fit: number;
+        originality: number;
+        commercial_value: number;
+        visual_potential: number;
+        emotional_impact: number;
+        memorability: number;
+        social_stop_power: number;
+        production_quality: number;
+      }
+    | number;
   territory?: string;
   mood?: string;
+  creative_mode?: string;
+  key_visual?: string;
+  cta?: string;
 }
 
 export interface Metaphor {
@@ -36,9 +52,17 @@ export interface EngineStats {
   modesRequiringVfx: number;
 }
 
+export interface Brief {
+  objective: string;
+  service: string;
+  audience: string;
+  emotional_objective: string;
+  platform: string[];
+  formats: string[];
+}
+
 export interface EngineData {
   modes: CreativeMode[];
-  concepts: Concept[];
   metaphors: Metaphor[];
   stats: EngineStats | null;
   loading: boolean;
@@ -48,13 +72,13 @@ export interface EngineData {
 interface StudioApi {
   getModes: () => Promise<CreativeMode[]>;
   getConcepts: () => Promise<Concept[]>;
+  generateConcepts: (brief: Brief) => Promise<Concept[]>;
   getMetaphors: (territory?: string) => Promise<Metaphor[]>;
   getStats: () => Promise<EngineStats>;
 }
 
 export function useEngineData(): EngineData {
   const [modes, setModes] = useState<CreativeMode[]>([]);
-  const [concepts, setConcepts] = useState<Concept[]>([]);
   const [metaphors, setMetaphors] = useState<Metaphor[]>([]);
   const [stats, setStats] = useState<EngineStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,15 +89,13 @@ export function useEngineData(): EngineData {
     (async () => {
       try {
         const api = (window as unknown as { studio?: StudioApi }).studio;
-        const [m, c, mm, s] = await Promise.all([
+        const [m, mm, s] = await Promise.all([
           api?.getModes?.() ?? Promise.resolve([]),
-          api?.getConcepts?.() ?? Promise.resolve([]),
           api?.getMetaphors?.() ?? Promise.resolve([]),
           api?.getStats?.() ?? Promise.resolve(null),
         ]);
         if (!cancelled) {
           setModes(m);
-          setConcepts(c);
           setMetaphors(mm);
           setStats(s);
         }
@@ -88,5 +110,5 @@ export function useEngineData(): EngineData {
     };
   }, []);
 
-  return { modes, concepts, metaphors, stats, loading, error };
+  return { modes, metaphors, stats, loading, error };
 }
