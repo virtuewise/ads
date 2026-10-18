@@ -103,6 +103,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build renderer and its dependencies
+        run: pnpm --filter @printsync/renderer...build
+
       - name: Render still frames (verification)
         run: |
           pnpm --filter @printsync/renderer exec remotion still src/index.ts PrintSyncLivingCity /tmp/still.png --frame=200 --log=error
@@ -126,7 +129,7 @@ jobs:
 
       - name: Sync wiki
         run: |
-          git clone https://github.com/virtuewise/ads.wiki.git wiki
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/virtuewise/ads.wiki.git wiki
           cp docs/wiki/* wiki/
           cd wiki
           git config user.email "bot@virtuewise.com"
