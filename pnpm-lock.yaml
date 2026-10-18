@@ -260,6 +260,15 @@ importers:
       '@printsync/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@printsync/typography-engine':
+        specifier: workspace:*
+        version: link:../../packages/typography-engine
+      '@printsync/vfx-engine':
+        specifier: workspace:*
+        version: link:../../packages/vfx-engine
+      '@printsync/visual-grammar-engine':
+        specifier: workspace:*
+        version: link:../../packages/visual-grammar-engine
       electron:
         specifier: ^44.0.0
         version: 44.9.0(supports-color@8.1.1)

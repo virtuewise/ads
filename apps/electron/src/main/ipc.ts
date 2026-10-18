@@ -2,13 +2,22 @@ import {
   CreativeDirector,
   CreativeJudge,
   getAllCreativeModes,
+  getMetaphorsForService,
   getMetaphorsForTerritory,
   VISUAL_METAPHORS,
 } from '@printsync/creative-engine';
 import type { CreativeBrief } from '@printsync/shared';
+import { TypographyEngine } from '@printsync/typography-engine';
+import { VFXEngine } from '@printsync/vfx-engine';
+import {
+  CorporateGrammar,
+  DetectiveGrammar,
+  ExplainerGrammar,
+  HeroJourneyGrammar,
+  TransformationGrammar,
+} from '@printsync/visual-grammar-engine';
 import { ipcMain } from 'electron';
 
-// Engine-driven IPC: the UI never hardcodes data; it asks the engines.
 ipcMain.handle('engine:getModes', async () => {
   const modes = getAllCreativeModes();
   return modes.map((m) => ({
@@ -25,10 +34,6 @@ ipcMain.handle('engine:getModes', async () => {
     requires3d: m.requires_3d,
     requiresVfx: m.requires_vfx,
   }));
-});
-
-ipcMain.handle('engine:getConcepts', async () => {
-  return [];
 });
 
 ipcMain.handle('engine:generateConcepts', async (_e, brief: Partial<CreativeBrief>) => {
@@ -48,12 +53,10 @@ ipcMain.handle('engine:generateConcepts', async (_e, brief: Partial<CreativeBrie
     constraints: brief.constraints,
     reference_campaigns: brief.reference_campaigns,
   };
-
   const director = new CreativeDirector([]);
   const concepts = director.generateConcepts(fullBrief);
-
   const judge = new CreativeJudge();
-  const scored = concepts.map((c) => {
+  return concepts.map((c) => {
     try {
       const score = judge.scoreConcept(c);
       return { ...c, score };
@@ -61,13 +64,20 @@ ipcMain.handle('engine:generateConcepts', async (_e, brief: Partial<CreativeBrie
       return c;
     }
   });
-
-  return scored;
 });
 
 ipcMain.handle('engine:getMetaphors', async (_e, territory?: string) => {
   const list = territory ? getMetaphorsForTerritory(territory) : VISUAL_METAPHORS;
-  return list.slice(0, 12).map((m) => ({
+  return list.slice(0, 24).map((m) => ({
+    name: m.name,
+    description: m.description,
+    territory: m.territories.join(', '),
+    territories: m.territories,
+  }));
+});
+
+ipcMain.handle('engine:getMetaphorsForService', async (_e, service: string) => {
+  return getMetaphorsForService(service).map((m) => ({
     name: m.name,
     description: m.description,
     territory: m.territories.join(', '),
@@ -85,3 +95,25 @@ ipcMain.handle('engine:getStats', async () => {
     modesRequiringVfx: modes.filter((m) => m.requires_vfx).length,
   };
 });
+
+ipcMain.handle('engine:getTypographyPresets', async () => {
+  const engine = new TypographyEngine();
+  return engine.getAllPresets();
+});
+
+ipcMain.handle('engine:getVFXEffects', async () => {
+  const engine = new VFXEngine();
+  return engine.getAllEffects();
+});
+
+ipcMain.handle('engine:getVisualGrammars', async () => {
+  return [
+    ExplainerGrammar,
+    CorporateGrammar,
+    DetectiveGrammar,
+    TransformationGrammar,
+    HeroJourneyGrammar,
+  ];
+});
+
+ipcMain.handle('engine:getConcepts', async () => []);

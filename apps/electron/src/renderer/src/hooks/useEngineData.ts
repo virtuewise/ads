@@ -36,12 +36,42 @@ export interface Concept {
   creative_mode?: string;
   key_visual?: string;
   cta?: string;
+  story_summary?: string;
 }
 
 export interface Metaphor {
   name: string;
   description: string;
   territory: string;
+  territories?: string[];
+}
+
+export interface TypographyPreset {
+  id: string;
+  name: string;
+  fontFamily: string;
+  fontWeight: number;
+  fontSize: number;
+  lineHeight: number;
+  letterSpacing: number;
+  color: string;
+  animation: string;
+  animationDuration: number;
+  stagger: number;
+}
+
+export interface VFXEffect {
+  id: string;
+  name: string;
+  category: string;
+  parameters: Record<string, unknown>;
+  compatiblePurposes: string[];
+}
+
+export interface VisualGrammar {
+  name: string;
+  description: string;
+  sequence: string[];
 }
 
 export interface EngineStats {
@@ -64,6 +94,9 @@ export interface Brief {
 export interface EngineData {
   modes: CreativeMode[];
   metaphors: Metaphor[];
+  typography: TypographyPreset[];
+  effects: VFXEffect[];
+  grammars: VisualGrammar[];
   stats: EngineStats | null;
   loading: boolean;
   error: string | null;
@@ -74,12 +107,19 @@ interface StudioApi {
   getConcepts: () => Promise<Concept[]>;
   generateConcepts: (brief: Brief) => Promise<Concept[]>;
   getMetaphors: (territory?: string) => Promise<Metaphor[]>;
+  getMetaphorsForService: (service: string) => Promise<Metaphor[]>;
   getStats: () => Promise<EngineStats>;
+  getTypographyPresets: () => Promise<TypographyPreset[]>;
+  getVFXEffects: () => Promise<VFXEffect[]>;
+  getVisualGrammars: () => Promise<VisualGrammar[]>;
 }
 
 export function useEngineData(): EngineData {
   const [modes, setModes] = useState<CreativeMode[]>([]);
   const [metaphors, setMetaphors] = useState<Metaphor[]>([]);
+  const [typography, setTypography] = useState<TypographyPreset[]>([]);
+  const [effects, setEffects] = useState<VFXEffect[]>([]);
+  const [grammars, setGrammars] = useState<VisualGrammar[]>([]);
   const [stats, setStats] = useState<EngineStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,14 +129,20 @@ export function useEngineData(): EngineData {
     (async () => {
       try {
         const api = (window as unknown as { studio?: StudioApi }).studio;
-        const [m, mm, s] = await Promise.all([
+        const [m, mm, tp, fx, gr, s] = await Promise.all([
           api?.getModes?.() ?? Promise.resolve([]),
           api?.getMetaphors?.() ?? Promise.resolve([]),
+          api?.getTypographyPresets?.() ?? Promise.resolve([]),
+          api?.getVFXEffects?.() ?? Promise.resolve([]),
+          api?.getVisualGrammars?.() ?? Promise.resolve([]),
           api?.getStats?.() ?? Promise.resolve(null),
         ]);
         if (!cancelled) {
           setModes(m);
           setMetaphors(mm);
+          setTypography(tp);
+          setEffects(fx);
+          setGrammars(gr);
           setStats(s);
         }
       } catch (e) {
@@ -110,5 +156,5 @@ export function useEngineData(): EngineData {
     };
   }, []);
 
-  return { modes, metaphors, stats, loading, error };
+  return { modes, metaphors, typography, effects, grammars, stats, loading, error };
 }
