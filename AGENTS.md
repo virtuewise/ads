@@ -24,6 +24,10 @@ Virtue Studio is two systems sharing one repo: the **engine monorepo** (`package
   [`docs/05-PROJECT-FORMAT.md`](docs/05-PROJECT-FORMAT.md),
   [`docs/08-SCRIPTING-API.md`](docs/08-SCRIPTING-API.md).
 - Genres: [`docs/09-GENRE-SYSTEM.md`](docs/09-GENRE-SYSTEM.md) plus the per-genre docs `10`–`15`.
+- Advanced capability plan (most ⬜ not built): [`docs/22-COMPOSITOR.md`](docs/22-COMPOSITOR.md) →
+  [`docs/23-COLOR.md`](docs/23-COLOR.md) → [`docs/29-MEDIA-PIPELINE.md`](docs/29-MEDIA-PIPELINE.md) →
+  [`docs/31-AI-AGENTIC-SCALE.md`](docs/31-AI-AGENTIC-SCALE.md); index at
+  [`docs/21-ROADMAP.md`](docs/21-ROADMAP.md).
 - Quality gates and operations: [`docs/19-QUALITY-AND-TESTS.md`](docs/19-QUALITY-AND-TESTS.md),
   [`docs/20-OPERATIONS.md`](docs/20-OPERATIONS.md) (the Electron `ELECTRON_RUN_AS_NODE` launch gotcha).
 

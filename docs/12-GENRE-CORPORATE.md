@@ -115,4 +115,6 @@ hook and the CTA. See [17-AI-AGENTS](17-AI-AGENTS.md).
 
 ---
 
-Previous: [11-GENRE-NARRATIVE](11-GENRE-NARRATIVE.md) · Next: [13-GENRE-EXPLAINER](13-GENRE-EXPLAINER.md)
+Previous: [11-GENRE-NARRATIVE](11-GENRE-NARRATIVE.md) · Next: [13-GENRE-EXPLAINER](13-GENRE-EXPLAINER.md) ·
+Advanced specs: [28-PRESETS](28-PRESETS.md) (brand looks) · [30-RENDER-QUEUE](30-RENDER-QUEUE.md) (multi-aspect variants) ·
+[25-AUDIO](25-AUDIO.md) (beat-sync, time-stretch)

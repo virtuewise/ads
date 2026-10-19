@@ -123,7 +123,7 @@ Every feature traceable to a real module. `✅` = implemented, `🟡` = partial,
 
 | Feature | Status | Module |
 |---|---|---|
-| Import media → decode → upload as compositor input texture | ⬜ | *(next milestone — see [21-ROADMAP](21-ROADMAP.md))* |
+| Import media → decode → upload as compositor input texture | ⬜ | *(next milestone — [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md))* |
 | Audio decode + WebAudio J/L cut crossfades | ⬜ | *(narrative genre — [11](11-GENRE-NARRATIVE.md))* |
 | Transcript indexing + search (SQLite) | ⬜ | *(documentary genre — [14](14-GENRE-DOCUMENTARY.md))* |
 | Frame ring-buffer cache (WebCodecs) | ⬜ | *(detective genre — [15](15-GENRE-DETECTIVE.md))* |
@@ -131,7 +131,7 @@ Every feature traceable to a real module. `✅` = implemented, `🟡` = partial,
 > **Honest summary:** the *compositing and editing architecture* is real and working end to end —
 > project in, graded/transformed frames out, encoded to disk. The **timeline currently holds
 > engine-seeded placeholder clips**; wiring real footage into the compositor's input texture is the
-> next milestone. See [21-ROADMAP](21-ROADMAP.md).
+> next milestone. See [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md) and [21-ROADMAP](21-ROADMAP.md).
 
 ---
 

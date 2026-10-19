@@ -239,7 +239,8 @@ mutations. **Every mutation recompiles and regenerates code** so the three views
 - **`ScriptNode.execute` uses `new Function(...)`** — fine for trusted/local use, but it is a
   code-execution surface; keep it local-only.
 - **The node shader and the composite shader are not yet joined** — the DAG does not yet feed the
-  viewport's compositor. See [21-ROADMAP](21-ROADMAP.md).
+  viewport's compositor. See [21-ROADMAP](21-ROADMAP.md) and the architectural target in
+  [22-COMPOSITOR](22-COMPOSITOR.md).
 - **Cycles are detected but not rendered as errors in the UI** — the error string is produced; surfacing
   it is a roadmap item.
 

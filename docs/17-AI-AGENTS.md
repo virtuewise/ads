@@ -203,7 +203,8 @@ An agent can depend on:
 An agent must **not** depend on:
 
 - Media import (⬜), transcript search (⬜), audio muxing (⬜), headless CLI (⬜) — all roadmap items
-  ([21-ROADMAP](21-ROADMAP.md)).
+  ([21-ROADMAP](21-ROADMAP.md)), specified in [29](29-MEDIA-PIPELINE.md), [26](26-CAPTIONS.md),
+  [25](25-AUDIO.md), and [31](31-AI-AGENTIC-SCALE.md) respectively.
 
 ---
 

@@ -53,9 +53,9 @@ to drift.
    ```
 4. **Applies opacity** and returns premultiplied-ish `vec4(col * a, a)`.
 
-> The procedural content here is a **placeholder scene**. Once media import lands, this shader's
-> background branch is replaced by a sampled input texture — see [21-ROADMAP](21-ROADMAP.md) and
-> `01-PRODUCT`'s media table.
+> The procedural content here is a **placeholder scene**. Once media import lands
+> ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)), this shader is replaced by a real layered compositor —
+> see [22-COMPOSITOR](22-COMPOSITOR.md) and [21-ROADMAP](21-ROADMAP.md).
 
 ### The uniform block
 

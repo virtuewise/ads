@@ -187,7 +187,8 @@ H.264 but not ProRes.
 
 **Not yet implemented:** audio muxing (all exports use `-an` — no audio track), per-clip multi-layer
 compositing in the exported frames, and audio/video sync from the timeline. These are roadmap items —
-see [11-GENRE-NARRATIVE](11-GENRE-NARRATIVE.md) for the audio design and [21-ROADMAP](21-ROADMAP.md).
+see [25-AUDIO](25-AUDIO.md) for the audio design and [21-ROADMAP](21-ROADMAP.md) for sequencing; batch
+and variant delivery is specified in [30-RENDER-QUEUE](30-RENDER-QUEUE.md).
 
 ---
 

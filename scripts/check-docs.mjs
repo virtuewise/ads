@@ -117,13 +117,17 @@ function isIgnored(ref) {
 
 function extractRefs(text) {
   const refs = new Set();
-  for (const m of text.matchAll(/`([^`\n]+)`/g)) {
-    const ref = m[1];
-    if (isPathLike(ref)) refs.add(ref);
-  }
-  for (const m of text.matchAll(/\]\(([^)\n]+)\)/g)) {
-    const ref = m[1];
-    if (isPathLike(ref)) refs.add(ref);
+  for (const line of text.split('\n')) {
+    // Lines that declare planned/target paths describe files that do not exist yet.
+    if (line.includes('(target)') || /\btarget:/.test(line)) continue;
+    for (const m of line.matchAll(/`([^`\n]+)`/g)) {
+      const ref = m[1];
+      if (isPathLike(ref)) refs.add(ref);
+    }
+    for (const m of line.matchAll(/\]\(([^)\n]+)\)/g)) {
+      const ref = m[1];
+      if (isPathLike(ref)) refs.add(ref);
+    }
   }
   return refs;
 }

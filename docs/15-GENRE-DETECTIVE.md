@@ -109,4 +109,6 @@ applying `reveal snap` as the answer lands → grading cold. See [17-AI-AGENTS](
 
 ---
 
-Previous: [14-GENRE-DOCUMENTARY](14-GENRE-DOCUMENTARY.md) · System: [09-GENRE-SYSTEM](09-GENRE-SYSTEM.md)
+Previous: [14-GENRE-DOCUMENTARY](14-GENRE-DOCUMENTARY.md) · System: [09-GENRE-SYSTEM](09-GENRE-SYSTEM.md) ·
+Advanced specs: [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md) (frame ring buffer) · [25-AUDIO](25-AUDIO.md) (sound cues) ·
+[23-COLOR](23-COLOR.md) (cold grade)

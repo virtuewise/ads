@@ -223,7 +223,9 @@ Held in `GENRE_WORKFLOWS: Record<GenreId, GenreWorkflow>`.
 3. Records the template's `graphHint` and keyframe presets for reference.
 
 > **Not yet wired:** applying `graphHint` to the actual DAG. The hint is stored but does not yet mutate
-> `graph`/`graph.nodes`. This is a roadmap item — see [21-ROADMAP](21-ROADMAP.md).
+> `graph`/`graph.nodes`. Making templates produce a complete, renderable sequence — graph + grade +
+> transitions + captions, not a stack of rectangles — is specified in [28-PRESETS](28-PRESETS.md#genre-templates-become-real)
+> and sequenced in [21-ROADMAP](21-ROADMAP.md).
 
 ---
 

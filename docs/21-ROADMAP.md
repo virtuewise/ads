@@ -5,6 +5,10 @@
 > The honest state of both worlds, and the distance to "fully accomplished" — an AI agent can take a
 > brief and footage and produce a deliverable for each genre, and a human editor can improve it by
 > judgement and export it. See [00-VISION](00-VISION.md#what-fully-accomplished-looks-like).
+>
+> This document covers the path to a **working** editor. The path from working to **futuristic** —
+> compositor, grading, transitions, audio, captions, presets, render queue, agentic scale — is the
+> **advanced capability plan** at the end of this document, specified in [22](22-COMPOSITOR.md)–[31](31-AI-AGENTIC-SCALE.md).
 
 ---
 
@@ -129,10 +133,47 @@ Media import (M1)
 
 | Doc set | Status |
 |---|---|
-| `docs/00`–`docs/21` | ✅ written (this set) |
+| `docs/00`–`docs/21` | ✅ written (the current system) |
+| `docs/22`–`docs/31` | ✅ written (the advanced capability plan) |
 | `docs/README` index + reading paths | ✅ |
-| `scripts/check-docs.mjs` reference checker | ⬜ (see [docs/README](README.md#keeping-docs-honest)) |
+| `scripts/check-docs.mjs` reference checker | ✅ (see [docs/README](README.md#keeping-docs-honest)) |
 | `docs/wiki/*` (World A) — add a "World B" pointer banner | ✅ (banner added) |
+
+---
+
+## Advanced capability plan (`docs/22`–`docs/31`)
+
+The milestones above make the editor do what the docs already claim. The **advanced plan** takes it
+from "working editor" to "futuristic studio". Each doc is a design specification; every item here is
+⬜ until built.
+
+| Phase | Focus | Doc | Depends on |
+|---|---|---|---|
+| **A0** | Media pipeline: WebCodecs decode, zero-copy GPU, ring buffer, proxies, indexing | [29](29-MEDIA-PIPELINE.md) | — |
+| **A1** | Compositor: layers, masks, blends, 3D camera, motion blur, pre-comps | [22](22-COMPOSITOR.md) | A0 |
+| **A2** | Color: primaries, curves, qualifiers, `.cube` LUTs, scopes, ACES colour management | [23](23-COLOR.md) | A1 |
+| **A3** | Effects library: WGSL catalogue, texture-sampling nodes, compute nodes, particles | [27](27-EFFECTS-LIBRARY.md) | A1 |
+| **A4** | Transitions: WGSL engine, luma wipes, optical-flow morphs | [24](24-TRANSITIONS.md) | A1, A3 |
+| **A5** | Audio: WebAudio graph, J/L cuts, time-stretch, loudness, muxing | [25](25-AUDIO.md) | A0 |
+| **A6** | Captions: local Whisper, word-level timing, styling, burn-in + sidecars | [26](26-CAPTIONS.md) | A0, A5 |
+| **A7** | Presets: parameterized looks, motion, titles, captions, transitions, graphs | [28](28-PRESETS.md) | A2–A6 |
+| **A8** | Render queue: batch/variants, GPU parallelism, HDR, packaging | [30](30-RENDER-QUEUE.md) | A1–A7 |
+| **A9** | Agentic scale: headless CLI, op API v2, MCP, interop, multi-agent merge | [31](31-AI-AGENTIC-SCALE.md) | A0–A8 |
+
+### The advanced critical path
+
+```
+Media pipeline (A0) ──► Compositor (A1) ──┬─► Color (A2) ─┐
+                                          ├─► Effects (A3) ┼─► Presets (A7) ──► Render queue (A8)
+                                          └─► Transitions (A4) ┘
+Media pipeline (A0) ──► Audio (A5) ──► Captions (A6) ──────┘
+                                                              │
+                                                              ▼
+                                              Agentic scale (A9): headless, MCP, interop
+```
+
+**A0 (media pipeline) is the gate.** Nothing in A1–A9 has real content to operate on until footage
+flows into the compositor. After A0, A1 and A5 can proceed in parallel (picture and sound).
 
 ---
 

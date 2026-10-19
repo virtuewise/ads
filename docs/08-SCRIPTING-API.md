@@ -194,7 +194,8 @@ node --input-type=module -e "
 
 A first-class **headless CLI** (import media → apply genre → render → export with no window) is planned;
 it depends on the media-import milestone because WebGPU frame rendering must run off-screen. See
-[21-ROADMAP](21-ROADMAP.md).
+[21-ROADMAP](21-ROADMAP.md) for sequencing and [31-AI-AGENTIC-SCALE](31-AI-AGENTIC-SCALE.md) for the full
+design (CLI, agent op API v2, MCP server, interop, multi-agent merge).
 
 ---
 
@@ -209,4 +210,5 @@ it depends on the media-import milestone because WebGPU frame rendering must run
 ---
 
 Related: [03-ENGINE-CORE](03-ENGINE-CORE.md) · [05-PROJECT-FORMAT](05-PROJECT-FORMAT.md) ·
-[07-EXPORT-PIPELINE](07-EXPORT-PIPELINE.md) · [17-AI-AGENTS](17-AI-AGENTS.md)
+[07-EXPORT-PIPELINE](07-EXPORT-PIPELINE.md) · [17-AI-AGENTS](17-AI-AGENTS.md) ·
+[31-AI-AGENTIC-SCALE](31-AI-AGENTIC-SCALE.md)

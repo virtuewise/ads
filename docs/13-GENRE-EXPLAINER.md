@@ -105,4 +105,6 @@ An agent builds an explainer by: aligning beats to the VO → laying a How-It-Wo
 
 ---
 
-Previous: [12-GENRE-CORPORATE](12-GENRE-CORPORATE.md) · Next: [14-GENRE-DOCUMENTARY](14-GENRE-DOCUMENTARY.md)
+Previous: [12-GENRE-CORPORATE](12-GENRE-CORPORATE.md) · Next: [14-GENRE-DOCUMENTARY](14-GENRE-DOCUMENTARY.md) ·
+Advanced specs: [26-CAPTIONS](26-CAPTIONS.md) (word-level timing) · [24-TRANSITIONS](24-TRANSITIONS.md) ·
+[31-AI-AGENTIC-SCALE](31-AI-AGENTIC-SCALE.md) (Lottie import)

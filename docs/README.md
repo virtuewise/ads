@@ -4,8 +4,8 @@
 > ideas into compelling brand experiences.**
 
 This is the index for the whole documentation set. It is numbered so that **reading it in order is the
-intended path**: from the vision, through the editor engine, into the six genre workflows, and out to
-operations.
+intended path**: from the vision, through the editor engine, into the six genre workflows, out to
+operations, and on into the **advanced capability plan** (`22`–`31`).
 
 ---
 
@@ -31,7 +31,7 @@ Virtue Studio is two systems that share one repository:
 | World | Code | What it is | Docs |
 |---|---|---|---|
 | **A — The Engine Monorepo** | `packages/*`, `apps/studio`, `apps/renderer`, `apps/dashboard`, `packages/cli` | The brand-aware creative engine: concepts, scoring, planning, motion, enterprise rendering | `docs/wiki/*`, and the monorepo sections of `02-ARCHITECTURE` |
-| **B — Virtue Studio (the app)** | `apps/electron` (`@printsync/electron`) | The **engine-driven motion-design editor**: WebGPU compositor, DAG→WGSL, dual project format, local export, six genre workflows, node graph, Monaco, timeline | `docs/00`–`docs/21` |
+| **B — Virtue Studio (the app)** | `apps/electron` (`@printsync/electron`) | The **engine-driven motion-design editor**: WebGPU compositor, DAG→WGSL, dual project format, local export, six genre workflows, node graph, Monaco, timeline | `docs/00`–`docs/21` (current) + `docs/22`–`docs/31` (advanced plan) |
 
 World **B** is the product. World **A** is the intelligence that *feeds* it: the engines that generate
 concepts, plans, scripts, and assets an agent or human then edits in World B.
@@ -83,7 +83,25 @@ concepts, plans, scripts, and assets an agent or human then edits in World B.
 | 20 | [`20-OPERATIONS.md`](20-OPERATIONS.md) | Setup, running, the Electron launch gotcha, hardware, troubleshooting. |
 | 21 | [`21-ROADMAP.md`](21-ROADMAP.md) | The unified roadmap: World A phases + World B milestones. |
 
-### V — Engine monorepo reference (World A)
+### V — Advanced subsystems (the capability build-out)
+
+These are **designed, not yet built** (⬜). They specify the road from the current editor to a
+production-grade, futuristic studio. Read them after the core subsystems and the genre set.
+
+| # | Document | Summary |
+|---|---|---|
+| 22 | [`22-COMPOSITOR.md`](22-COMPOSITOR.md) | Layers, masks, blend modes, 3D camera/lights, motion blur, nested comps. |
+| 23 | [`23-COLOR.md`](23-COLOR.md) | Grading engine: primaries, curves, qualifiers, `.cube` 3D LUTs, scopes, ACES colour management. |
+| 24 | [`24-TRANSITIONS.md`](24-TRANSITIONS.md) | The transition engine: WGSL primitives, luma wipes, optical-flow morphs, presets. |
+| 25 | [`25-AUDIO.md`](25-AUDIO.md) | WebAudio graph, waveforms, J/L cuts, time-stretch, loudness (EBU R128), audio muxing. |
+| 26 | [`26-CAPTIONS.md`](26-CAPTIONS.md) | Local transcription (Whisper), word-level timing, caption styling/animation, burn-in + sidecars. |
+| 27 | [`27-EFFECTS-LIBRARY.md`](27-EFFECTS-LIBRARY.md) | The WGSL effect catalogue, texture-sampling node contract, compute nodes, particles. |
+| 28 | [`28-PRESETS.md`](28-PRESETS.md) | Parameterized presets and templates: looks, motion, titles, captions, transitions, graphs. |
+| 29 | [`29-MEDIA-PIPELINE.md`](29-MEDIA-PIPELINE.md) | Import, WebCodecs decode, zero-copy GPU textures, frame ring buffer, proxies, indexing. |
+| 30 | [`30-RENDER-QUEUE.md`](30-RENDER-QUEUE.md) | Render queue, batch/variant delivery, GPU parallelism, HDR, deliverable packaging. |
+| 31 | [`31-AI-AGENTIC-SCALE.md`](31-AI-AGENTIC-SCALE.md) | Headless CLI, agent op API v2, MCP server, EDL/OTIO interop, multi-agent merge. |
+
+### VI — Engine monorepo reference (World A)
 
 | Document | Summary |
 |---|---|
@@ -113,6 +131,11 @@ Pick the path that matches your job:
 
 **I'm operating / deploying**
 `20-OPERATIONS` → `07-EXPORT-PIPELINE` → `19-QUALITY-AND-TESTS` → `21-ROADMAP`.
+
+**I'm planning or building the advanced capabilities**
+`00-VISION` → `21-ROADMAP` (the critical path) → `29-MEDIA-PIPELINE` (the frontier) →
+`22-COMPOSITOR` → `23-COLOR` → `27-EFFECTS-LIBRARY` → `24-TRANSITIONS` → `25-AUDIO` →
+`26-CAPTIONS` → `28-PRESETS` → `30-RENDER-QUEUE` → `31-AI-AGENTIC-SCALE`.
 
 ---
 

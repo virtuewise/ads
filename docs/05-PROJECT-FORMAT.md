@@ -223,4 +223,6 @@ diff** — the human can see exactly what the agent did. See [17-AI-AGENTS](17-A
 ---
 
 Related: [03-ENGINE-CORE](03-ENGINE-CORE.md) · [06-TIMELINE](06-TIMELINE.md) ·
-[08-SCRIPTING-API](08-SCRIPTING-API.md) · [17-AI-AGENTS](17-AI-AGENTS.md)
+[08-SCRIPTING-API](08-SCRIPTING-API.md) · [17-AI-AGENTS](17-AI-AGENTS.md) ·
+Media/audio/caption/grade model additions: [29](29-MEDIA-PIPELINE.md), [25](25-AUDIO.md),
+[26](26-CAPTIONS.md), [23](23-COLOR.md) · [28-PRESETS](28-PRESETS.md)

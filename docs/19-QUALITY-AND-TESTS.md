@@ -151,4 +151,5 @@ Reviewers and agents should watch for these recurring lint failures:
 ---
 
 Related: [05-PROJECT-FORMAT](05-PROJECT-FORMAT.md) · [07-EXPORT-PIPELINE](07-EXPORT-PIPELINE.md) ·
-[16-INTERFACE](16-INTERFACE.md) · [20-OPERATIONS](20-OPERATIONS.md)
+[16-INTERFACE](16-INTERFACE.md) · [20-OPERATIONS](20-OPERATIONS.md) · Per-subsystem verification tables:
+[22](22-COMPOSITOR.md)–[31](31-AI-AGENTIC-SCALE.md)

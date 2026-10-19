@@ -110,4 +110,6 @@ transcript for the strongest statements → laying an interview spine → layeri
 
 ---
 
-Previous: [13-GENRE-EXPLAINER](13-GENRE-EXPLAINER.md) · Next: [15-GENRE-DETECTIVE](15-GENRE-DETECTIVE.md)
+Previous: [13-GENRE-EXPLAINER](13-GENRE-EXPLAINER.md) · Next: [15-GENRE-DETECTIVE](15-GENRE-DETECTIVE.md) ·
+Advanced specs: [26-CAPTIONS](26-CAPTIONS.md) (speaker lower-thirds) · [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md) (footage index/search) ·
+[23-COLOR](23-COLOR.md) (archive matching)

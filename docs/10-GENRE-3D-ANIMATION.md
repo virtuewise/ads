@@ -112,4 +112,6 @@ An agent working a CGI job should: import passes → build a `blend`/`alphaMerge
 
 ---
 
-Next genre: [11-GENRE-NARRATIVE](11-GENRE-NARRATIVE.md) · System: [09-GENRE-SYSTEM](09-GENRE-SYSTEM.md)
+Next genre: [11-GENRE-NARRATIVE](11-GENRE-NARRATIVE.md) · System: [09-GENRE-SYSTEM](09-GENRE-SYSTEM.md) ·
+Advanced specs: [22-COMPOSITOR](22-COMPOSITOR.md) (3D layers, passes) · [27-EFFECTS-LIBRARY](27-EFFECTS-LIBRARY.md) ·
+[31-AI-AGENTIC-SCALE](31-AI-AGENTIC-SCALE.md) (EXR/multi-pass interop)

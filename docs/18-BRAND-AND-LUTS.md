@@ -136,4 +136,5 @@ The vision: brand QA is a **hard gate** on export, checking at minimum:
 ---
 
 Related: [04-RENDERING](04-RENDERING.md) · [09-GENRE-SYSTEM](09-GENRE-SYSTEM.md) ·
-[12-GENRE-CORPORATE](12-GENRE-CORPORATE.md) · [wiki/Brand](wiki/Brand.md)
+[12-GENRE-CORPORATE](12-GENRE-CORPORATE.md) · [23-COLOR](23-COLOR.md) (.cube LUTs) ·
+[wiki/Brand](wiki/Brand.md)
