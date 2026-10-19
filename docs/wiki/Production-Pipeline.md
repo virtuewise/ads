@@ -73,7 +73,7 @@ Fallback is **Explainer**.
 node apps/demo/dist/cli.js path/to/brief.json
 ```
 
-Example `brief.json`:
+Example brief file:
 
 ```json
 {

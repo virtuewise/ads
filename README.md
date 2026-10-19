@@ -3,6 +3,23 @@
 
 > **Premium visual storytelling, motion graphics, and cinematic advertising solutions that transform ideas into compelling brand experiences.**
 
+## Two systems, one repository
+
+| World | Code | What it is | Docs |
+|---|---|---|---|
+| **A — Engine monorepo** | `packages/*`, `apps/studio`, `apps/renderer`, `apps/dashboard` | The brand-aware creative engine: concepts, scoring, planning, motion, enterprise rendering | [`docs/wiki/`](docs/wiki/Home.md) |
+| **B — Virtue Studio (the editor)** | `apps/electron` (`@printsync/electron`) | The engine-driven motion-design **editor**: WebGPU compositor, DAG→WGSL, dual `.vfxproj` format, local FFmpeg export, six genre workflows, node graph, Monaco, keyframe timeline | **[`docs/README.md`](docs/README.md)** — read `00`–`21` in order |
+
+**Start here:**
+
+- **Documentation index & reading paths** → [`docs/README.md`](docs/README.md)
+- **What the editor is** → [`docs/01-PRODUCT.md`](docs/01-PRODUCT.md)
+- **Operating the system as an AI agent** → [`docs/17-AI-AGENTS.md`](docs/17-AI-AGENTS.md)
+- **Setup, running & the Electron launch gotcha** → [`docs/20-OPERATIONS.md`](docs/20-OPERATIONS.md)
+- **Run the editor** → `pnpm electron:dev`
+
+---
+
 A persistent, brand‑aware advertising engine that can ideate, strategize, write, design, generate, animate, edit, critique, adapt, archive, and continuously improve advertising for any brand.
 
 ---

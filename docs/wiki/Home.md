@@ -2,6 +2,11 @@
 
 > **Premium visual storytelling, motion graphics, and cinematic advertising solutions that transform
 > ideas into compelling brand experiences.**
+
+> **This wiki documents World A — the engine monorepo** (`packages/*`, `apps/studio`, `apps/renderer`,
+> `apps/dashboard`). For the **editor app** (`apps/electron`, the engine-driven motion-design studio),
+> start at [`docs/README.md`](../README.md) and read `00`–`21` in order. See
+> [`docs/01-PRODUCT.md`](../01-PRODUCT.md) for the two-worlds map.
 >
 > A persistent, brand-aware advertising engine that can ideate, strategize, write, design,
 > generate, animate, edit, critique, adapt, archive, and continuously improve Virtue Studio advertising.
