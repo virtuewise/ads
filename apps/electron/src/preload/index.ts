@@ -11,4 +11,12 @@ contextBridge.exposeInMainWorld('studio', {
   getTypographyPresets: () => ipcRenderer.invoke('engine:getTypographyPresets'),
   getVFXEffects: () => ipcRenderer.invoke('engine:getVFXEffects'),
   getVisualGrammars: () => ipcRenderer.invoke('engine:getVisualGrammars'),
+
+  // ── Project documents ──────────────────────────────────────────────────────
+  saveProject: (doc: unknown, opts?: { path?: string; format?: 'json' | 'binary' }) =>
+    ipcRenderer.invoke('project:save', doc, opts),
+  openProject: () => ipcRenderer.invoke('project:open'),
+  writeProject: (filePath: string, doc: unknown, format: 'json' | 'binary') =>
+    ipcRenderer.invoke('project:write', filePath, doc, format),
+  readProject: (filePath: string) => ipcRenderer.invoke('project:read', filePath),
 });

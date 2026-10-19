@@ -133,6 +133,14 @@ export function useDAG() {
     setSelectedNode(null);
   }, []);
 
+  /** Replace the graph wholesale (project load, undo, etc.). */
+  const loadDAG = useCallback((next: DAG) => {
+    setDAG(next);
+    setCode(dagToCode(next));
+    setCompiled(compileDAG(next));
+    setSelectedNode(null);
+  }, []);
+
   return {
     dag,
     code,
@@ -146,6 +154,7 @@ export function useDAG() {
     removeEdge,
     syncFromCode,
     resetDAG,
+    loadDAG,
     nodeTypes: getNodeTypes(),
   };
 }

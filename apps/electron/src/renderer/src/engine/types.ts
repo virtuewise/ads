@@ -242,3 +242,70 @@ export const BRAND_LUTS: BrandLUT[] = [
     intensity: 0.4,
   },
 ];
+
+// ── Composition & Timeline ───────────────────────────────────────────────────
+
+export interface TransformState {
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+  opacity: number;
+}
+
+export interface CompositionState {
+  name: string;
+  width: number;
+  height: number;
+  fps: number;
+  duration: number;
+  background: string;
+  transform: TransformState;
+}
+
+export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+
+export interface Keyframe {
+  id: string;
+  time: number;
+  property: string;
+  value: number;
+  easing: KeyframeEasing;
+}
+
+export interface TimelineClip {
+  id: string;
+  trackId: string;
+  start: number;
+  end: number;
+  name: string;
+  keyframes: Keyframe[];
+}
+
+export interface TimelineDoc {
+  duration: number;
+  clips: TimelineClip[];
+}
+
+export interface SafeZoneState {
+  active: boolean;
+  ratio: SafeZoneRatio;
+}
+
+// ── Project Document (.vfxproj) ──────────────────────────────────────────────
+
+export type ProjectFormat = 'json' | 'binary';
+
+export interface ProjectDocument {
+  format: 'vfxproj';
+  version: number;
+  savedAt: string;
+  app: { name: string; version: string };
+  composition: CompositionState;
+  genre: GenreId;
+  safeZones: SafeZoneState;
+  brandLUT: string;
+  timeline: TimelineDoc;
+  graph: DAG;
+  effectsStack: string[];
+}

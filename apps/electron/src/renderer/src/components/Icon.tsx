@@ -44,6 +44,7 @@ export const ICONS = {
   undo: ['M3 7v6h6', 'M3.5 13a9 9 0 1 0 2.6-6.4L3 9'],
   redo: ['M21 7v6h-6', 'M20.5 13a9 9 0 1 1-2.6-6.4L21 9'],
   chevronDown: ['m6 9 6 6 6-6'],
+  chevronUp: ['m18 15-6-6-6 6'],
   chevronRight: ['m9 18 6-6-6-6'],
   chevronLeft: ['m15 18-6-6 6-6'],
   close: ['M18 6 6 18', 'M6 6l12 12'],

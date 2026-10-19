@@ -17,6 +17,7 @@ import {
   TransformationGrammar,
 } from '@printsync/visual-grammar-engine';
 import { ipcMain } from 'electron';
+import { registerProjectIpc } from './project';
 
 ipcMain.handle('engine:getModes', async () => {
   const modes = getAllCreativeModes();
@@ -117,3 +118,5 @@ ipcMain.handle('engine:getVisualGrammars', async () => {
 });
 
 ipcMain.handle('engine:getConcepts', async () => []);
+
+registerProjectIpc();

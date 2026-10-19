@@ -1,4 +1,7 @@
+// biome-ignore-all lint/a11y/noStaticElementInteractions: timeline clips, trim handles and drop targets are pointer-driven editing surfaces.
+// biome-ignore-all lint/a11y/useKeyWithClickEvents: pointer-driven timeline affordances mirror keyboard shortcuts handled globally.
 import { AnimatePresence, motion } from 'motion/react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrandLUTPanel } from './components/BrandLUTPanel';
 import { ExportPanel } from './components/ExportPanel';
@@ -8,20 +11,39 @@ import { NodeEditor } from './components/NodeEditor';
 import { SafeZoneControls, SafeZones } from './components/SafeZones';
 import { ScriptEditor } from './components/ScriptEditor';
 import { WebGPUCanvas } from './components/WebGPUCanvas';
-import type { GenreId, SafeZoneRatio } from './engine/types';
+import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
+import {
+  addKeyframe,
+  clipsFor,
+  defaultTimeline,
+  moveKeyframe,
+  removeKeyframe,
+  setClipRange,
+  TRACKS,
+} from './engine/timeline';
+import type {
+  CompositionState,
+  GenreId,
+  ProjectFormat,
+  SafeZoneRatio,
+  TimelineDoc,
+  TransformState,
+} from './engine/types';
+import { BRAND_LUTS } from './engine/types';
 import { useDAG } from './engine/useDAG';
 import type { Brief, Concept, CreativeMode } from './hooks/useEngineData';
-import { useEngineData } from './hooks/useEngineData';
+import { studioApi, useEngineData } from './hooks/useEngineData';
 
-const DURATION = 12;
-const FPS = 30;
-const RULER_TICKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+const toNum = (v: string, fallback: number): number => {
+  const n = Number.parseFloat(v);
+  return Number.isFinite(n) ? n : fallback;
+};
 
-const fmtTC = (seconds: number): string => {
+const fmtTC = (seconds: number, fps = 30): string => {
   const total = Math.max(0, seconds);
   const mm = Math.floor(total / 60);
   const ss = Math.floor(total % 60);
-  const ff = Math.floor((total % 1) * FPS);
+  const ff = Math.floor((total % 1) * fps);
   return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
 };
 
@@ -242,6 +264,27 @@ export function App() {
   const [safeZoneRatio, setSafeZoneRatio] = useState<SafeZoneRatio>('16:9');
   const [brandLUT, setBrandLUT] = useState('none');
 
+  // ── Composition & project document ────────────────────────────────────────
+  const [composition, setComposition] = useState<CompositionState>(createDefaultComposition);
+  const [timelineDoc, setTimelineDoc] = useState<TimelineDoc>(() => ({
+    duration: createDefaultComposition().duration,
+    clips: [],
+  }));
+  const [effectsStack, setEffectsStack] = useState<string[]>([]);
+  const [docPath, setDocPath] = useState<string | null>(null);
+  const [docFormat, setDocFormat] = useState<ProjectFormat>('json');
+  const [dirty, setDirty] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const seededRef = useRef(false);
+
+  const DURATION = composition.duration;
+  const FPS = composition.fps;
+  const rulerTicks = useMemo(
+    () => Array.from({ length: Math.floor(DURATION) + 1 }, (_, i) => i),
+    [DURATION],
+  );
+
   // ── Concept generation (engine-driven) ────────────────────────────────────
   const [brief, setBrief] = useState<Brief>({
     objective: 'Build brand awareness for a new product launch',
@@ -269,71 +312,19 @@ export function App() {
     [effects, fxQuery],
   );
 
-  // ── Timeline tracks (clips driven by engine data) ─────────────────────────
-  const tracks = useMemo(() => {
-    const capClips =
-      typography.length > 0
-        ? typography.slice(0, 2).map((p, i) => ({
-            start: i === 0 ? 0.8 : 7,
-            end: i === 0 ? 4.2 : 10.5,
-            name: p.name,
-          }))
-        : [
-            { start: 0.8, end: 4.2, name: 'Opening Title' },
-            { start: 7, end: 10.5, name: 'Closing Tagline' },
-          ];
-    const fxClips =
-      effects.length > 0
-        ? effects.slice(0, 3).map((e, i) => ({
-            start: 0.5 + i * 4,
-            end: 3.3 + i * 4,
-            name: e.name,
-          }))
-        : [
-            { start: 0.5, end: 3.3, name: 'Glow' },
-            { start: 4.5, end: 7.3, name: 'Chromatic Blur' },
-          ];
-    return [
-      {
-        id: 'video',
-        name: 'Video',
-        icon: 'film' as IconName,
-        color: '#ff5a2c',
-        clips: [
-          { start: 0, end: 6.4, name: 'Main Comp' },
-          { start: 6.9, end: DURATION, name: 'B-Roll 02' },
-        ],
-      },
-      {
-        id: 'audio',
-        name: 'Audio',
-        icon: 'music' as IconName,
-        color: '#5eead4',
-        clips: [{ start: 0, end: DURATION, name: 'Score: Main Theme' }],
-      },
-      {
-        id: 'captions',
-        name: 'Captions',
-        icon: 'captions' as IconName,
-        color: '#ffb347',
-        clips: capClips,
-      },
-      {
-        id: 'effects',
-        name: 'Effects',
-        icon: 'wand' as IconName,
-        color: '#a78bfa',
-        clips: fxClips,
-      },
-      {
-        id: 'transitions',
-        name: 'Transitions',
-        icon: 'shuffle' as IconName,
-        color: '#f472b6',
-        clips: [{ start: 6.3, end: 7, name: 'Cross Dissolve' }],
-      },
-    ];
-  }, [typography, effects]);
+  // ── Seed the default timeline once engine data is available ──────────────
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (typography.length === 0 && effects.length === 0) return;
+    seededRef.current = true;
+    setTimelineDoc(
+      defaultTimeline(
+        typography.map((p) => p.name),
+        effects.map((e) => e.name),
+        composition.duration,
+      ),
+    );
+  }, [typography, effects, composition.duration]);
 
   // ── Playback loop (rAF) ───────────────────────────────────────────────────
   const rafRef = useRef(0);
@@ -348,7 +339,7 @@ export function App() {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [playing]);
+  }, [playing, DURATION]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -362,15 +353,42 @@ export function App() {
         setShowQuickApply((v) => !v);
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (e.shiftKey) actionsRef.current.saveAs();
+        else actionsRef.current.save();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        actionsRef.current.open();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        actionsRef.current.fresh();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        actionsRef.current.export();
+        return;
+      }
       if (e.key === 'Escape') {
         setShowQuickApply(false);
         setOpenMenu(null);
+        setSaveAsOpen(false);
         return;
       }
       if (typing) return;
       if (e.code === 'Space') {
         e.preventDefault();
         setPlaying((p) => !p);
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && actionsRef.current.canDelete()) {
+        e.preventDefault();
+        actionsRef.current.deleteClip();
         return;
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -404,6 +422,16 @@ export function App() {
       setLeftTab('effects');
     } else if (label === 'New Text Layer') {
       setTool('text');
+    } else if (label === 'New Project') {
+      newProject();
+    } else if (label === 'Open Project…') {
+      openProject();
+    } else if (label === 'Save') {
+      saveProject(docFormat, docPath == null);
+    } else if (label === 'Save As…') {
+      setSaveAsOpen(true);
+    } else if (label === 'Add Keyframe') {
+      addKeyframeAtPlayhead();
     }
   };
 
@@ -467,6 +495,288 @@ export function App() {
     });
   };
 
+  // ── Document helpers ──────────────────────────────────────────────────────
+  const touch = () => setDirty(true);
+
+  const notify = (msg: string) => {
+    setStatusMsg(msg);
+    window.setTimeout(() => setStatusMsg((m) => (m === msg ? null : m)), 3200);
+  };
+
+  const updateTransform = (patch: Partial<TransformState>) => {
+    setComposition((c) => ({ ...c, transform: { ...c.transform, ...patch } }));
+    touch();
+  };
+
+  const updateComposition = (patch: Partial<CompositionState>) => {
+    setComposition((c) => ({ ...c, ...patch }));
+    touch();
+  };
+
+  const buildDoc = () =>
+    buildProject({
+      composition,
+      genre,
+      safeZones: { active: safeZonesActive, ratio: safeZoneRatio },
+      brandLUT,
+      timeline: timelineDoc,
+      graph: dag.dag,
+      effectsStack,
+    });
+
+  const applyDoc = (raw: unknown) => {
+    const doc = normalizeProject(raw);
+    setComposition(doc.composition);
+    setTimelineDoc(doc.timeline);
+    setGenre(doc.genre);
+    setSafeZonesActive(doc.safeZones.active);
+    setSafeZoneRatio(doc.safeZones.ratio);
+    setBrandLUT(doc.brandLUT);
+    setEffectsStack(doc.effectsStack);
+    dag.loadDAG(doc.graph);
+    seededRef.current = true;
+    setPlayhead(0);
+  };
+
+  const newProject = () => {
+    const comp = createDefaultComposition();
+    setComposition(comp);
+    setTimelineDoc(defaultTimeline([], [], comp.duration));
+    setGenre('corporate');
+    setSafeZonesActive(false);
+    setSafeZoneRatio('16:9');
+    setBrandLUT('none');
+    setEffectsStack([]);
+    dag.resetDAG();
+    setDocPath(null);
+    setDocFormat('json');
+    setPlayhead(0);
+    setDirty(false);
+    notify('New project created');
+  };
+
+  const saveProject = async (format: ProjectFormat, asNew = false) => {
+    const api = studioApi();
+    if (!api) {
+      notify('File access is unavailable outside the desktop app');
+      return;
+    }
+    try {
+      const res = await api.saveProject(buildDoc(), {
+        path: asNew ? undefined : (docPath ?? undefined),
+        format,
+      });
+      if (res.canceled) return;
+      setDocPath(res.path ?? null);
+      setDocFormat(res.format ?? format);
+      setDirty(false);
+      notify(
+        `Saved ${res.format === 'binary' ? 'binary' : 'JSON'} project${res.bytes ? ` (${(res.bytes / 1024).toFixed(1)} kB)` : ''}`,
+      );
+    } catch (e) {
+      notify(`Save failed: ${String(e)}`);
+    }
+  };
+
+  const openProject = async () => {
+    const api = studioApi();
+    if (!api) {
+      notify('File access is unavailable outside the desktop app');
+      return;
+    }
+    try {
+      const res = await api.openProject();
+      if (res.canceled || !res.doc) return;
+      applyDoc(res.doc);
+      setDocPath(res.path ?? null);
+      setDocFormat(res.format ?? 'json');
+      setDirty(false);
+      notify(`Opened ${res.format === 'binary' ? 'binary' : 'JSON'} project`);
+    } catch (e) {
+      notify(`Open failed: ${String(e)}`);
+    }
+  };
+
+  // ── Effects stack ─────────────────────────────────────────────────────────
+  const pushEffect = (id: string) => {
+    setEffectsStack((s) => (s.includes(id) ? s : [...s, id]));
+    touch();
+  };
+  const dropEffect = (id: string) => {
+    setEffectsStack((s) => s.filter((x) => x !== id));
+    touch();
+  };
+  const moveEffect = (id: string, dir: -1 | 1) => {
+    setEffectsStack((s) => {
+      const i = s.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= s.length) return s;
+      const next = [...s];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+    touch();
+  };
+  const reorderEffect = (from: number, to: number) => {
+    setEffectsStack((s) => {
+      if (from < 0 || from >= s.length || to < 0 || to >= s.length || from === to) return s;
+      const next = [...s];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+    touch();
+  };
+
+  // ── Timeline interaction ──────────────────────────────────────────────────
+  const trackAreaRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{
+    mode: 'move' | 'trim-start' | 'trim-end' | 'keyframe';
+    clipId: string;
+    kfId?: string;
+    startTime: number;
+    origStart: number;
+    origEnd: number;
+    moved: boolean;
+  } | null>(null);
+
+  const timeFromClientX = (clientX: number): number => {
+    const el = trackAreaRef.current;
+    if (!el) return 0;
+    const rect = el.getBoundingClientRect();
+    const pct = (clientX - rect.left) / rect.width;
+    return Math.max(0, Math.min(DURATION, pct * DURATION));
+  };
+
+  const snapTargets = useMemo(() => {
+    const edges = timelineDoc.clips.flatMap((c) => [c.start, c.end]);
+    return snap ? [playhead, ...edges] : [];
+  }, [snap, playhead, timelineDoc]);
+
+  const beginClipDrag = (
+    e: ReactPointerEvent,
+    mode: 'move' | 'trim-start' | 'trim-end',
+    clipId: string,
+  ) => {
+    e.stopPropagation();
+    const clip = timelineDoc.clips.find((c) => c.id === clipId);
+    if (!clip) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      mode,
+      clipId,
+      startTime: timeFromClientX(e.clientX),
+      origStart: clip.start,
+      origEnd: clip.end,
+      moved: false,
+    };
+    setSelectedClip(clipId);
+  };
+
+  const beginKeyframeDrag = (e: ReactPointerEvent, clipId: string, kfId: string, time: number) => {
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      mode: 'keyframe',
+      clipId,
+      kfId,
+      startTime: time,
+      origStart: time,
+      origEnd: time,
+      moved: false,
+    };
+    setSelectedClip(clipId);
+  };
+
+  const onTimelinePointerMove = (e: ReactPointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const t = timeFromClientX(e.clientX);
+    d.moved = true;
+    if (d.mode === 'move') {
+      const delta = t - d.startTime;
+      setTimelineDoc((doc) =>
+        setClipRange(doc, d.clipId, d.origStart + delta, d.origEnd + delta, snapTargets),
+      );
+    } else if (d.mode === 'trim-start') {
+      setTimelineDoc((doc) => setClipRange(doc, d.clipId, t, d.origEnd, snapTargets));
+    } else if (d.mode === 'trim-end') {
+      setTimelineDoc((doc) => setClipRange(doc, d.clipId, d.origStart, t, snapTargets));
+    } else if (d.mode === 'keyframe' && d.kfId) {
+      setTimelineDoc((doc) => moveKeyframe(doc, d.clipId, d.kfId as string, t));
+    }
+    touch();
+  };
+
+  const onClipDoubleClick = (clipId: string) => {
+    setTimelineDoc((doc) => addKeyframe(doc, clipId, playhead));
+    touch();
+  };
+
+  const endTimelineDrag = () => {
+    dragRef.current = null;
+  };
+
+  const onKeyframeClick = (e: ReactPointerEvent, clipId: string, kfId: string, time: number) => {
+    e.stopPropagation();
+    if (e.altKey) {
+      setTimelineDoc((doc) => removeKeyframe(doc, clipId, kfId));
+      touch();
+      return;
+    }
+    beginKeyframeDrag(e, clipId, kfId, time);
+  };
+
+  const addKeyframeAtPlayhead = () => {
+    if (!selectedClip) {
+      notify('Select a clip first');
+      return;
+    }
+    setTimelineDoc((doc) => addKeyframe(doc, selectedClip, playhead));
+    touch();
+  };
+
+  const deleteSelectedClip = () => {
+    if (!selectedClip) return;
+    setTimelineDoc((doc) => ({ ...doc, clips: doc.clips.filter((c) => c.id !== selectedClip) }));
+    setSelectedClip(null);
+    touch();
+  };
+
+  // Keyboard handler runs once; this ref always points at the latest closures.
+  const actionsRef = useRef<{
+    save: () => void;
+    saveAs: () => void;
+    open: () => void;
+    fresh: () => void;
+    addKeyframe: () => void;
+    deleteClip: () => void;
+    export: () => void;
+    canDelete: () => boolean;
+  }>({
+    save: () => {},
+    saveAs: () => {},
+    open: () => {},
+    fresh: () => {},
+    addKeyframe: () => {},
+    deleteClip: () => {},
+    export: () => {},
+    canDelete: () => false,
+  });
+  actionsRef.current = {
+    save: () => saveProject(docFormat, docPath == null),
+    saveAs: () => setSaveAsOpen(true),
+    open: openProject,
+    fresh: newProject,
+    addKeyframe: addKeyframeAtPlayhead,
+    deleteClip: deleteSelectedClip,
+    export: () => {
+      setInsTab('export');
+      setActiveStage('comp');
+    },
+    canDelete: () => selectedClip != null,
+  };
+
   const activeTool = TOOLS.find((t) => t.id === tool);
 
   return (
@@ -513,10 +823,18 @@ export function App() {
           ))}
         </nav>
         <div className="menubar__center">
-          <strong>Untitled Composition</strong>
-          <span>1920 × 1080 · 30 fps · {fmtTC(playhead)}</span>
+          <strong>{composition.name}</strong>
+          <span>
+            {composition.width} × {composition.height} · {composition.fps} fps ·{' '}
+            {fmtTC(playhead, composition.fps)}
+          </span>
+          <span className="chip" title={docPath ?? 'Unsaved project'}>
+            {docFormat === 'binary' ? 'Binary' : 'JSON'}
+            {dirty ? ' · edited' : ' · saved'}
+          </span>
         </div>
         <div className="menubar__right">
+          {statusMsg && <span className="chip chip--cool">{statusMsg}</span>}
           {stats && (
             <span className="chip">
               {stats.modeCount} modes · {stats.territoryCount} territories
@@ -581,7 +899,12 @@ export function App() {
           <button type="button" className="iconbtn" title="Duplicate (Ctrl+D)">
             <Icon name="copy" size={14} />
           </button>
-          <button type="button" className="iconbtn" title="Delete (Del)">
+          <button
+            type="button"
+            className="iconbtn"
+            title="Delete (Del)"
+            onClick={deleteSelectedClip}
+          >
             <Icon name="trash" size={14} />
           </button>
           <span className="ctxbar__sep" aria-hidden="true" />
@@ -594,7 +917,12 @@ export function App() {
           >
             <Icon name="magnet" size={14} />
           </button>
-          <button type="button" className="iconbtn" title="Add keyframe (S)">
+          <button
+            type="button"
+            className="iconbtn"
+            title="Add keyframe at playhead"
+            onClick={addKeyframeAtPlayhead}
+          >
             <Icon name="keyframe" size={14} />
           </button>
         </div>
@@ -1008,7 +1336,11 @@ export function App() {
             {activeStage === 'comp' && (
               <div className="viewport">
                 <div className="viewport__frame" style={{ transform: `scale(${stageZoom})` }}>
-                  <WebGPUCanvas />
+                  <WebGPUCanvas
+                    time={playhead}
+                    transform={composition.transform}
+                    lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
+                  />
                   <SafeZones
                     active={safeZonesActive}
                     ratio={safeZoneRatio}
@@ -1019,11 +1351,11 @@ export function App() {
                 <div className="viewport__hud">
                   <span className="hud-chip">
                     <Icon name="monitor" size={11} />
-                    1920 × 1080
+                    {composition.width} × {composition.height}
                   </span>
                   <span className="hud-chip">
                     <Icon name="film" size={11} />
-                    30 fps
+                    {composition.fps} fps
                   </span>
                   <span className="hud-chip">
                     <Icon name="gauge" size={11} />
@@ -1031,8 +1363,8 @@ export function App() {
                   </span>
                 </div>
                 <div className="viewport__tc">
-                  {fmtTC(playhead)}
-                  <span className="muted"> / {fmtTC(DURATION)}</span>
+                  {fmtTC(playhead, composition.fps)}
+                  <span className="muted"> / {fmtTC(DURATION, composition.fps)}</span>
                 </div>
               </div>
             )}
@@ -1084,13 +1416,16 @@ export function App() {
                 <div className="sect">
                   <div className="sect__head">
                     <span className="sect__title">Composition</span>
-                    <span className="sect__meta">Comp 1</span>
+                    <span className="sect__meta">
+                      {composition.width}×{composition.height}
+                    </span>
                   </div>
                   <label className="field">
                     <span className="field__label">Name</span>
                     <input
                       className="field__input"
-                      defaultValue="Untitled Composition"
+                      value={composition.name}
+                      onChange={(e) => updateComposition({ name: e.target.value })}
                       aria-label="Composition name"
                     />
                   </label>
@@ -1098,35 +1433,60 @@ export function App() {
                     <span className="field__label">Resolution</span>
                     <input
                       className="field__input"
-                      defaultValue="1920"
+                      value={composition.width}
+                      onChange={(e) =>
+                        updateComposition({
+                          width: Math.round(toNum(e.target.value, composition.width)),
+                        })
+                      }
                       aria-label="Width"
                       inputMode="numeric"
                     />
                     <span className="muted">×</span>
                     <input
                       className="field__input"
-                      defaultValue="1080"
+                      value={composition.height}
+                      onChange={(e) =>
+                        updateComposition({
+                          height: Math.round(toNum(e.target.value, composition.height)),
+                        })
+                      }
                       aria-label="Height"
                       inputMode="numeric"
                     />
                   </label>
                   <label className="field">
                     <span className="field__label">Frame Rate</span>
-                    <input className="field__input" defaultValue="30 fps" aria-label="Frame rate" />
+                    <input
+                      className="field__input"
+                      value={composition.fps}
+                      onChange={(e) =>
+                        updateComposition({ fps: toNum(e.target.value, composition.fps) })
+                      }
+                      aria-label="Frame rate"
+                      inputMode="decimal"
+                    />
                   </label>
                   <label className="field">
                     <span className="field__label">Duration</span>
                     <input
                       className="field__input"
-                      defaultValue={`${DURATION}.00 s`}
-                      aria-label="Duration"
+                      value={composition.duration}
+                      onChange={(e) => {
+                        const d = Math.max(0.1, toNum(e.target.value, composition.duration));
+                        updateComposition({ duration: d });
+                        setTimelineDoc((t) => ({ ...t, duration: d }));
+                      }}
+                      aria-label="Duration (seconds)"
+                      inputMode="decimal"
                     />
                   </label>
                   <label className="field">
                     <span className="field__label">Background</span>
                     <input
                       className="field__input"
-                      defaultValue="#07090D"
+                      value={composition.background}
+                      onChange={(e) => updateComposition({ background: e.target.value })}
                       aria-label="Background color"
                     />
                   </label>
@@ -1135,13 +1495,16 @@ export function App() {
                 <div className="sect">
                   <div className="sect__head">
                     <span className="sect__title">Transform</span>
-                    <span className="sect__meta">px</span>
+                    <span className="sect__meta">live</span>
                   </div>
                   <label className="field">
                     <span className="field__label">Position X</span>
                     <input
                       className="field__input"
-                      defaultValue="960.0"
+                      value={Math.round(composition.transform.x)}
+                      onChange={(e) =>
+                        updateTransform({ x: toNum(e.target.value, composition.transform.x) })
+                      }
                       aria-label="Position X"
                       inputMode="decimal"
                     />
@@ -1150,7 +1513,10 @@ export function App() {
                     <span className="field__label">Position Y</span>
                     <input
                       className="field__input"
-                      defaultValue="540.0"
+                      value={Math.round(composition.transform.y)}
+                      onChange={(e) =>
+                        updateTransform({ y: toNum(e.target.value, composition.transform.y) })
+                      }
                       aria-label="Position Y"
                       inputMode="decimal"
                     />
@@ -1159,8 +1525,13 @@ export function App() {
                     <span className="field__label">Scale</span>
                     <input
                       className="field__input"
-                      defaultValue="100.0 %"
-                      aria-label="Scale"
+                      value={Math.round(composition.transform.scale * 100)}
+                      onChange={(e) =>
+                        updateTransform({
+                          scale: toNum(e.target.value, composition.transform.scale * 100) / 100,
+                        })
+                      }
+                      aria-label="Scale percent"
                       inputMode="decimal"
                     />
                   </label>
@@ -1168,8 +1539,13 @@ export function App() {
                     <span className="field__label">Rotation</span>
                     <input
                       className="field__input"
-                      defaultValue="0.0°"
-                      aria-label="Rotation"
+                      value={Math.round(composition.transform.rotation)}
+                      onChange={(e) =>
+                        updateTransform({
+                          rotation: toNum(e.target.value, composition.transform.rotation),
+                        })
+                      }
+                      aria-label="Rotation degrees"
                       inputMode="decimal"
                     />
                   </label>
@@ -1177,8 +1553,13 @@ export function App() {
                     <span className="field__label">Opacity</span>
                     <input
                       className="field__input"
-                      defaultValue="100 %"
-                      aria-label="Opacity"
+                      value={Math.round(composition.transform.opacity * 100)}
+                      onChange={(e) =>
+                        updateTransform({
+                          opacity: toNum(e.target.value, composition.transform.opacity * 100) / 100,
+                        })
+                      }
+                      aria-label="Opacity percent"
                       inputMode="decimal"
                     />
                   </label>
@@ -1210,21 +1591,123 @@ export function App() {
                   </div>
                 )}
 
-                {selectedClip && (
-                  <div className="sect">
-                    <div className="sect__head">
-                      <span className="sect__title">Selected Clip</span>
-                    </div>
-                    <label className="field">
-                      <span className="field__label">Layer</span>
-                      <input
-                        className="field__input"
-                        defaultValue={selectedClip}
-                        aria-label="Clip name"
-                      />
-                    </label>
-                  </div>
-                )}
+                {selectedClip &&
+                  (() => {
+                    const clip = timelineDoc.clips.find((c) => c.id === selectedClip);
+                    if (!clip) return null;
+                    const track = TRACKS.find((t) => t.id === clip.trackId);
+                    return (
+                      <div className="sect">
+                        <div className="sect__head">
+                          <span className="sect__title">Selected Clip</span>
+                          <span className="sect__meta">{track?.name ?? clip.trackId}</span>
+                        </div>
+                        <label className="field">
+                          <span className="field__label">Name</span>
+                          <input
+                            className="field__input"
+                            value={clip.name}
+                            onChange={(e) =>
+                              setTimelineDoc((doc) => ({
+                                ...doc,
+                                clips: doc.clips.map((c) =>
+                                  c.id === clip.id ? { ...c, name: e.target.value } : c,
+                                ),
+                              }))
+                            }
+                            aria-label="Clip name"
+                          />
+                        </label>
+                        <label className="field">
+                          <span className="field__label">In / Out</span>
+                          <input
+                            className="field__input"
+                            value={clip.start.toFixed(2)}
+                            onChange={(e) => {
+                              setTimelineDoc((doc) =>
+                                setClipRange(
+                                  doc,
+                                  clip.id,
+                                  toNum(e.target.value, clip.start),
+                                  clip.end,
+                                  [],
+                                ),
+                              );
+                              touch();
+                            }}
+                            aria-label="Clip in point"
+                            inputMode="decimal"
+                          />
+                          <span className="muted">to</span>
+                          <input
+                            className="field__input"
+                            value={clip.end.toFixed(2)}
+                            onChange={(e) => {
+                              setTimelineDoc((doc) =>
+                                setClipRange(
+                                  doc,
+                                  clip.id,
+                                  clip.start,
+                                  toNum(e.target.value, clip.end),
+                                  [],
+                                ),
+                              );
+                              touch();
+                            }}
+                            aria-label="Clip out point"
+                            inputMode="decimal"
+                          />
+                        </label>
+                        <div className="sect__head">
+                          <span className="sect__title">Keyframes</span>
+                          <span className="sect__meta">{clip.keyframes.length}</span>
+                        </div>
+                        {clip.keyframes.map((k) => (
+                          <div key={k.id} className="row">
+                            <span className="row__icon">
+                              <Icon name="keyframe" size={12} />
+                            </span>
+                            <button
+                              type="button"
+                              className="rowbtn"
+                              onClick={() => setPlayhead(k.time)}
+                            >
+                              <span className="row__title">{k.time.toFixed(2)}s</span>
+                              <span className="row__sub">
+                                {k.property} · {k.easing}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              className="iconbtn"
+                              title="Remove keyframe"
+                              aria-label="Remove keyframe"
+                              onClick={() => {
+                                setTimelineDoc((doc) => removeKeyframe(doc, clip.id, k.id));
+                                touch();
+                              }}
+                            >
+                              <Icon name="close" size={12} />
+                            </button>
+                          </div>
+                        ))}
+                        {clip.keyframes.length === 0 && (
+                          <p className="muted">
+                            No keyframes. Double-click the clip or use the button.
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn--block"
+                          style={{ marginTop: 8 }}
+                          onClick={addKeyframeAtPlayhead}
+                        >
+                          <Icon name="keyframe" size={12} />
+                          Add at playhead
+                        </button>
+                      </div>
+                    );
+                  })()}
               </>
             )}
 
@@ -1233,24 +1716,120 @@ export function App() {
                 <div className="sect">
                   <div className="sect__head">
                     <span className="sect__title">Effects Stack</span>
+                    <span className="sect__meta">{effectsStack.length} on layer</span>
+                  </div>
+                  <div
+                    className="flex flex-col gap-1 rounded-lg border border-dashed border-line p-1"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id = e.dataTransfer.getData('application/x-virtue-effect');
+                      if (id) pushEffect(id);
+                    }}
+                  >
+                    {effectsStack.map((id, index) => {
+                      const e = effects.find((x) => x.id === id);
+                      return (
+                        <div
+                          key={id}
+                          className={`row ${selectedEffect === id ? 'row--active' : ''}`}
+                          draggable
+                          onDragStart={(ev) => {
+                            ev.dataTransfer.setData(
+                              'application/x-virtue-stack-index',
+                              String(index),
+                            );
+                          }}
+                          onDragOver={(ev) => ev.preventDefault()}
+                          onDrop={(ev) => {
+                            ev.preventDefault();
+                            const from = Number(
+                              ev.dataTransfer.getData('application/x-virtue-stack-index'),
+                            );
+                            if (Number.isFinite(from)) reorderEffect(from, index);
+                          }}
+                        >
+                          <span className="row__icon">
+                            <Icon name={fxIcon(e?.category ?? '')} size={13} />
+                          </span>
+                          <button
+                            type="button"
+                            className="rowbtn"
+                            onClick={() => setSelectedEffect(id)}
+                          >
+                            <span className="row__title">{e?.name ?? id}</span>
+                            <span className="row__sub">{e?.category ?? 'effect'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="iconbtn"
+                            title="Move up"
+                            aria-label="Move effect up"
+                            onClick={() => moveEffect(id, -1)}
+                          >
+                            <Icon name="chevronUp" size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className="iconbtn"
+                            title="Move down"
+                            aria-label="Move effect down"
+                            onClick={() => moveEffect(id, 1)}
+                          >
+                            <Icon name="chevronDown" size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className="iconbtn"
+                            title="Remove effect"
+                            aria-label="Remove effect"
+                            onClick={() => dropEffect(id)}
+                          >
+                            <Icon name="close" size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {effectsStack.length === 0 && (
+                      <p className="muted">Drag an effect here to add it to the layer stack.</p>
+                    )}
+                  </div>
+                </div>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Effect Library</span>
                     <span className="sect__meta">{effects.length}</span>
                   </div>
                   {effects.map((e) => (
-                    <button
+                    <div
                       key={e.id}
-                      type="button"
                       className={`row ${selectedEffect === e.id ? 'row--active' : ''}`}
-                      onClick={() => setSelectedEffect(e.id)}
+                      draggable
+                      onDragStart={(ev) =>
+                        ev.dataTransfer.setData('application/x-virtue-effect', e.id)
+                      }
                     >
                       <span className="row__icon">
                         <Icon name={fxIcon(e.category)} size={13} />
                       </span>
-                      <span className="row__body">
+                      <button
+                        type="button"
+                        className="rowbtn"
+                        onClick={() => setSelectedEffect(e.id)}
+                      >
                         <span className="row__title">{e.name}</span>
                         <span className="row__sub">{e.category}</span>
-                      </span>
-                      <Icon name="more" size={13} />
-                    </button>
+                      </button>
+                      <button
+                        type="button"
+                        className="iconbtn iconbtn--primary"
+                        title="Add to stack"
+                        aria-label={`Add ${e.name} to stack`}
+                        onClick={() => pushEffect(e.id)}
+                      >
+                        <Icon name="plus" size={12} />
+                      </button>
+                    </div>
                   ))}
                   {effects.length === 0 && <p className="muted">Loading engine data…</p>}
                 </div>
@@ -1258,6 +1837,7 @@ export function App() {
                   <div className="sect">
                     <div className="sect__head">
                       <span className="sect__title">Parameters</span>
+                      <span className="sect__meta">{selectedEffect}</span>
                     </div>
                     {Object.entries(
                       effects.find((e) => e.id === selectedEffect)?.parameters ?? {},
@@ -1311,12 +1891,12 @@ export function App() {
             </button>
           </div>
           <div className="timeline__tc">
-            <span className="timeline__tc-time">{fmtTC(playhead)}</span>
-            <span className="timeline__tc-dur">/ {fmtTC(DURATION)}</span>
+            <span className="timeline__tc-time">{fmtTC(playhead, composition.fps)}</span>
+            <span className="timeline__tc-dur">/ {fmtTC(DURATION, composition.fps)}</span>
           </div>
           <span className="ctxbar__sep" aria-hidden="true" />
           <span className="ctxbar__label">
-            1920×1080 · {FPS} fps · {DURATION}s
+            {composition.width}×{composition.height} · {FPS} fps · {DURATION}s
           </span>
           <div className="timeline__zoom">
             <Icon name="zoom" size={13} />
@@ -1335,7 +1915,7 @@ export function App() {
         <div className="timeline__scroll">
           <div className="trackhead">
             <div className="trackhead__ruler-spacer">Tracks</div>
-            {tracks.map((t) => {
+            {TRACKS.map((t) => {
               const st = trackState[t.id] ?? { visible: true, locked: false };
               return (
                 <div key={t.id} className="trackhead__row">
@@ -1366,18 +1946,26 @@ export function App() {
             })}
           </div>
           <div className="tracks scroll-thin">
-            <div className="relative" style={{ width: `${tlZoom * 100}%` }}>
+            <div
+              ref={trackAreaRef}
+              className="relative"
+              style={{ width: `${tlZoom * 100}%` }}
+              onPointerMove={onTimelinePointerMove}
+              onPointerUp={endTimelineDrag}
+              onPointerCancel={endTimelineDrag}
+            >
               <button
                 type="button"
                 className="ruler w-full"
                 aria-label="Seek timeline"
-                onClick={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  const pct = (e.clientX - rect.left) / rect.width;
-                  setPlayhead(Math.max(0, Math.min(DURATION, pct * DURATION)));
+                title="Click to move playhead"
+                onPointerDown={(e) => setPlayhead(timeFromClientX(e.clientX))}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowRight') setPlayhead((p) => Math.min(DURATION, p + 1 / FPS));
+                  if (e.key === 'ArrowLeft') setPlayhead((p) => Math.max(0, p - 1 / FPS));
                 }}
               >
-                {RULER_TICKS.map((s) => (
+                {rulerTicks.map((s) => (
                   <span
                     key={s}
                     className="ruler__tick"
@@ -1387,30 +1975,62 @@ export function App() {
                   </span>
                 ))}
               </button>
-              {tracks.map((t) => {
+              {TRACKS.map((t) => {
                 const st = trackState[t.id] ?? { visible: true, locked: false };
+                const clips = clipsFor(timelineDoc, t.id);
                 return (
                   <div key={t.id} className="lane">
                     {st.visible &&
-                      t.clips.map((c) => (
-                        <button
-                          key={c.name}
-                          type="button"
-                          className="clip"
-                          title={c.name}
-                          onClick={() => setSelectedClip(c.name)}
-                          style={{
-                            left: `${(c.start / DURATION) * 100}%`,
-                            width: `${((c.end - c.start) / DURATION) * 100}%`,
-                            background: `linear-gradient(180deg, ${t.color}55, ${t.color}33)`,
-                            borderColor: `${t.color}aa`,
-                            opacity: st.locked ? 0.55 : 1,
-                          }}
-                        >
-                          <Icon name={t.icon} size={11} />
-                          <span className="clip__name">{c.name}</span>
-                        </button>
-                      ))}
+                      clips.map((c) => {
+                        const span = Math.max(0.001, c.end - c.start);
+                        return (
+                          <div
+                            key={c.id}
+                            className={`clip ${selectedClip === c.id ? 'clip--active' : ''}`}
+                            title={`${c.name} · ${c.start.toFixed(2)}s–${c.end.toFixed(2)}s`}
+                            onPointerDown={(e) => {
+                              if (st.locked) return;
+                              beginClipDrag(e, 'move', c.id);
+                            }}
+                            onDoubleClick={() => onClipDoubleClick(c.id)}
+                            style={{
+                              left: `${(c.start / DURATION) * 100}%`,
+                              width: `${(span / DURATION) * 100}%`,
+                              background: `linear-gradient(180deg, ${t.color}55, ${t.color}33)`,
+                              borderColor: selectedClip === c.id ? t.color : `${t.color}aa`,
+                              opacity: st.locked ? 0.55 : 1,
+                            }}
+                          >
+                            <span
+                              className="clip__handle clip__handle--start"
+                              onPointerDown={(e) => {
+                                if (!st.locked) beginClipDrag(e, 'trim-start', c.id);
+                              }}
+                            />
+                            <Icon name={t.icon} size={11} />
+                            <span className="clip__name">{c.name}</span>
+                            <span
+                              className="clip__handle clip__handle--end"
+                              onPointerDown={(e) => {
+                                if (!st.locked) beginClipDrag(e, 'trim-end', c.id);
+                              }}
+                            />
+                            {c.keyframes.map((k) => (
+                              <span
+                                key={k.id}
+                                className="keyframe"
+                                title={`${k.time.toFixed(2)}s · ${k.easing} (alt-click removes)`}
+                                style={{
+                                  left: `${((k.time - c.start) / span) * 100}%`,
+                                }}
+                                onPointerDown={(e) => {
+                                  if (!st.locked) onKeyframeClick(e, c.id, k.id, k.time);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        );
+                      })}
                   </div>
                 );
               })}
@@ -1419,6 +2039,67 @@ export function App() {
           </div>
         </div>
       </section>
+
+      {/* ── Save As (format choice) ────────────────────────────────────── */}
+      {saveAsOpen && (
+        <div
+          className="qa-overlay"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSaveAsOpen(false);
+          }}
+        >
+          <div className="dialog" role="dialog" aria-label="Save project as">
+            <div className="dialog__head">
+              <span className="dialog__title">Save Project As</span>
+              <button
+                type="button"
+                className="iconbtn"
+                aria-label="Close"
+                onClick={() => setSaveAsOpen(false)}
+              >
+                <Icon name="close" size={13} />
+              </button>
+            </div>
+            <p className="muted" style={{ margin: '0 0 10px' }}>
+              Choose a storage format. Both keep the full project; pick per your workflow.
+            </p>
+            <div className="cardgrid">
+              <button
+                type="button"
+                className="card"
+                onClick={() => {
+                  setSaveAsOpen(false);
+                  saveProject('json', true);
+                }}
+              >
+                <span className="card__icon">
+                  <Icon name="code" size={14} />
+                </span>
+                <span className="card__title">JSON · .vfxproj</span>
+                <span className="card__desc">
+                  Human-readable, diff-friendly, version with git. Larger on disk.
+                </span>
+              </button>
+              <button
+                type="button"
+                className="card"
+                onClick={() => {
+                  setSaveAsOpen(false);
+                  saveProject('binary', true);
+                }}
+              >
+                <span className="card__icon">
+                  <Icon name="box" size={14} />
+                </span>
+                <span className="card__title">Binary · .vfxproj.bin</span>
+                <span className="card__desc">
+                  Gzip-compressed JSON with a sha256 checksum. Compact, opaque to diffs.
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Quick Apply palette ────────────────────────────────────────── */}
       <AnimatePresence>

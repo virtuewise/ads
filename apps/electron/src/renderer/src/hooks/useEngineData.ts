@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import type { OpenResult, SaveResult } from '../engine/project';
+import type { ProjectFormat } from '../engine/types';
 
 export interface CreativeMode {
   id: string;
@@ -112,6 +114,18 @@ interface StudioApi {
   getTypographyPresets: () => Promise<TypographyPreset[]>;
   getVFXEffects: () => Promise<VFXEffect[]>;
   getVisualGrammars: () => Promise<VisualGrammar[]>;
+  saveProject: (
+    doc: unknown,
+    opts?: { path?: string; format?: ProjectFormat },
+  ) => Promise<SaveResult>;
+  openProject: () => Promise<OpenResult>;
+  writeProject: (filePath: string, doc: unknown, format: ProjectFormat) => Promise<SaveResult>;
+  readProject: (filePath: string) => Promise<OpenResult>;
+}
+
+/** Typed access to the preload bridge; undefined outside Electron. */
+export function studioApi(): StudioApi | undefined {
+  return (window as unknown as { studio?: StudioApi }).studio;
 }
 
 export function useEngineData(): EngineData {

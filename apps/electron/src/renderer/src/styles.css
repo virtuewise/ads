@@ -568,6 +568,19 @@ body {
   color: #6f7789;
 }
 
+/* A button that fills a row without looking like one (labels, sub-labels). */
+.rowbtn {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 /* ── Property / inspector fields ───────────────────────────────────────── */
 
 .field {
@@ -1050,7 +1063,9 @@ select.field__input {
   font-size: 10.5px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.92);
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
   border: 1px solid;
   transition: filter 110ms ease;
 }
@@ -1059,10 +1074,81 @@ select.field__input {
   filter: brightness(1.18);
 }
 
+.clip:active {
+  cursor: grabbing;
+}
+
+.clip--active {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.35) inset,
+    0 3px 12px rgba(0, 0, 0, 0.45);
+}
+
 .clip__name {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.clip__handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: ew-resize;
+  background: rgba(7, 9, 13, 0.35);
+}
+
+.clip__handle:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.clip__handle--start {
+  left: 0;
+}
+
+.clip__handle--end {
+  right: 0;
+}
+
+.keyframe {
+  position: absolute;
+  bottom: 2px;
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+  transform: rotate(45deg);
+  background: #ffd479;
+  border: 1px solid rgba(7, 9, 13, 0.8);
+  cursor: ew-resize;
+  z-index: 4;
+}
+
+.keyframe:hover {
+  background: #ffffff;
+}
+
+.dialog {
+  width: min(560px, 92vw);
+  padding: 16px;
+  border-radius: 12px;
+  background: #0c1017;
+  border: 1px solid #1f2736;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.dialog__title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  color: #e9ecf3;
 }
 
 .playhead {
