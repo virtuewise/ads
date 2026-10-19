@@ -28,6 +28,10 @@ Virtue Studio is two systems sharing one repo: the **engine monorepo** (`package
   [`docs/23-COLOR.md`](docs/23-COLOR.md) → [`docs/29-MEDIA-PIPELINE.md`](docs/29-MEDIA-PIPELINE.md) →
   [`docs/31-AI-AGENTIC-SCALE.md`](docs/31-AI-AGENTIC-SCALE.md); index at
   [`docs/21-ROADMAP.md`](docs/21-ROADMAP.md).
+- Feature deep dives + advanced systems (the complete surface, most ⬜): [`docs/32`](32-KEYFRAME-ANIMATION.md)–
+  [`docs/49`](49-DATA-MODEL-REFERENCE.md) — keyframes, text, templates, AI video, undo/redo, selection,
+  node editor, scripting, animation, formats, shortcuts, assets, plugins, collaboration, security,
+  performance, troubleshooting, data model.
 - Quality gates and operations: [`docs/19-QUALITY-AND-TESTS.md`](docs/19-QUALITY-AND-TESTS.md),
   [`docs/20-OPERATIONS.md`](docs/20-OPERATIONS.md) (the Electron `ELECTRON_RUN_AS_NODE` launch gotcha).
 

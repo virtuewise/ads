@@ -9,6 +9,8 @@
 > This document covers the path to a **working** editor. The path from working to **futuristic** —
 > compositor, grading, transitions, audio, captions, presets, render queue, agentic scale — is the
 > **advanced capability plan** at the end of this document, specified in [22](22-COMPOSITOR.md)–[31](31-AI-AGENTIC-SCALE.md).
+> The **complete feature surface** — every implemented and planned feature — is specified in
+> [32](32-KEYFRAME-ANIMATION.md)–[49](49-DATA-MODEL-REFERENCE.md).
 
 ---
 
@@ -135,6 +137,7 @@ Media import (M1)
 |---|---|
 | `docs/00`–`docs/21` | ✅ written (the current system) |
 | `docs/22`–`docs/31` | ✅ written (the advanced capability plan) |
+| `docs/32`–`docs/49` | ✅ written (feature deep dives + advanced systems) |
 | `docs/README` index + reading paths | ✅ |
 | `scripts/check-docs.mjs` reference checker | ✅ (see [docs/README](README.md#keeping-docs-honest)) |
 | `docs/wiki/*` (World A) — add a "World B" pointer banner | ✅ (banner added) |
@@ -160,7 +163,59 @@ from "working editor" to "futuristic studio". Each doc is a design specification
 | **A8** | Render queue: batch/variants, GPU parallelism, HDR, packaging | [30](30-RENDER-QUEUE.md) | A1–A7 |
 | **A9** | Agentic scale: headless CLI, op API v2, MCP, interop, multi-agent merge | [31](31-AI-AGENTIC-SCALE.md) | A0–A8 |
 
-### The advanced critical path
+### Feature deep-dive phases (`docs/32`–`docs/49`)
+
+The phases above are the **infrastructure** — the engine subsystems that everything builds on. The
+phases below are the **feature surface** — the user-facing capabilities the editor must have.
+
+| Phase | Focus | Doc | Depends on |
+|---|---|---|---|
+| **F0** | Keyframe animation: per-property sampling, full easing library, graph editor | [32](32-KEYFRAME-ANIMATION.md) | A1 |
+| **F1** | Text & typography: SDF glyph atlas, kinetic type, variable fonts, text effects | [33](33-TEXT-AND-TYPOGRAPHY.md) | A1, F0 |
+| **F2** | Templates & presets: template authoring, library, marketplace, agent access | [34](34-TEMPLATES-AND-PRESETS.md) | A2–A7 |
+| **F3** | AI video generation: text-to-video, image-to-video, local inference | [35](35-AI-VIDEO-GENERATION.md) | A0 |
+| **F4** | Undo/redo: command pattern, history stack, drag merge, crash recovery | [36](36-UNDO-REDO.md) | — |
+| **F5** | Selection & interaction: multi-select, marquee, clipboard, shortcuts | [37](37-SELECTION-AND-INTERACTION.md) | F4 |
+| **F6** | Node editor: macros, live preview, debugging, auto-layout | [38](38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md) | A3 |
+| **F7** | Scripting & expressions: expression language, property linking, Monaco | [39](39-SCRIPTING-AND-EXPRESSIONS.md) | F0 |
+| **F8** | Animation principles: procedural motion, physics, audio-reactive | [40](40-ANIMATION-PRINCIPLES.md) | F0 |
+| **F9** | Render formats: full codec catalogue, HDR, colour-managed delivery | [41](41-RENDER-FORMAT-REFERENCE.md) | A2 |
+
+### Cross-cutting phases
+
+These span multiple feature areas and land incrementally:
+
+| Phase | Focus | Doc |
+|---|---|---|
+| **X0** | Keyboard shortcuts & power user workflows | [42](42-KEYBOARD-SHORTCUTS.md) |
+| **X1** | Asset management: media bin, organization, proxies | [43](43-ASSET-MANAGEMENT.md) |
+| **X2** | Plugin system: API, sandboxing, marketplace | [44](44-PLUGIN-SYSTEM.md) |
+| **X3** | Collaboration: multi-agent, branching, merge | [45](45-COLLABORATION-AND-MULTI-AGENT.md) |
+| **X4** | Security: permissions, sandbox, audit | [46](46-SECURITY-AND-PERMISSIONS.md) |
+| **X5** | Performance: adaptive quality, VRAM budget, profiling | [47](47-PERFORMANCE-TUNING.md) |
+| **X6** | Troubleshooting: diagnostics, health checks, crash recovery | [48](48-TROUBLESHOOTING-AND-DIAGNOSTICS.md) |
+
+### The complete critical path
+
+```
+Media pipeline (A0) ──► Compositor (A1) ──┬─► Color (A2) ──► Formats (F9)
+                                          ├─► Effects (A3) ──► Node editor (F6)
+                                          └─► Transitions (A4)
+                     ──► Audio (A5) ──────► Captions (A6)
+                     ──► Keyframes (F0) ──► Text (F1) ──► Animation (F8)
+                     ──► Templates (F2) ──► Presets (A7) ──► Render queue (A8)
+                     ──► AI video (F3) ──► Agentic scale (A9)
+                                                               │
+                                                               ▼
+                    Undo (F4) + Selection (F5) + Scripting (F7)
+                                                               │
+                                                               ▼
+                              Cross-cutting: X0–X6 (the complete product)
+```
+
+---
+
+### The infrastructure critical path
 
 ```
 Media pipeline (A0) ──► Compositor (A1) ──┬─► Color (A2) ─┐

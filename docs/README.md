@@ -31,7 +31,7 @@ Virtue Studio is two systems that share one repository:
 | World | Code | What it is | Docs |
 |---|---|---|---|
 | **A — The Engine Monorepo** | `packages/*`, `apps/studio`, `apps/renderer`, `apps/dashboard`, `packages/cli` | The brand-aware creative engine: concepts, scoring, planning, motion, enterprise rendering | `docs/wiki/*`, and the monorepo sections of `02-ARCHITECTURE` |
-| **B — Virtue Studio (the app)** | `apps/electron` (`@printsync/electron`) | The **engine-driven motion-design editor**: WebGPU compositor, DAG→WGSL, dual project format, local export, six genre workflows, node graph, Monaco, timeline | `docs/00`–`docs/21` (current) + `docs/22`–`docs/31` (advanced plan) |
+| **B — Virtue Studio (the app)** | `apps/electron` (`@printsync/electron`) | The **engine-driven motion-design editor**: WebGPU compositor, DAG→WGSL, dual project format, local export, six genre workflows, node graph, Monaco, timeline | `docs/00`–`docs/21` (current) + `docs/22`–`docs/49` (advanced plan + feature deep dives) |
 
 World **B** is the product. World **A** is the intelligence that *feeds* it: the engines that generate
 concepts, plans, scripts, and assets an agent or human then edits in World B.
@@ -101,7 +101,40 @@ production-grade, futuristic studio. Read them after the core subsystems and the
 | 30 | [`30-RENDER-QUEUE.md`](30-RENDER-QUEUE.md) | Render queue, batch/variant delivery, GPU parallelism, HDR, deliverable packaging. |
 | 31 | [`31-AI-AGENTIC-SCALE.md`](31-AI-AGENTIC-SCALE.md) | Headless CLI, agent op API v2, MCP server, EDL/OTIO interop, multi-agent merge. |
 
-### VI — Engine monorepo reference (World A)
+### VI — Feature deep dives (the requested topics)
+
+Complete specifications for each major feature area — what exists, what each property means, and the
+full model the advanced system targets.
+
+| # | Document | Summary |
+|---|---|---|
+| 32 | [`32-KEYFRAME-ANIMATION.md`](32-KEYFRAME-ANIMATION.md) | Keyframe model: scale, transform, position, rotation, per-axis, easing library, graph editor. |
+| 33 | [`33-TEXT-AND-TYPOGRAPHY.md`](33-TEXT-AND-TYPOGRAPHY.md) | Text layers, SDF glyph atlas, kinetic type, variable fonts, text effects, text-on-path. |
+| 34 | [`34-TEMPLATES-AND-PRESETS.md`](34-TEMPLATES-AND-PRESETS.md) | Template model, authoring workflow, library, marketplace, agent access. |
+| 35 | [`35-AI-VIDEO-GENERATION.md`](35-AI-VIDEO-GENERATION.md) | Text-to-video, image-to-video, local inference, AI image/audio generation, style references. |
+| 36 | [`36-UNDO-REDO.md`](36-UNDO-REDO.md) | Command pattern, history stack, drag merge, selective undo, crash recovery, multi-agent undo. |
+| 37 | [`37-SELECTION-AND-INTERACTION.md`](37-SELECTION-AND-INTERACTION.md) | Multi-select, marquee, layer selection, clipboard, context menus, keyboard shortcuts. |
+
+### VII — Advanced systems (the remaining features)
+
+The complete specification for every remaining subsystem — the full feature surface of the product.
+
+| # | Document | Summary |
+|---|---|---|
+| 38 | [`38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md`](38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md) | Node authoring, macros, live preview, debugging, edge types, groups, auto-layout. |
+| 39 | [`39-SCRIPTING-AND-EXPRESSIONS.md`](39-SCRIPTING-AND-EXPRESSIONS.md) | Expression language, property linking, per-frame scripting, Monaco, sandboxed execution. |
+| 40 | [`40-ANIMATION-PRINCIPLES.md`](40-ANIMATION-PRINCIPLES.md) | Procedural motion, physics, full easing library, graph editor, audio-reactive motion. |
+| 41 | [`41-RENDER-FORMAT-REFERENCE.md`](41-RENDER-FORMAT-REFERENCE.md) | Complete codec/format catalogue, resolutions, colour spaces, HDR, bitrate, loudness. |
+| 42 | [`42-KEYBOARD-SHORTCUTS.md`](42-KEYBOARD-SHORTCUTS.md) | Complete shortcut reference, custom remaps, power user workflows. |
+| 43 | [`43-ASSET-MANAGEMENT.md`](43-ASSET-MANAGEMENT.md) | Media bin, import, organization, thumbnails, proxies, missing media, generated assets. |
+| 44 | [`44-PLUGIN-SYSTEM.md`](44-PLUGIN-SYSTEM.md) | Plugin API, types, sandboxing, permissions, marketplace. |
+| 45 | [`45-COLLABORATION-AND-MULTI-AGENT.md`](45-COLLABORATION-AND-MULTI-AGENT.md) | Agent roles, branching, three-way merge, conflict resolution, human-in-the-loop. |
+| 46 | [`46-SECURITY-AND-PERMISSIONS.md`](46-SECURITY-AND-PERMISSIONS.md) | IPC permissions, script sandbox, CSP, audit logging, project file security. |
+| 47 | [`47-PERFORMANCE-TUNING.md`](47-PERFORMANCE-TUNING.md) | Frame budget, adaptive quality, LOD, profiling, VRAM budget, render efficiency. |
+| 48 | [`48-TROUBLESHOOTING-AND-DIAGNOSTICS.md`](48-TROUBLESHOOTING-AND-DIAGNOSTICS.md) | Diagnostics panel, GPU capability detection, export diagnostics, health checks, crash recovery. |
+| 49 | [`49-DATA-MODEL-REFERENCE.md`](49-DATA-MODEL-REFERENCE.md) | The authoritative schema — every type in the system, in one place. |
+
+### VIII — Engine monorepo reference (World A)
 
 | Document | Summary |
 |---|---|
@@ -115,27 +148,30 @@ production-grade, futuristic studio. Read them after the core subsystems and the
 Pick the path that matches your job:
 
 **I'm a human editor learning the app**
-`01-PRODUCT` → `16-INTERFACE` → `06-TIMELINE` → `09-GENRE-SYSTEM` → your genre doc (`10`–`15`) →
-`07-EXPORT-PIPELINE`.
+`01-PRODUCT` → `16-INTERFACE` → `06-TIMELINE` → `32-KEYFRAME-ANIMATION` → `33-TEXT-AND-TYPOGRAPHY` →
+`37-SELECTION-AND-INTERACTION` → `42-KEYBOARD-SHORTCUTS` → `09-GENRE-SYSTEM` → `34-TEMPLATES-AND-PRESETS`
+→ `07-EXPORT-PIPELINE`.
 
 **I'm an AI agent that must operate the system**
 `00-VISION` → `02-ARCHITECTURE` → `03-ENGINE-CORE` → `05-PROJECT-FORMAT` → `08-SCRIPTING-API` →
-`17-AI-AGENTS` → `09-GENRE-SYSTEM`.
+`17-AI-AGENTS` → `09-GENRE-SYSTEM` → `35-AI-VIDEO-GENERATION` → `45-COLLABORATION-AND-MULTI-AGENT`.
 
 **I'm a contributor changing the engine**
 `02-ARCHITECTURE` → `03-ENGINE-CORE` → `04-RENDERING` → `05-PROJECT-FORMAT` → `19-QUALITY-AND-TESTS`
-→ `20-OPERATIONS`.
+→ `20-OPERATIONS` → `49-DATA-MODEL-REFERENCE`.
 
 **I'm extending the genre intelligence**
-`09-GENRE-SYSTEM` → the relevant genre doc → `18-BRAND-AND-LUTS` → `03-ENGINE-CORE`.
+`09-GENRE-SYSTEM` → the relevant genre doc → `18-BRAND-AND-LUTS` → `03-ENGINE-CORE` → `34-TEMPLATES-AND-PRESETS`.
 
 **I'm operating / deploying**
-`20-OPERATIONS` → `07-EXPORT-PIPELINE` → `19-QUALITY-AND-TESTS` → `21-ROADMAP`.
+`20-OPERATIONS` → `07-EXPORT-PIPELINE` → `19-QUALITY-AND-TESTS` → `48-TROUBLESHOOTING-AND-DIAGNOSTICS`
+→ `47-PERFORMANCE-TUNING` → `21-ROADMAP`.
 
 **I'm planning or building the advanced capabilities**
 `00-VISION` → `21-ROADMAP` (the critical path) → `29-MEDIA-PIPELINE` (the frontier) →
 `22-COMPOSITOR` → `23-COLOR` → `27-EFFECTS-LIBRARY` → `24-TRANSITIONS` → `25-AUDIO` →
-`26-CAPTIONS` → `28-PRESETS` → `30-RENDER-QUEUE` → `31-AI-AGENTIC-SCALE`.
+`26-CAPTIONS` → `28-PRESETS` → `30-RENDER-QUEUE` → `31-AI-AGENTIC-SCALE` →
+`32`–`49` (the complete feature surface).
 
 ---
 

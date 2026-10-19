@@ -32,6 +32,7 @@ editor is a single deterministic `ProjectDocument` — the shared contract.
 | **Changing the engine** | [`docs/02-ARCHITECTURE.md`](docs/02-ARCHITECTURE.md) → [`docs/03-ENGINE-CORE.md`](docs/03-ENGINE-CORE.md) → [`docs/04-RENDERING.md`](docs/04-RENDERING.md) → [`docs/19-QUALITY-AND-TESTS.md`](docs/19-QUALITY-AND-TESTS.md) |
 | **Extending the genres** | [`docs/09-GENRE-SYSTEM.md`](docs/09-GENRE-SYSTEM.md) → the relevant genre doc `10`–`15` |
 | **Building the advanced capabilities** | [`docs/21-ROADMAP.md`](docs/21-ROADMAP.md) (the critical path) → [`docs/29-MEDIA-PIPELINE.md`](docs/29-MEDIA-PIPELINE.md) → [`docs/22-COMPOSITOR.md`](docs/22-COMPOSITOR.md) → [`docs/23-COLOR.md`](docs/23-COLOR.md) → [`docs/31-AI-AGENTIC-SCALE.md`](docs/31-AI-AGENTIC-SCALE.md) |
+| **Deep-diving a feature** | [`docs/32`](docs/32-KEYFRAME-ANIMATION.md)–[`docs/49`](docs/49-DATA-MODEL-REFERENCE.md) — keyframes, text, templates, AI video, undo/redo, selection, node editor, scripting, animation, formats, shortcuts, assets, plugins, collaboration, security, performance, troubleshooting, data model |
 | **Setting it up / troubleshooting** | [`docs/20-OPERATIONS.md`](docs/20-OPERATIONS.md) |
 | **Planning what's next** | [`docs/21-ROADMAP.md`](docs/21-ROADMAP.md) |
 
