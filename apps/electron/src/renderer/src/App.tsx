@@ -11,6 +11,7 @@ import { NodeEditor } from './components/NodeEditor';
 import { SafeZoneControls, SafeZones } from './components/SafeZones';
 import { ScriptEditor } from './components/ScriptEditor';
 import { WebGPUCanvas } from './components/WebGPUCanvas';
+import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
 import {
   addKeyframe,
@@ -743,6 +744,44 @@ export function App() {
     touch();
   };
 
+  // ── Genre workflow application ────────────────────────────────────────────
+  const applyKeyframePreset = (preset: KeyframePreset) => {
+    if (!selectedClip) {
+      notify('Select a clip to apply the keyframe preset');
+      return;
+    }
+    setTimelineDoc((doc) => {
+      let next = addKeyframe(doc, selectedClip, playhead, preset.property, 0);
+      next = addKeyframe(next, selectedClip, playhead + preset.duration, preset.property, 1);
+      return next;
+    });
+    touch();
+    notify(`Applied "${preset.label}" (${preset.easing})`);
+  };
+
+  const applyTemplate = (template: GenreTemplate, templateGenre: GenreId) => {
+    setGenre(templateGenre);
+    setBrandLUT(template.lut);
+    seededRef.current = false;
+    setTimelineDoc(
+      defaultTimeline(
+        template.beats,
+        effects.map((e) => e.name),
+        composition.duration,
+      ),
+    );
+    seededRef.current = true;
+    touch();
+    notify(`Loaded template "${template.name}"`);
+  };
+
+  const applySmartCutRatio = (ratio: SafeZoneRatio) => {
+    setSafeZoneRatio(ratio);
+    setSafeZonesActive(true);
+    touch();
+    notify(`Smart cut delivery ratio set to ${ratio}`);
+  };
+
   // Keyboard handler runs once; this ref always points at the latest closures.
   const actionsRef = useRef<{
     save: () => void;
@@ -1009,7 +1048,12 @@ export function App() {
                   </div>
                   <GenreSelector active={genre} onChange={setGenre} />
                 </div>
-                <GenrePanel active={genre} />
+                <GenrePanel
+                  active={genre}
+                  onApplyKeyframe={applyKeyframePreset}
+                  onApplyTemplate={applyTemplate}
+                  onApplySmartCut={applySmartCutRatio}
+                />
                 <div className="sect">
                   <div className="sect__head">
                     <span className="sect__title">Visual Grammars</span>
