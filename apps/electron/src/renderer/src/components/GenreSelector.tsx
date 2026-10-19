@@ -1,5 +1,5 @@
-import { motion } from 'motion/react';
 import { GENRES, type GenreId } from '../engine/types';
+import { Icon, type IconName } from './Icon';
 
 interface GenreSelectorProps {
   active: GenreId;
@@ -8,32 +8,18 @@ interface GenreSelectorProps {
 
 export function GenreSelector({ active, onChange }: GenreSelectorProps) {
   return (
-    <div className="flex gap-1.5 p-2 overflow-x-auto">
+    <div className="chip-row">
       {GENRES.map((g) => (
-        <motion.button
+        <button
           key={g.id}
           type="button"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
           onClick={() => onChange(g.id)}
-          className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-            active === g.id
-              ? 'border-transparent text-white shadow-lg'
-              : 'border-line text-muted hover:text-text hover:border-white/20 bg-ink'
-          }`}
-          style={
-            active === g.id
-              ? {
-                  background: `linear-gradient(135deg, ${g.color}, ${g.color}88)`,
-                  boxShadow: `0 4px 14px ${g.color}44`,
-                }
-              : undefined
-          }
           title={g.description}
+          className={`chip ${active === g.id ? 'chip--accent' : ''}`}
         >
-          <span className="mr-1">{g.icon}</span>
+          <Icon name={g.icon as IconName} size={12} />
           {g.name}
-        </motion.button>
+        </button>
       ))}
     </div>
   );
@@ -44,41 +30,26 @@ export function GenrePanel({ active }: { active: GenreId }) {
   if (!genre) return null;
 
   return (
-    <div className="p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-2xl">{genre.icon}</span>
-        <div>
-          <div className="text-sm font-semibold">{genre.name}</div>
-          <div className="text-[10px] text-muted">{genre.description}</div>
-        </div>
+    <div className="sect">
+      <div className="sect__head">
+        <span className="sect__title">Workflow Profile</span>
+        <span className="sect__meta">{genre.pacing}</span>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="p-2 rounded-md bg-ink border border-line">
-          <div className="text-[10px] uppercase tracking-wider text-muted">Pacing</div>
-          <div className="text-xs font-medium mt-0.5">{genre.pacing}</div>
-        </div>
-        <div className="p-2 rounded-md bg-ink border border-line">
-          <div className="text-[10px] uppercase tracking-wider text-muted">Focus</div>
-          <div className="text-xs font-medium mt-0.5">{genre.primaryFocus}</div>
-        </div>
+      <div className="row" style={{ cursor: 'default' }}>
+        <span className="row__icon" style={{ color: genre.color }}>
+          <Icon name={genre.icon as IconName} size={14} />
+        </span>
+        <span className="row__body">
+          <span className="row__title">{genre.primaryFocus}</span>
+          <span className="row__sub">{genre.description}</span>
+        </span>
       </div>
-      <div>
-        <div className="text-[10px] uppercase tracking-wider text-muted mb-1.5">Key Features</div>
-        <div className="flex flex-wrap gap-1">
-          {genre.keyFeatures.map((f) => (
-            <span
-              key={f}
-              className="px-2 py-0.5 rounded-full text-[10px] font-mono border"
-              style={{
-                borderColor: `${genre.color}44`,
-                color: genre.color,
-                background: `${genre.color}11`,
-              }}
-            >
-              {f}
-            </span>
-          ))}
-        </div>
+      <div className="chip-row" style={{ marginTop: 8 }}>
+        {genre.keyFeatures.map((f) => (
+          <span key={f} className="chip">
+            {f}
+          </span>
+        ))}
       </div>
     </div>
   );

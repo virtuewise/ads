@@ -55,7 +55,7 @@ export const GENRES: Genre[] = [
   {
     id: '3d-animation',
     name: '3D Animation & CGI',
-    icon: '🧊',
+    icon: 'box',
     description: 'Animatic pre-vis, multi-pass compositing, VFX workflows',
     pacing: 'Highly calculated, rigid',
     primaryFocus: 'Timing & Pre-vis',
@@ -70,7 +70,7 @@ export const GENRES: Genre[] = [
   {
     id: 'narrative',
     name: 'Narrative Fiction',
-    icon: '🎭',
+    icon: 'pen',
     description: 'Performance selection, invisible cutting, emotional continuity',
     pacing: 'Fluid, human-driven',
     primaryFocus: 'Emotion & Performance',
@@ -85,7 +85,7 @@ export const GENRES: Genre[] = [
   {
     id: 'corporate',
     name: 'Corporate & Commercial',
-    icon: '📊',
+    icon: 'chart',
     description: 'Retention hooks, brand compliance, maximum impact minimum time',
     pacing: 'Aggressive, fast, punchy',
     primaryFocus: 'Conversion & Brand',
@@ -95,7 +95,7 @@ export const GENRES: Genre[] = [
   {
     id: 'explainer',
     name: 'Explainer & Infographic',
-    icon: '📐',
+    icon: 'compass',
     description: 'Information architecture, kinetic typography, visual metaphors',
     pacing: 'Steady, voiceover-matched',
     primaryFocus: 'Clarity & Education',
@@ -105,7 +105,7 @@ export const GENRES: Genre[] = [
   {
     id: 'documentary',
     name: 'Documentary',
-    icon: '🎬',
+    icon: 'film',
     description: 'Script-from-footage, juxtaposition mastery, B-roll layering',
     pacing: 'Natural, interview-driven',
     primaryFocus: 'Authenticity & Truth',
@@ -115,7 +115,7 @@ export const GENRES: Genre[] = [
   {
     id: 'detective',
     name: 'Detective & Mystery',
-    icon: '🔍',
+    icon: 'search',
     description: 'Misdirection, tension building, clue tracking',
     pacing: 'Unpredictable, tense',
     primaryFocus: 'Suspense & Clues',

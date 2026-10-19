@@ -1,38 +1,248 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BrandLUTPanel } from './components/BrandLUTPanel';
 import { ExportPanel } from './components/ExportPanel';
 import { GenrePanel, GenreSelector } from './components/GenreSelector';
+import { Icon, type IconName } from './components/Icon';
 import { NodeEditor } from './components/NodeEditor';
 import { SafeZoneControls, SafeZones } from './components/SafeZones';
 import { ScriptEditor } from './components/ScriptEditor';
-import { Timeline } from './components/Timeline';
-import { Toolbar } from './components/Toolbar';
 import { WebGPUCanvas } from './components/WebGPUCanvas';
 import type { GenreId, SafeZoneRatio } from './engine/types';
 import { useDAG } from './engine/useDAG';
 import type { Brief, Concept, CreativeMode } from './hooks/useEngineData';
 import { useEngineData } from './hooks/useEngineData';
 
-const _Icon = ({ d, size = 16 }: { d: string; size?: number }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    role="img"
-  >
-    <title>Icon</title>
-    <path d={d} />
-  </svg>
-);
+const DURATION = 12;
+const FPS = 30;
+const RULER_TICKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+const fmtTC = (seconds: number): string => {
+  const total = Math.max(0, seconds);
+  const mm = Math.floor(total / 60);
+  const ss = Math.floor(total % 60);
+  const ff = Math.floor((total % 1) * FPS);
+  return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}:${String(ff).padStart(2, '0')}`;
+};
+
+// ── Menu definitions ─────────────────────────────────────────────────────────
+interface MenuSep {
+  sep: true;
+  id: string;
+}
+interface MenuItemDef {
+  sep?: false;
+  id: string;
+  label: string;
+  hint?: string;
+}
+type MenuEntry = MenuSep | MenuItemDef;
+
+const MENUS: Array<{ label: string; items: MenuEntry[] }> = [
+  {
+    label: 'File',
+    items: [
+      { id: 'new', label: 'New Project', hint: 'Ctrl+N' },
+      { id: 'open', label: 'Open Project…', hint: 'Ctrl+O' },
+      { id: 'import', label: 'Import Media…', hint: 'Ctrl+I' },
+      { id: 'sep1', sep: true },
+      { id: 'save', label: 'Save', hint: 'Ctrl+S' },
+      { id: 'saveas', label: 'Save As…', hint: 'Ctrl+Shift+S' },
+      { id: 'sep2', sep: true },
+      { id: 'export', label: 'Export…', hint: 'Ctrl+E' },
+    ],
+  },
+  {
+    label: 'Edit',
+    items: [
+      { id: 'undo', label: 'Undo', hint: 'Ctrl+Z' },
+      { id: 'redo', label: 'Redo', hint: 'Ctrl+Y' },
+      { id: 'sep1', sep: true },
+      { id: 'cut', label: 'Cut', hint: 'Ctrl+X' },
+      { id: 'copy', label: 'Copy', hint: 'Ctrl+C' },
+      { id: 'paste', label: 'Paste', hint: 'Ctrl+V' },
+      { id: 'del', label: 'Delete', hint: 'Del' },
+      { id: 'sep2', sep: true },
+      { id: 'prefs', label: 'Preferences…', hint: 'Ctrl+,' },
+    ],
+  },
+  {
+    label: 'Composition',
+    items: [
+      { id: 'newc', label: 'New Composition', hint: 'Ctrl+N' },
+      { id: 'settings', label: 'Composition Settings…', hint: 'Ctrl+K' },
+      { id: 'queue', label: 'Add to Render Queue', hint: 'Ctrl+M' },
+    ],
+  },
+  {
+    label: 'Layer',
+    items: [
+      { id: 'lt', label: 'New Text Layer', hint: 'Ctrl+T' },
+      { id: 'ls', label: 'New Shape Layer', hint: 'Ctrl+Y' },
+      { id: 'ln', label: 'New Null Object' },
+      { id: 'lc', label: 'New Camera' },
+      { id: 'sep1', sep: true },
+      { id: 'pre', label: 'Pre-compose…', hint: 'Ctrl+Shift+C' },
+    ],
+  },
+  {
+    label: 'Effect',
+    items: [
+      { id: 'browse', label: 'Browse Effects…' },
+      { id: 'remove', label: 'Remove All Effects' },
+    ],
+  },
+  {
+    label: 'Animation',
+    items: [
+      { id: 'kf', label: 'Add Keyframe', hint: 'S' },
+      { id: 'graph', label: 'Graph Editor', hint: 'G' },
+      { id: 'ease', label: 'Easy Ease', hint: 'F9' },
+    ],
+  },
+  {
+    label: 'View',
+    items: [
+      { id: 'zi', label: 'Zoom In', hint: '+' },
+      { id: 'zo', label: 'Zoom Out', hint: '-' },
+      { id: 'fit', label: 'Fit to Screen', hint: 'Shift+1' },
+      { id: 'sep1', sep: true },
+      { id: 'sz', label: 'Toggle Safe Zones', hint: 'Ctrl+;' },
+    ],
+  },
+  {
+    label: 'Window',
+    items: [
+      { id: 'tl', label: 'Timeline', hint: 'Ctrl+4' },
+      { id: 'ins', label: 'Inspector', hint: 'Ctrl+5' },
+      { id: 'ng', label: 'Node Graph', hint: 'Ctrl+6' },
+    ],
+  },
+  {
+    label: 'Help',
+    items: [
+      { id: 'keys', label: 'Keyboard Shortcuts', hint: '?' },
+      { id: 'about', label: 'About Virtue Studio' },
+    ],
+  },
+];
+
+const TOOLS: Array<{ id: string; icon: IconName; label: string; key: string }> = [
+  { id: 'select', icon: 'pointer', label: 'Select', key: 'V' },
+  { id: 'move', icon: 'move', label: 'Move', key: 'W' },
+  { id: 'text', icon: 'text', label: 'Text', key: 'T' },
+  { id: 'shape', icon: 'square', label: 'Shape', key: 'U' },
+  { id: 'pen', icon: 'pen', label: 'Pen', key: 'P' },
+  { id: 'hand', icon: 'hand', label: 'Hand', key: 'H' },
+  { id: 'zoom', icon: 'zoom', label: 'Zoom', key: 'Z' },
+];
+
+const LEFT_TABS: Array<{ id: string; icon: IconName; label: string }> = [
+  { id: 'project', icon: 'folder', label: 'Project' },
+  { id: 'effects', icon: 'wand', label: 'Effects' },
+  { id: 'text', icon: 'text', label: 'Text' },
+  { id: 'modes', icon: 'layers', label: 'Modes' },
+  { id: 'ai', icon: 'sparkle', label: 'AI' },
+];
+
+const INS_TABS: Array<{ id: string; icon: IconName; label: string }> = [
+  { id: 'props', icon: 'sliders', label: 'Props' },
+  { id: 'fx', icon: 'zap', label: 'FX' },
+  { id: 'color', icon: 'palette', label: 'Color' },
+  { id: 'export', icon: 'download', label: 'Export' },
+];
+
+const STAGE_TABS: Array<{ id: 'comp' | 'nodes' | 'script'; icon: IconName; label: string }> = [
+  { id: 'comp', icon: 'monitor', label: 'Compositing' },
+  { id: 'nodes', icon: 'nodes', label: 'Node Graph' },
+  { id: 'script', icon: 'code', label: 'Script' },
+];
+
+const FX_ICONS: Record<string, IconName> = {
+  GLOW: 'zap',
+  BLUR: 'wind',
+  COLOR: 'palette',
+  TRANSITION: 'shuffle',
+  DISTORT: 'droplet',
+  STYLIZE: 'wand',
+};
+const fxIcon = (category: string): IconName => FX_ICONS[category] ?? 'sparkle';
+
+const AI_TOOLS: Array<{ icon: IconName; name: string; desc: string }> = [
+  { icon: 'scissors', name: 'Object Matte', desc: 'AI subject isolation & tracking masks' },
+  { icon: 'refresh', name: 'Generative Extend', desc: 'Extend clip duration with AI frames' },
+  { icon: 'contrast', name: 'Unmult', desc: 'Remove black/white matted backgrounds' },
+  { icon: 'wind', name: 'Curl Noise', desc: 'Procedural fluid dynamics & particles' },
+];
+
+const TEMPLATES = [
+  {
+    name: 'Case File Reveal',
+    desc: 'Suspenseful investigative flow',
+    bg: 'linear-gradient(135deg,#1a1a2e,#16213e)',
+  },
+  {
+    name: 'Data Reveal',
+    desc: 'Animated chart with kinetic numbers',
+    bg: 'linear-gradient(135deg,#134e5e,#71b280)',
+  },
+  {
+    name: 'Process Flow',
+    desc: 'Step-by-step node animation',
+    bg: 'linear-gradient(135deg,#4b1248,#f09819)',
+  },
+  {
+    name: 'Interrogation Room',
+    desc: 'Dramatic single-subject interview',
+    bg: 'linear-gradient(135deg,#2c3e50,#4ca1af)',
+  },
+];
+
+type TrackState = Record<string, { visible: boolean; locked: boolean }>;
+const DEFAULT_TRACK_STATE: TrackState = {
+  video: { visible: true, locked: false },
+  audio: { visible: true, locked: false },
+  captions: { visible: true, locked: false },
+  effects: { visible: true, locked: false },
+  transitions: { visible: true, locked: false },
+};
 
 export function App() {
   const { modes, typography, effects, grammars, stats } = useEngineData();
+
+  // ── Shell state ───────────────────────────────────────────────────────────
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [activeStage, setActiveStage] = useState<'comp' | 'nodes' | 'script'>('comp');
+  const [tool, setTool] = useState('select');
+  const [leftTab, setLeftTab] = useState('project');
+  const [insTab, setInsTab] = useState('props');
+  const [snap, setSnap] = useState(true);
+
+  // ── Selection ─────────────────────────────────────────────────────────────
+  const [selectedMode, setSelectedMode] = useState<CreativeMode | null>(null);
+  const [selectedEffect, setSelectedEffect] = useState<string | null>(null);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [selectedClip, setSelectedClip] = useState<string | null>(null);
+  const [fxQuery, setFxQuery] = useState('');
+
+  // ── Playback ──────────────────────────────────────────────────────────────
+  const [playing, setPlaying] = useState(false);
+  const [playhead, setPlayhead] = useState(1.6);
+  const [stageZoom, setStageZoom] = useState(1);
+  const [tlZoom, setTlZoom] = useState(1);
+  const [trackState, setTrackState] = useState<TrackState>(DEFAULT_TRACK_STATE);
+
+  // ── Quick Apply ───────────────────────────────────────────────────────────
+  const [showQuickApply, setShowQuickApply] = useState(false);
+  const [quickApply, setQuickApply] = useState('');
+
+  // ── Genre-aware editing ───────────────────────────────────────────────────
+  const [genre, setGenre] = useState<GenreId>('corporate');
+  const [safeZonesActive, setSafeZonesActive] = useState(false);
+  const [safeZoneRatio, setSafeZoneRatio] = useState<SafeZoneRatio>('16:9');
+  const [brandLUT, setBrandLUT] = useState('none');
+
+  // ── Concept generation (engine-driven) ────────────────────────────────────
   const [brief, setBrief] = useState<Brief>({
     objective: 'Build brand awareness for a new product launch',
     service: 'branding',
@@ -44,34 +254,158 @@ export function App() {
   const [generated, setGenerated] = useState<Concept[]>([]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'canvas' | 'nodes' | 'timeline' | 'ai' | 'threed'>(
-    'canvas',
-  );
-  const [selectedMode, setSelectedMode] = useState<CreativeMode | null>(null);
-  const [selectedEffect, setSelectedEffect] = useState<string | null>(null);
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
-  const [_playhead, _setPlayhead] = useState(0);
-  const [_playing, _setPlaying] = useState(false);
-  const [_zoom, _setZoom] = useState(1);
-  const [leftTab, setLeftTab] = useState<'assets' | 'layers' | 'templates' | 'ai'>('assets');
-  const [rightTab, setRightTab] = useState<
-    'properties' | 'effects' | 'fonts' | 'transitions' | 'threed' | 'code' | 'export' | 'brand'
-  >('properties');
-  const [quickApply, setQuickApply] = useState('');
-  const [showQuickApply, setShowQuickApply] = useState(false);
-  const [selectedTool, setSelectedTool] = useState('select');
-  const _duration = 5;
 
-  // Genre-aware editing
-  const [genre, setGenre] = useState<GenreId>('corporate');
-  const [safeZonesActive, setSafeZonesActive] = useState(false);
-  const [safeZoneRatio, setSafeZoneRatio] = useState<SafeZoneRatio>('16:9');
-  const [brandLUT, setBrandLUT] = useState('none');
-
-  // DAG engine
+  // ── DAG engine ────────────────────────────────────────────────────────────
   const dag = useDAG();
 
-  const _territories = Array.from(new Set(modes.flatMap((m) => m.territories)));
+  const territories = useMemo(
+    () => Array.from(new Set(modes.flatMap((m) => m.territories))),
+    [modes],
+  );
+
+  const filteredEffects = useMemo(
+    () =>
+      effects.filter((e) => fxQuery === '' || e.name.toLowerCase().includes(fxQuery.toLowerCase())),
+    [effects, fxQuery],
+  );
+
+  // ── Timeline tracks (clips driven by engine data) ─────────────────────────
+  const tracks = useMemo(() => {
+    const capClips =
+      typography.length > 0
+        ? typography.slice(0, 2).map((p, i) => ({
+            start: i === 0 ? 0.8 : 7,
+            end: i === 0 ? 4.2 : 10.5,
+            name: p.name,
+          }))
+        : [
+            { start: 0.8, end: 4.2, name: 'Opening Title' },
+            { start: 7, end: 10.5, name: 'Closing Tagline' },
+          ];
+    const fxClips =
+      effects.length > 0
+        ? effects.slice(0, 3).map((e, i) => ({
+            start: 0.5 + i * 4,
+            end: 3.3 + i * 4,
+            name: e.name,
+          }))
+        : [
+            { start: 0.5, end: 3.3, name: 'Glow' },
+            { start: 4.5, end: 7.3, name: 'Chromatic Blur' },
+          ];
+    return [
+      {
+        id: 'video',
+        name: 'Video',
+        icon: 'film' as IconName,
+        color: '#ff5a2c',
+        clips: [
+          { start: 0, end: 6.4, name: 'Main Comp' },
+          { start: 6.9, end: DURATION, name: 'B-Roll 02' },
+        ],
+      },
+      {
+        id: 'audio',
+        name: 'Audio',
+        icon: 'music' as IconName,
+        color: '#5eead4',
+        clips: [{ start: 0, end: DURATION, name: 'Score: Main Theme' }],
+      },
+      {
+        id: 'captions',
+        name: 'Captions',
+        icon: 'captions' as IconName,
+        color: '#ffb347',
+        clips: capClips,
+      },
+      {
+        id: 'effects',
+        name: 'Effects',
+        icon: 'wand' as IconName,
+        color: '#a78bfa',
+        clips: fxClips,
+      },
+      {
+        id: 'transitions',
+        name: 'Transitions',
+        icon: 'shuffle' as IconName,
+        color: '#f472b6',
+        clips: [{ start: 6.3, end: 7, name: 'Cross Dissolve' }],
+      },
+    ];
+  }, [typography, effects]);
+
+  // ── Playback loop (rAF) ───────────────────────────────────────────────────
+  const rafRef = useRef(0);
+  useEffect(() => {
+    if (!playing) return;
+    let last = performance.now();
+    const tick = (t: number) => {
+      const dt = (t - last) / 1000;
+      last = t;
+      setPlayhead((p) => (p + dt) % DURATION);
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [playing]);
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON';
+
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setShowQuickApply((v) => !v);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setShowQuickApply(false);
+        setOpenMenu(null);
+        return;
+      }
+      if (typing) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setPlaying((p) => !p);
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const keymap: Record<string, string> = {
+        v: 'select',
+        w: 'move',
+        t: 'text',
+        u: 'shape',
+        p: 'pen',
+        h: 'hand',
+        z: 'zoom',
+      };
+      const nextTool = keymap[e.key.toLowerCase()];
+      if (nextTool) setTool(nextTool);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const runMenuAction = (label: string) => {
+    setOpenMenu(null);
+    if (label === 'Export…') {
+      setInsTab('export');
+      setActiveStage('comp');
+    } else if (label === 'Toggle Safe Zones') {
+      setSafeZonesActive((v) => !v);
+    } else if (label === 'Node Graph') {
+      setActiveStage('nodes');
+    } else if (label === 'Browse Effects…') {
+      setLeftTab('effects');
+    } else if (label === 'New Text Layer') {
+      setTool('text');
+    }
+  };
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -98,54 +432,995 @@ export function App() {
     return 0;
   };
 
-  const quickApplyItems = [
-    ...effects.map((e) => ({ type: 'Effect', name: e.name, id: e.id })),
-    ...typography.map((p) => ({ type: 'Font', name: p.name, id: p.id })),
-    ...modes.map((m) => ({ type: 'Mode', name: m.name, id: m.id })),
-    ...grammars.map((g) => ({ type: 'Grammar', name: g.name, id: g.name })),
-  ].filter((x) => quickApply === '' || x.name.toLowerCase().includes(quickApply.toLowerCase()));
+  const quickApplyItems = useMemo(
+    () =>
+      [
+        ...effects.map((e) => ({ kind: 'Effect', name: e.name, id: e.id })),
+        ...typography.map((p) => ({ kind: 'Font', name: p.name, id: p.id })),
+        ...modes.map((m) => ({ kind: 'Mode', name: m.name, id: m.id })),
+        ...grammars.map((g) => ({ kind: 'Grammar', name: g.name, id: g.name })),
+      ].filter((x) => quickApply === '' || x.name.toLowerCase().includes(quickApply.toLowerCase())),
+    [effects, typography, modes, grammars, quickApply],
+  );
+
+  const applyQAItem = (x: { kind: string; name: string; id: string }) => {
+    setShowQuickApply(false);
+    setQuickApply('');
+    if (x.kind === 'Effect') {
+      setSelectedEffect(x.id);
+      setInsTab('fx');
+    } else if (x.kind === 'Mode') {
+      setSelectedMode(modes.find((m) => m.id === x.id) ?? null);
+      setInsTab('props');
+    } else if (x.kind === 'Font') {
+      setSelectedPreset(x.id);
+      setLeftTab('text');
+    } else {
+      setLeftTab('project');
+    }
+  };
+
+  const toggleTrack = (id: string, key: 'visible' | 'locked') => {
+    setTrackState((s) => {
+      const cur = s[id] ?? { visible: true, locked: false };
+      return { ...s, [id]: { ...cur, [key]: !cur[key] } };
+    });
+  };
+
+  const activeTool = TOOLS.find((t) => t.id === tool);
 
   return (
     <div className="app">
       <div className="noise" aria-hidden="true" />
 
-      {/* ── Menu Bar ── */}
+      {/* ── Menu bar ──────────────────────────────────────────────────── */}
       <header className="menubar">
         <div className="menubar__brand">
           <span className="menubar__logo">V</span>
           <span className="menubar__name">Virtue Studio</span>
         </div>
-        <nav className="menubar__tabs">
-          {(['canvas', 'nodes', 'timeline', 'ai', 'threed'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={`menubar__tab ${activeTab === t ? 'active' : ''}`}
-              onClick={() => setActiveTab(t)}
-            >
-              {t === 'threed' ? '3D' : t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
+        <nav aria-label="Main menu" className="flex items-center gap-0.5">
+          {MENUS.map((menu) => (
+            <div key={menu.label} className="menubar__menu">
+              <button
+                type="button"
+                className="menubar__btn"
+                aria-expanded={openMenu === menu.label}
+                onClick={() => setOpenMenu(openMenu === menu.label ? null : menu.label)}
+              >
+                {menu.label}
+              </button>
+              {openMenu === menu.label && (
+                <div className="dropdown">
+                  {menu.items.map((it) =>
+                    it.sep === true ? (
+                      <div key={it.id} className="dropdown__sep" />
+                    ) : (
+                      <button
+                        key={it.id}
+                        type="button"
+                        className="dropdown__item"
+                        onClick={() => runMenuAction(it.label)}
+                      >
+                        {it.label}
+                        {it.hint && <kbd>{it.hint}</kbd>}
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
           ))}
         </nav>
+        <div className="menubar__center">
+          <strong>Untitled Composition</strong>
+          <span>1920 × 1080 · 30 fps · {fmtTC(playhead)}</span>
+        </div>
         <div className="menubar__right">
           {stats && (
-            <span className="menubar__stat">
+            <span className="chip">
               {stats.modeCount} modes · {stats.territoryCount} territories
             </span>
           )}
-          <button type="button" className="menubar__qa" onClick={() => setShowQuickApply(true)}>
-            <span>Quick Apply</span>
-            <kbd>⌘K</kbd>
+          <button
+            type="button"
+            className="iconbtn"
+            onClick={() => setShowQuickApply(true)}
+            title="Quick Apply"
+          >
+            <Icon name="search" size={13} />
+            Quick Apply
+            <kbd className="kbd">Ctrl K</kbd>
+          </button>
+          <button
+            type="button"
+            className="iconbtn iconbtn--primary"
+            onClick={() => setInsTab('export')}
+          >
+            <Icon name="download" size={13} />
+            Export
+          </button>
+          <button type="button" className="iconbtn" title="Settings" aria-label="Settings">
+            <Icon name="settings" size={14} />
           </button>
         </div>
       </header>
+      {openMenu && (
+        <button
+          type="button"
+          className="fixed inset-0 z-50 cursor-default"
+          aria-label="Close menu"
+          onClick={() => setOpenMenu(null)}
+        />
+      )}
 
-      {/* ── Genre Selector ── */}
-      <div className="border-b border-line bg-ink-2">
-        <GenreSelector active={genre} onChange={setGenre} />
+      {/* ── Context toolbar ───────────────────────────────────────────── */}
+      <div className="ctxbar">
+        <div className="ctxbar__group">
+          <span className="ctxbar__label">Tool</span>
+          {activeTool && (
+            <span className="chip chip--accent">
+              <Icon name={activeTool.icon} size={12} />
+              {activeTool.label}
+              <kbd className="kbd">{activeTool.key}</kbd>
+            </span>
+          )}
+        </div>
+        <span className="ctxbar__sep" aria-hidden="true" />
+        <div className="ctxbar__group">
+          <button type="button" className="iconbtn" title="Undo (Ctrl+Z)">
+            <Icon name="undo" size={14} />
+          </button>
+          <button type="button" className="iconbtn" title="Redo (Ctrl+Y)">
+            <Icon name="redo" size={14} />
+          </button>
+          <span className="ctxbar__sep" aria-hidden="true" />
+          <button type="button" className="iconbtn" title="Split at playhead (S)">
+            <Icon name="split" size={14} />
+          </button>
+          <button type="button" className="iconbtn" title="Duplicate (Ctrl+D)">
+            <Icon name="copy" size={14} />
+          </button>
+          <button type="button" className="iconbtn" title="Delete (Del)">
+            <Icon name="trash" size={14} />
+          </button>
+          <span className="ctxbar__sep" aria-hidden="true" />
+          <button
+            type="button"
+            className={`iconbtn ${snap ? 'iconbtn--active' : ''}`}
+            title="Snapping"
+            aria-pressed={snap}
+            onClick={() => setSnap((s) => !s)}
+          >
+            <Icon name="magnet" size={14} />
+          </button>
+          <button type="button" className="iconbtn" title="Add keyframe (S)">
+            <Icon name="keyframe" size={14} />
+          </button>
+        </div>
+        <div className="ml-auto ctxbar__group">
+          <span className="ctxbar__label">Renderer</span>
+          <span className="chip chip--cool">
+            <Icon name="zap" size={11} />
+            WebGPU
+          </span>
+          <span className="ctxbar__label">Pipeline</span>
+          <span className="chip">DAG → WGSL</span>
+        </div>
       </div>
 
-      {/* ── Quick Apply Palette ── */}
+      {/* ── Workspace ──────────────────────────────────────────────────── */}
+      <div className="workspace">
+        {/* Tool rail */}
+        <nav className="rail" aria-label="Tools">
+          {TOOLS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`rail__btn ${tool === t.id ? 'rail__btn--active' : ''}`}
+              title={`${t.label} (${t.key})`}
+              aria-label={t.label}
+              aria-pressed={tool === t.id}
+              onClick={() => setTool(t.id)}
+            >
+              <Icon name={t.icon} size={16} />
+              <kbd>{t.key}</kbd>
+            </button>
+          ))}
+          <span className="rail__div" aria-hidden="true" />
+          <button
+            type="button"
+            className="rail__btn"
+            title="Node Graph"
+            aria-label="Node graph"
+            onClick={() => setActiveStage('nodes')}
+          >
+            <Icon name="nodes" size={16} />
+          </button>
+          <button
+            type="button"
+            className="rail__btn"
+            title="Script"
+            aria-label="Script editor"
+            onClick={() => setActiveStage('script')}
+          >
+            <Icon name="code" size={16} />
+          </button>
+          <div className="mt-auto flex flex-col gap-1">
+            <button type="button" className="rail__btn" title="Fit view" aria-label="Fit view">
+              <Icon name="maximize" size={16} />
+            </button>
+            <button type="button" className="rail__btn" title="Settings" aria-label="Settings">
+              <Icon name="settings" size={16} />
+            </button>
+          </div>
+        </nav>
+
+        {/* Left panel */}
+        <aside className="panel panel--left" aria-label="Project panel">
+          <div className="panel__tabs">
+            {LEFT_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                title={t.label}
+                aria-label={t.label}
+                className={`panel__tab ${leftTab === t.id ? 'panel__tab--active' : ''}`}
+                onClick={() => setLeftTab(t.id)}
+              >
+                <Icon name={t.icon} size={13} />
+              </button>
+            ))}
+          </div>
+          <div className="panel__body scroll-thin">
+            {leftTab === 'project' && (
+              <>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Genre Workflow</span>
+                  </div>
+                  <GenreSelector active={genre} onChange={setGenre} />
+                </div>
+                <GenrePanel active={genre} />
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Visual Grammars</span>
+                    <span className="sect__meta">{grammars.length}</span>
+                  </div>
+                  {grammars.map((g) => (
+                    <button key={g.name} type="button" className="row">
+                      <span className="row__icon">
+                        <Icon name="nodes" size={13} />
+                      </span>
+                      <span className="row__body">
+                        <span className="row__title">{g.name}</span>
+                        <span className="row__sub">{g.sequence.length} beats</span>
+                      </span>
+                      <Icon name="chevronRight" size={12} />
+                    </button>
+                  ))}
+                  {grammars.length === 0 && <p className="muted">Loading engine data…</p>}
+                </div>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Territories</span>
+                    <span className="sect__meta">{territories.length}</span>
+                  </div>
+                  <div className="chip-row">
+                    {territories.map((t) => (
+                      <span key={t} className="chip">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {leftTab === 'effects' && (
+              <>
+                <div className="panel__search">
+                  <Icon name="search" size={13} />
+                  <input
+                    placeholder="Search effects…"
+                    aria-label="Search effects"
+                    value={fxQuery}
+                    onChange={(e) => setFxQuery(e.target.value)}
+                  />
+                </div>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Effect Library</span>
+                    <span className="sect__meta">{filteredEffects.length}</span>
+                  </div>
+                  {filteredEffects.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      className={`row ${selectedEffect === e.id ? 'row--active' : ''}`}
+                      onClick={() => {
+                        setSelectedEffect(e.id);
+                        setInsTab('fx');
+                      }}
+                    >
+                      <span className="row__icon">
+                        <Icon name={fxIcon(e.category)} size={13} />
+                      </span>
+                      <span className="row__body">
+                        <span className="row__title">{e.name}</span>
+                        <span className="row__sub">{e.compatiblePurposes[0] ?? e.category}</span>
+                      </span>
+                      <span className="row__tag">{e.category}</span>
+                    </button>
+                  ))}
+                  {filteredEffects.length === 0 && (
+                    <p className="muted">No effects match the search.</p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {leftTab === 'text' && (
+              <>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Typography Presets</span>
+                    <span className="sect__meta">{typography.length}</span>
+                  </div>
+                  {typography.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`row ${selectedPreset === p.id ? 'row--active' : ''}`}
+                      onClick={() => setSelectedPreset(p.id)}
+                    >
+                      <span className="row__icon">
+                        <Icon name="text" size={13} />
+                      </span>
+                      <span className="row__body">
+                        <span
+                          className="row__title"
+                          style={{
+                            fontFamily: p.fontFamily,
+                            fontWeight: p.fontWeight,
+                            color: p.color,
+                          }}
+                        >
+                          {p.name}
+                        </span>
+                        <span className="row__sub">
+                          {p.animation} · {p.animationDuration}s · stagger {p.stagger}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                  {typography.length === 0 && <p className="muted">Loading engine data…</p>}
+                </div>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Variable Font Axes</span>
+                  </div>
+                  {[
+                    ['Weight', '100–900'],
+                    ['Slant', '-15° to 0°'],
+                    ['Width', '75–125'],
+                    ['Wiggle', '0–1'],
+                  ].map(([k, v]) => (
+                    <label key={k} className="field">
+                      <span className="field__label">{k}</span>
+                      <input className="field__input" defaultValue={v} aria-label={`${k} axis`} />
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {leftTab === 'modes' && (
+              <>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Creative Modes</span>
+                    <span className="sect__meta">{modes.length}</span>
+                  </div>
+                  <div className="cardgrid">
+                    {modes.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={`modecard ${selectedMode?.id === m.id ? 'modecard--active' : ''}`}
+                        onClick={() => {
+                          setSelectedMode(m);
+                          setInsTab('props');
+                        }}
+                      >
+                        <span className="modecard__stripe" style={{ background: '#ff5a2c' }} />
+                        <span className="modecard__name">{m.name}</span>
+                        <span className="modecard__meta">
+                          {m.mood} · {m.pace} · {m.duration}s
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {modes.length === 0 && <p className="muted">Loading engine data…</p>}
+                </div>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Templates</span>
+                    <span className="sect__meta">{TEMPLATES.length}</span>
+                  </div>
+                  <div className="cardgrid">
+                    {TEMPLATES.map((t) => (
+                      <button key={t.name} type="button" className="tplcard">
+                        <span className="tplcard__preview" style={{ background: t.bg }} />
+                        <span className="tplcard__meta">
+                          <span className="tplcard__name">{t.name}</span>
+                          <span className="tplcard__desc">{t.desc}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {leftTab === 'ai' && (
+              <>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Generate Concepts</span>
+                  </div>
+                  <div className="formrow">
+                    <label htmlFor="brief-obj">Objective</label>
+                    <input
+                      id="brief-obj"
+                      value={brief.objective}
+                      onChange={(e) => setBrief({ ...brief, objective: e.target.value })}
+                    />
+                  </div>
+                  <div className="formrow">
+                    <label htmlFor="brief-svc">Service</label>
+                    <select
+                      id="brief-svc"
+                      value={brief.service}
+                      onChange={(e) => setBrief({ ...brief, service: e.target.value })}
+                    >
+                      <option value="branding">Branding</option>
+                      <option value="signage">Signage</option>
+                      <option value="large-format-printing">Large Format</option>
+                      <option value="digital-printing">Digital Printing</option>
+                    </select>
+                  </div>
+                  <div className="formrow">
+                    <label htmlFor="brief-aud">Audience</label>
+                    <input
+                      id="brief-aud"
+                      value={brief.audience}
+                      onChange={(e) => setBrief({ ...brief, audience: e.target.value })}
+                    />
+                  </div>
+                  <div className="formrow">
+                    <label htmlFor="brief-emo">Emotional Goal</label>
+                    <input
+                      id="brief-emo"
+                      value={brief.emotional_objective}
+                      onChange={(e) => setBrief({ ...brief, emotional_objective: e.target.value })}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--primary btn--block"
+                    onClick={handleGenerate}
+                    disabled={generating}
+                  >
+                    <Icon name="sparkle" size={13} />
+                    {generating ? 'Generating…' : 'Generate Concepts'}
+                  </button>
+                  {genError && (
+                    <div className="err" role="alert">
+                      {genError}
+                    </div>
+                  )}
+                </div>
+                {generated.length > 0 && (
+                  <div className="sect">
+                    <div className="sect__head">
+                      <span className="sect__title">Concepts</span>
+                      <span className="sect__meta">{generated.length}</span>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {generated.map((c) => {
+                        const s = scoreOf(c);
+                        return (
+                          <div key={c.title} className="conceptcard">
+                            <ScoreRing value={s} />
+                            <div className="flex-1 min-w-0">
+                              <div className="conceptcard__title">{c.title}</div>
+                              <div className="conceptcard__log">{c.logline}</div>
+                              <div className="chip-row" style={{ marginTop: 6 }}>
+                                {c.territory && (
+                                  <span className="chip chip--cool">{c.territory}</span>
+                                )}
+                                {c.mood && <span className="chip">{c.mood}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">AI Tools</span>
+                  </div>
+                  <div className="cardgrid">
+                    {AI_TOOLS.map((t) => (
+                      <button key={t.name} type="button" className="card">
+                        <span className="card__icon">
+                          <Icon name={t.icon} size={14} />
+                        </span>
+                        <span className="card__title">{t.name}</span>
+                        <span className="card__desc">{t.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </aside>
+
+        {/* Stage */}
+        <div className="stagecol">
+          <div className="stagebar">
+            {STAGE_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={`stagetab ${activeStage === t.id ? 'stagetab--active' : ''}`}
+                onClick={() => setActiveStage(t.id)}
+              >
+                <Icon name={t.icon} size={13} />
+                {t.label}
+              </button>
+            ))}
+            <div className="flex-1" />
+            <div className="seg">
+              {[0.5, 1, 1.5].map((z) => (
+                <button
+                  key={z}
+                  type="button"
+                  className={`seg__btn ${stageZoom === z ? 'seg__btn--active' : ''}`}
+                  onClick={() => setStageZoom(z)}
+                >
+                  {Math.round(z * 100)}%
+                </button>
+              ))}
+            </div>
+            <SafeZoneControls
+              active={safeZonesActive}
+              ratio={safeZoneRatio}
+              onToggle={() => setSafeZonesActive(!safeZonesActive)}
+              onRatioChange={setSafeZoneRatio}
+            />
+          </div>
+          <div className="flex-1 min-h-0 flex flex-col">
+            {activeStage === 'comp' && (
+              <div className="viewport">
+                <div className="viewport__frame" style={{ transform: `scale(${stageZoom})` }}>
+                  <WebGPUCanvas />
+                  <SafeZones
+                    active={safeZonesActive}
+                    ratio={safeZoneRatio}
+                    onToggle={() => setSafeZonesActive(!safeZonesActive)}
+                    onRatioChange={setSafeZoneRatio}
+                  />
+                </div>
+                <div className="viewport__hud">
+                  <span className="hud-chip">
+                    <Icon name="monitor" size={11} />
+                    1920 × 1080
+                  </span>
+                  <span className="hud-chip">
+                    <Icon name="film" size={11} />
+                    30 fps
+                  </span>
+                  <span className="hud-chip">
+                    <Icon name="gauge" size={11} />
+                    {Math.round(stageZoom * 100)}%
+                  </span>
+                </div>
+                <div className="viewport__tc">
+                  {fmtTC(playhead)}
+                  <span className="muted"> / {fmtTC(DURATION)}</span>
+                </div>
+              </div>
+            )}
+            {activeStage === 'nodes' && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <NodeEditor
+                  dag={dag.dag}
+                  selectedNode={dag.selectedNode}
+                  onSelectNode={dag.setSelectedNode}
+                  onAddNode={dag.addNode}
+                  onRemoveNode={dag.removeNode}
+                  onUpdateNode={dag.updateNode}
+                  onAddEdge={dag.addEdge}
+                  onRemoveEdge={dag.removeEdge}
+                />
+              </div>
+            )}
+            {activeStage === 'script' && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ScriptEditor
+                  code={dag.code}
+                  onSync={dag.syncFromCode}
+                  compiledWGSL={dag.compiled.wgsl}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right inspector */}
+        <aside className="panel panel--right" aria-label="Inspector">
+          <div className="panel__tabs">
+            {INS_TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                title={t.label}
+                className={`panel__tab ${insTab === t.id ? 'panel__tab--active' : ''}`}
+                onClick={() => setInsTab(t.id)}
+              >
+                <Icon name={t.icon} size={13} />
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="panel__body scroll-thin">
+            {insTab === 'props' && (
+              <>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Composition</span>
+                    <span className="sect__meta">Comp 1</span>
+                  </div>
+                  <label className="field">
+                    <span className="field__label">Name</span>
+                    <input
+                      className="field__input"
+                      defaultValue="Untitled Composition"
+                      aria-label="Composition name"
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Resolution</span>
+                    <input
+                      className="field__input"
+                      defaultValue="1920"
+                      aria-label="Width"
+                      inputMode="numeric"
+                    />
+                    <span className="muted">×</span>
+                    <input
+                      className="field__input"
+                      defaultValue="1080"
+                      aria-label="Height"
+                      inputMode="numeric"
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Frame Rate</span>
+                    <input className="field__input" defaultValue="30 fps" aria-label="Frame rate" />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Duration</span>
+                    <input
+                      className="field__input"
+                      defaultValue={`${DURATION}.00 s`}
+                      aria-label="Duration"
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Background</span>
+                    <input
+                      className="field__input"
+                      defaultValue="#07090D"
+                      aria-label="Background color"
+                    />
+                  </label>
+                </div>
+
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Transform</span>
+                    <span className="sect__meta">px</span>
+                  </div>
+                  <label className="field">
+                    <span className="field__label">Position X</span>
+                    <input
+                      className="field__input"
+                      defaultValue="960.0"
+                      aria-label="Position X"
+                      inputMode="decimal"
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Position Y</span>
+                    <input
+                      className="field__input"
+                      defaultValue="540.0"
+                      aria-label="Position Y"
+                      inputMode="decimal"
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Scale</span>
+                    <input
+                      className="field__input"
+                      defaultValue="100.0 %"
+                      aria-label="Scale"
+                      inputMode="decimal"
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Rotation</span>
+                    <input
+                      className="field__input"
+                      defaultValue="0.0°"
+                      aria-label="Rotation"
+                      inputMode="decimal"
+                    />
+                  </label>
+                  <label className="field">
+                    <span className="field__label">Opacity</span>
+                    <input
+                      className="field__input"
+                      defaultValue="100 %"
+                      aria-label="Opacity"
+                      inputMode="decimal"
+                    />
+                  </label>
+                </div>
+
+                {selectedMode && (
+                  <div className="sect">
+                    <div className="sect__head">
+                      <span className="sect__title">Selected Mode</span>
+                      <span className="sect__meta">{selectedMode.id}</span>
+                    </div>
+                    <div className="row" style={{ cursor: 'default' }}>
+                      <span className="row__icon">
+                        <Icon name="layers" size={13} />
+                      </span>
+                      <span className="row__body">
+                        <span className="row__title">{selectedMode.name}</span>
+                        <span className="row__sub">{selectedMode.description}</span>
+                      </span>
+                    </div>
+                    <div className="chip-row" style={{ marginTop: 8 }}>
+                      <span className="chip chip--accent">{selectedMode.mood}</span>
+                      <span className="chip">{selectedMode.pace}</span>
+                      <span className="chip chip--cool">{selectedMode.duration}s</span>
+                      <span className="chip">{selectedMode.voice}</span>
+                      {selectedMode.requires3d && <span className="chip">3D</span>}
+                      {selectedMode.requiresVfx && <span className="chip">VFX</span>}
+                    </div>
+                  </div>
+                )}
+
+                {selectedClip && (
+                  <div className="sect">
+                    <div className="sect__head">
+                      <span className="sect__title">Selected Clip</span>
+                    </div>
+                    <label className="field">
+                      <span className="field__label">Layer</span>
+                      <input
+                        className="field__input"
+                        defaultValue={selectedClip}
+                        aria-label="Clip name"
+                      />
+                    </label>
+                  </div>
+                )}
+              </>
+            )}
+
+            {insTab === 'fx' && (
+              <>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Effects Stack</span>
+                    <span className="sect__meta">{effects.length}</span>
+                  </div>
+                  {effects.map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      className={`row ${selectedEffect === e.id ? 'row--active' : ''}`}
+                      onClick={() => setSelectedEffect(e.id)}
+                    >
+                      <span className="row__icon">
+                        <Icon name={fxIcon(e.category)} size={13} />
+                      </span>
+                      <span className="row__body">
+                        <span className="row__title">{e.name}</span>
+                        <span className="row__sub">{e.category}</span>
+                      </span>
+                      <Icon name="more" size={13} />
+                    </button>
+                  ))}
+                  {effects.length === 0 && <p className="muted">Loading engine data…</p>}
+                </div>
+                {selectedEffect && (
+                  <div className="sect">
+                    <div className="sect__head">
+                      <span className="sect__title">Parameters</span>
+                    </div>
+                    {Object.entries(
+                      effects.find((e) => e.id === selectedEffect)?.parameters ?? {},
+                    ).map(([k, v]) => (
+                      <label key={k} className="field">
+                        <span className="field__label">{k}</span>
+                        <input className="field__input" defaultValue={String(v)} aria-label={k} />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {insTab === 'color' && <BrandLUTPanel active={brandLUT} onChange={setBrandLUT} />}
+            {insTab === 'export' && <ExportPanel />}
+          </div>
+        </aside>
+      </div>
+
+      {/* ── Timeline ───────────────────────────────────────────────────── */}
+      <section className="timeline" aria-label="Timeline">
+        <div className="timeline__bar">
+          <div className="timeline__transport">
+            <button
+              type="button"
+              className="tbtn"
+              title="Go to start"
+              onClick={() => setPlayhead(0)}
+            >
+              <Icon name="skipBack" size={15} />
+            </button>
+            <button
+              type="button"
+              className="tbtn tbtn--play"
+              title={playing ? 'Pause (Space)' : 'Play (Space)'}
+              onClick={() => setPlaying((p) => !p)}
+            >
+              <Icon name={playing ? 'pause' : 'play'} size={15} />
+            </button>
+            <button
+              type="button"
+              className="tbtn"
+              title="Go to end"
+              onClick={() => setPlayhead(DURATION)}
+            >
+              <Icon name="skipFwd" size={15} />
+            </button>
+            <button type="button" className="tbtn tbtn--rec" title="Record">
+              <Icon name="record" size={13} />
+            </button>
+          </div>
+          <div className="timeline__tc">
+            <span className="timeline__tc-time">{fmtTC(playhead)}</span>
+            <span className="timeline__tc-dur">/ {fmtTC(DURATION)}</span>
+          </div>
+          <span className="ctxbar__sep" aria-hidden="true" />
+          <span className="ctxbar__label">
+            1920×1080 · {FPS} fps · {DURATION}s
+          </span>
+          <div className="timeline__zoom">
+            <Icon name="zoom" size={13} />
+            <input
+              type="range"
+              min={50}
+              max={300}
+              step={10}
+              value={Math.round(tlZoom * 100)}
+              onChange={(e) => setTlZoom(Number(e.target.value) / 100)}
+              aria-label="Timeline zoom"
+            />
+            <span className="sect__meta">{Math.round(tlZoom * 100)}%</span>
+          </div>
+        </div>
+        <div className="timeline__scroll">
+          <div className="trackhead">
+            <div className="trackhead__ruler-spacer">Tracks</div>
+            {tracks.map((t) => {
+              const st = trackState[t.id] ?? { visible: true, locked: false };
+              return (
+                <div key={t.id} className="trackhead__row">
+                  <span className="trackhead__dot" style={{ background: t.color }} />
+                  <span className="trackhead__name">{t.name}</span>
+                  <button
+                    type="button"
+                    className={`trackhead__btn ${st.visible ? 'trackhead__btn--on' : ''}`}
+                    title={st.visible ? 'Hide track' : 'Show track'}
+                    aria-label={`${st.visible ? 'Hide' : 'Show'} ${t.name} track`}
+                    aria-pressed={st.visible}
+                    onClick={() => toggleTrack(t.id, 'visible')}
+                  >
+                    <Icon name={st.visible ? 'eye' : 'eyeOff'} size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`trackhead__btn ${st.locked ? 'trackhead__btn--locked' : ''}`}
+                    title={st.locked ? 'Unlock track' : 'Lock track'}
+                    aria-label={`${st.locked ? 'Unlock' : 'Lock'} ${t.name} track`}
+                    aria-pressed={st.locked}
+                    onClick={() => toggleTrack(t.id, 'locked')}
+                  >
+                    <Icon name={st.locked ? 'lock' : 'unlock'} size={12} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="tracks scroll-thin">
+            <div className="relative" style={{ width: `${tlZoom * 100}%` }}>
+              <button
+                type="button"
+                className="ruler w-full"
+                aria-label="Seek timeline"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pct = (e.clientX - rect.left) / rect.width;
+                  setPlayhead(Math.max(0, Math.min(DURATION, pct * DURATION)));
+                }}
+              >
+                {RULER_TICKS.map((s) => (
+                  <span
+                    key={s}
+                    className="ruler__tick"
+                    style={{ left: `${(s / DURATION) * 100}%` }}
+                  >
+                    0:{String(s).padStart(2, '0')}
+                  </span>
+                ))}
+              </button>
+              {tracks.map((t) => {
+                const st = trackState[t.id] ?? { visible: true, locked: false };
+                return (
+                  <div key={t.id} className="lane">
+                    {st.visible &&
+                      t.clips.map((c) => (
+                        <button
+                          key={c.name}
+                          type="button"
+                          className="clip"
+                          title={c.name}
+                          onClick={() => setSelectedClip(c.name)}
+                          style={{
+                            left: `${(c.start / DURATION) * 100}%`,
+                            width: `${((c.end - c.start) / DURATION) * 100}%`,
+                            background: `linear-gradient(180deg, ${t.color}55, ${t.color}33)`,
+                            borderColor: `${t.color}aa`,
+                            opacity: st.locked ? 0.55 : 1,
+                          }}
+                        >
+                          <Icon name={t.icon} size={11} />
+                          <span className="clip__name">{c.name}</span>
+                        </button>
+                      ))}
+                  </div>
+                );
+              })}
+              <div className="playhead" style={{ left: `${(playhead / DURATION) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Quick Apply palette ────────────────────────────────────────── */}
       <AnimatePresence>
         {showQuickApply && (
           <motion.div
@@ -158,650 +1433,33 @@ export function App() {
             }}
           >
             <div className="qa-panel">
-              <input
-                placeholder="Search effects, fonts, modes, grammars…"
-                value={quickApply}
-                onChange={(e) => setQuickApply(e.target.value)}
-                className="w-full px-4 py-3 bg-transparent border-b border-line text-sm outline-none placeholder:text-muted"
-              />
-              <ul className="qa-list">
+              <div className="qa-panel__input">
+                <Icon name="search" size={15} />
+                <input
+                  placeholder="Search effects, fonts, modes, grammars…"
+                  aria-label="Search commands"
+                  value={quickApply}
+                  onChange={(e) => setQuickApply(e.target.value)}
+                />
+                <span className="kbd">Esc</span>
+              </div>
+              <ul className="qa-list scroll-thin">
                 {quickApplyItems.slice(0, 18).map((x) => (
-                  <li
-                    key={x.type + x.id}
-                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 cursor-pointer text-sm"
-                  >
-                    <span className="text-[10px] uppercase tracking-wider text-accent font-mono w-16">
-                      {x.type}
-                    </span>
-                    <span>{x.name}</span>
+                  <li key={x.kind + x.id}>
+                    <button type="button" onClick={() => applyQAItem(x)}>
+                      <span className="qa-list__kind">{x.kind}</span>
+                      <span>{x.name}</span>
+                    </button>
                   </li>
                 ))}
+                {quickApplyItems.length === 0 && (
+                  <li className="muted px-4 py-6 text-center text-xs">No matches</li>
+                )}
               </ul>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── Main Workspace ── */}
-      <div className="workspace">
-        <Toolbar active={selectedTool} onChange={setSelectedTool} />
-
-        <aside className="rail--left-panel">
-          <div className="rail--left-panel__tabs">
-            {(['assets', 'layers', 'templates', 'ai'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={leftTab === t ? 'active' : ''}
-                onClick={() => setLeftTab(t)}
-              >
-                {t[0].toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div className="rail--left-panel__body">
-            <GenrePanel active={genre} />
-            {leftTab === 'assets' && (
-              <>
-                <div className="rail__section">
-                  <div className="rail__section-title">Visual Grammars</div>
-                  {grammars.map((g) => (
-                    <button key={g.name} type="button" className="rail__item" onClick={() => {}}>
-                      <span className="rail__item-title">{g.name}</span>
-                      <span className="rail__item-sub">{g.sequence.length} beats</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="rail__section">
-                  <div className="rail__section-title">Territories</div>
-                  <div className="chip-row">
-                    {Array.from(new Set(modes.flatMap((m) => m.territories))).map((t) => (
-                      <span key={t} className="chip">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-            {leftTab === 'templates' && (
-              <div className="rail__section">
-                <div className="rail__section-title">Templates</div>
-                {[
-                  {
-                    name: 'Case File Reveal',
-                    desc: 'Suspenseful investigative flow',
-                    bg: 'linear-gradient(135deg,#1a1a2e,#16213e)',
-                  },
-                  {
-                    name: 'Evidence Board',
-                    desc: 'Pin clues on a corkboard',
-                    bg: 'linear-gradient(135deg,#0f2027,#203a43)',
-                  },
-                  {
-                    name: 'Interrogation Room',
-                    desc: 'Dramatic single-subject interview',
-                    bg: 'linear-gradient(135deg,#2c3e50,#4ca1af)',
-                  },
-                  {
-                    name: 'Data Reveal',
-                    desc: 'Animated chart with kinetic numbers',
-                    bg: 'linear-gradient(135deg,#134e5e,#71b280)',
-                  },
-                  {
-                    name: 'Process Flow',
-                    desc: 'Step-by-step node animation',
-                    bg: 'linear-gradient(135deg,#4b1248,#f09819)',
-                  },
-                ].map((t) => (
-                  <div key={t.name} className="template-card">
-                    <div className="template-card__preview" style={{ background: t.bg }} />
-                    <div className="template-card__name">{t.name}</div>
-                    <div className="template-card__desc">{t.desc}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {leftTab === 'ai' && (
-              <div className="rail__section">
-                <div className="rail__section-title">AI Tools</div>
-                {[
-                  {
-                    icon: '✂',
-                    name: 'Object Matte',
-                    desc: 'AI subject isolation & tracking masks',
-                  },
-                  {
-                    icon: '⟳',
-                    name: 'Generative Extend',
-                    desc: 'Extend clip duration with AI frames',
-                  },
-                  { icon: '⊘', name: 'Unmult', desc: 'Remove black/white matted backgrounds' },
-                  { icon: '≋', name: 'Curl Noise', desc: 'Procedural fluid dynamics & particles' },
-                ].map((t) => (
-                  <div key={t.name} className="ai-tool">
-                    <div className="ai-tool__icon">{t.icon}</div>
-                    <div className="ai-tool__body">
-                      <div className="ai-tool__name">{t.name}</div>
-                      <div className="ai-tool__desc">{t.desc}</div>
-                    </div>
-                    <button type="button" className="btn btn--sm">
-                      Run
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            {leftTab === 'layers' && (
-              <div className="rail__section">
-                <div className="rail__section-title">Layers</div>
-                {['Background', 'Title Text', 'Subtitle', 'Logo', 'VFX: Glow', 'Audio Track'].map(
-                  (l, i) => (
-                    <div key={l} className="layer-row">
-                      <span className="layer__eye">◉</span>
-                      <span className="layer__name">{l}</span>
-                      <span className="layer__type">
-                        {i < 3 ? 'txt' : i === 3 ? 'img' : i === 4 ? 'fx' : 'aud'}
-                      </span>
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-          </div>
-        </aside>
-
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="h-9 flex items-center gap-1 px-3 border-b border-line bg-ink-2 shrink-0">
-            <button
-              type="button"
-              className={`px-3 h-7 rounded text-xs font-medium transition-all ${activeTab === 'canvas' ? 'bg-white/10 text-text' : 'text-muted hover:text-text'}`}
-              onClick={() => setActiveTab('canvas')}
-            >
-              Canvas
-            </button>
-            <button
-              type="button"
-              className={`px-3 h-7 rounded text-xs font-medium transition-all ${activeTab === 'nodes' ? 'bg-white/10 text-text' : 'text-muted hover:text-text'}`}
-              onClick={() => setActiveTab('nodes')}
-            >
-              Nodes
-            </button>
-            <button
-              type="button"
-              className={`px-3 h-7 rounded text-xs font-medium transition-all ${activeTab === 'timeline' ? 'bg-white/10 text-text' : 'text-muted hover:text-text'}`}
-              onClick={() => setActiveTab('timeline')}
-            >
-              Timeline
-            </button>
-            <button
-              type="button"
-              className={`px-3 h-7 rounded text-xs font-medium transition-all ${activeTab === 'ai' ? 'bg-white/10 text-text' : 'text-muted hover:text-text'}`}
-              onClick={() => setActiveTab('ai')}
-            >
-              AI
-            </button>
-            <button
-              type="button"
-              className={`px-3 h-7 rounded text-xs font-medium transition-all ${activeTab === 'threed' ? 'bg-white/10 text-text' : 'text-muted hover:text-text'}`}
-              onClick={() => setActiveTab('threed')}
-            >
-              3D
-            </button>
-          </div>
-
-          {activeTab === 'canvas' && (
-            <div className="flex-1 relative overflow-hidden">
-              <WebGPUCanvas />
-              <SafeZones
-                active={safeZonesActive}
-                ratio={safeZoneRatio}
-                onToggle={() => setSafeZonesActive(!safeZonesActive)}
-                onRatioChange={setSafeZoneRatio}
-              />
-              <div className="absolute top-2 right-2">
-                <SafeZoneControls
-                  active={safeZonesActive}
-                  ratio={safeZoneRatio}
-                  onToggle={() => setSafeZonesActive(!safeZonesActive)}
-                  onRatioChange={setSafeZoneRatio}
-                />
-              </div>
-            </div>
-          )}
-          {activeTab === 'nodes' && (
-            <div className="flex-1 overflow-hidden">
-              <NodeEditor
-                dag={dag.dag}
-                selectedNode={dag.selectedNode}
-                onSelectNode={dag.setSelectedNode}
-                onAddNode={dag.addNode}
-                onRemoveNode={dag.removeNode}
-                onUpdateNode={dag.updateNode}
-                onAddEdge={dag.addEdge}
-                onRemoveEdge={dag.removeEdge}
-              />
-            </div>
-          )}
-          {activeTab === 'timeline' && (
-            <div className="flex-1 overflow-hidden">
-              <Timeline />
-            </div>
-          )}
-          {activeTab === 'ai' && (
-            <div className="flex-1 overflow-auto p-6">
-              <h3 className="text-lg font-semibold mb-4">AI & Next-Level Visual Effects</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  {
-                    icon: '✂',
-                    name: 'Object Matte',
-                    desc: 'AI subject isolation & tracking masks (Roto Brush successor)',
-                  },
-                  {
-                    icon: '⟳',
-                    name: 'Generative Extend',
-                    desc: 'Extend clip duration with AI-generated frames',
-                  },
-                  {
-                    icon: '⊘',
-                    name: 'Unmult',
-                    desc: 'Remove black/white matted backgrounds (fire, smoke, UI)',
-                  },
-                  { icon: '≋', name: 'Curl Noise', desc: 'Procedural fluid dynamics & particles' },
-                ].map((t) => (
-                  <div
-                    key={t.name}
-                    className="p-4 rounded-xl border border-line bg-ink-2 hover:border-accent/40 transition-colors cursor-pointer"
-                  >
-                    <div className="text-2xl mb-2">{t.icon}</div>
-                    <div className="text-sm font-medium">{t.name}</div>
-                    <div className="text-xs text-muted mt-1">{t.desc}</div>
-                    <button
-                      type="button"
-                      className="mt-3 px-3 py-1 text-xs font-medium rounded-md bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors"
-                    >
-                      Run
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {activeTab === 'threed' && (
-            <div className="flex-1 overflow-auto p-6">
-              <h3 className="text-lg font-semibold mb-4">Native 3D Design</h3>
-              <div className="relative h-64 rounded-xl border border-line bg-ink-2 overflow-hidden mb-4">
-                <div
-                  className="absolute inset-0 opacity-40"
-                  style={{
-                    backgroundImage:
-                      'linear-gradient(#1a1e28 1px, transparent 1px), linear-gradient(90deg, #1a1e28 1px, transparent 1px)',
-                    backgroundSize: '30px 30px',
-                    transform: 'perspective(400px) rotateX(50deg)',
-                  }}
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-xs text-muted font-mono uppercase tracking-widest">
-                    3D Viewport (GPU-accelerated)
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  ['Mesh', 'Parametric Cube'],
-                  ['Material', 'Substance 3D (1,300+)'],
-                  ['Aperture', '2.8'],
-                  ['Focus Distance', '5.0m'],
-                  ['Blur', '0.4'],
-                  ['Shadow Catcher', 'On'],
-                ].map(([k, v]) => (
-                  <div
-                    key={k}
-                    className="flex justify-between px-3 py-2 rounded-md bg-ink-2 border border-line text-xs"
-                  >
-                    <span className="text-muted">{k}</span>
-                    <span className="font-mono">{v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <aside className="w-72 border-l border-line bg-ink-2 flex flex-col shrink-0 overflow-hidden">
-          <div className="flex border-b border-line">
-            {(
-              [
-                'properties',
-                'effects',
-                'fonts',
-                'transitions',
-                'threed',
-                'code',
-                'export',
-                'brand',
-              ] as const
-            ).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setRightTab(t)}
-                className={`flex-1 py-2 text-[10px] uppercase tracking-wider font-semibold transition-colors ${rightTab === t ? 'text-text border-b-2 border-accent' : 'text-muted hover:text-text'}`}
-              >
-                {t === 'threed'
-                  ? '3D'
-                  : t === 'code'
-                    ? 'Code'
-                    : t === 'export'
-                      ? 'Export'
-                      : t === 'brand'
-                        ? 'LUT'
-                        : t}
-              </button>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
-            {rightTab === 'properties' &&
-              (selectedMode ? (
-                <>
-                  <div className="text-sm font-semibold">{selectedMode.name}</div>
-                  <p className="text-xs text-muted mt-1">{selectedMode.description}</p>
-                  <div className="mt-3 space-y-1.5">
-                    {[
-                      ['Mode', selectedMode.id],
-                      ['Mood', selectedMode.mood],
-                      ['Pace', selectedMode.pace],
-                      ['Duration', `${selectedMode.duration}s`],
-                      ['Voice', selectedMode.voice],
-                      ['3D', selectedMode.requires3d ? 'yes' : 'no'],
-                      ['VFX', selectedMode.requiresVfx ? 'yes' : 'no'],
-                      ['Formats', selectedMode.formats.join(', ')],
-                    ].map(([k, v]) => (
-                      <div
-                        key={k}
-                        className="flex justify-between text-xs py-1 border-b border-line/50"
-                      >
-                        <span className="text-muted">{k}</span>
-                        <span className="font-mono">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <p className="text-xs text-muted">Select a mode to inspect.</p>
-              ))}
-            {rightTab === 'effects' && (
-              <>
-                <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mb-2">
-                  Effects Stack
-                </div>
-                <div className="space-y-1">
-                  {effects.map((e) => (
-                    <button
-                      key={e.id}
-                      type="button"
-                      onClick={() => setSelectedEffect(e.id)}
-                      className={`w-full text-left px-2.5 py-2 rounded-md transition-all ${selectedEffect === e.id ? 'bg-accent/10 border border-accent/30' : 'hover:bg-white/5 border border-transparent'}`}
-                    >
-                      <div className="text-xs font-medium">{e.name}</div>
-                      <div className="text-[10px] text-muted">{e.category}</div>
-                    </button>
-                  ))}
-                </div>
-                {selectedEffect && (
-                  <div className="mt-3">
-                    <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mb-2">
-                      Parameters
-                    </div>
-                    <div className="space-y-1">
-                      {Object.entries(
-                        effects.find((e) => e.id === selectedEffect)?.parameters ?? {},
-                      ).map(([k, v]) => (
-                        <div
-                          key={k}
-                          className="flex justify-between text-xs py-1 border-b border-line/50"
-                        >
-                          <span className="text-muted">{k}</span>
-                          <span className="font-mono">{String(v)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            {rightTab === 'fonts' && (
-              <>
-                <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mb-2">
-                  Typography Presets
-                </div>
-                <div className="space-y-1">
-                  {typography.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setSelectedPreset(p.id)}
-                      className={`w-full text-left px-2.5 py-2 rounded-md transition-all ${selectedPreset === p.id ? 'bg-accent/10 border border-accent/30' : 'hover:bg-white/5 border border-transparent'}`}
-                    >
-                      <div
-                        className="text-xs font-medium"
-                        style={{
-                          fontFamily: p.fontFamily,
-                          fontWeight: p.fontWeight,
-                          color: p.color,
-                        }}
-                      >
-                        {p.name}
-                      </div>
-                      <div className="text-[10px] text-muted">
-                        {p.animation} · {p.animationDuration}s · stagger {p.stagger}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mb-2">
-                    Variable Font Axes
-                  </div>
-                  <div className="space-y-1">
-                    {[
-                      ['Weight', '100–900'],
-                      ['Slant', '-15° to 0°'],
-                      ['Width', '75–125'],
-                      ['Wiggle', '0–1'],
-                    ].map(([k, v]) => (
-                      <div
-                        key={k}
-                        className="flex justify-between text-xs py-1 border-b border-line/50"
-                      >
-                        <span className="text-muted">{k}</span>
-                        <span className="font-mono">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-            {rightTab === 'transitions' && (
-              <>
-                <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mb-2">
-                  Transitions
-                </div>
-                <div className="space-y-1">
-                  {effects
-                    .filter((e) => e.category === 'TRANSITION')
-                    .map((e) => (
-                      <div
-                        key={e.id}
-                        className="px-2.5 py-2 rounded-md hover:bg-white/5 cursor-pointer"
-                      >
-                        <div className="text-xs font-medium">{e.name}</div>
-                        <div className="text-[10px] text-muted font-mono">
-                          {JSON.stringify(e.parameters)}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-                <div className="mt-4 p-2.5 rounded-md bg-white/5 text-xs text-muted">
-                  <strong className="text-text">Quick Offset:</strong> Hold Ctrl+Alt / Cmd+Opt and
-                  drag to stagger layers & keyframes.
-                </div>
-              </>
-            )}
-            {rightTab === 'threed' && (
-              <>
-                <div className="text-[11px] uppercase tracking-wider text-muted font-semibold mb-2">
-                  3D Properties
-                </div>
-                <div className="space-y-1">
-                  {[
-                    ['Mesh', 'Parametric Cube'],
-                    ['Material', 'Substance 3D (1,300+)'],
-                    ['Aperture', '2.8'],
-                    ['Focus Distance', '5.0m'],
-                    ['Blur', '0.4'],
-                    ['Shadow Catcher', 'On'],
-                  ].map(([k, v]) => (
-                    <div
-                      key={k}
-                      className="flex justify-between text-xs py-1 border-b border-line/50"
-                    >
-                      <span className="text-muted">{k}</span>
-                      <span className="font-mono">{v}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-            {rightTab === 'code' && (
-              <div className="h-full">
-                <ScriptEditor
-                  code={dag.code}
-                  onSync={dag.syncFromCode}
-                  compiledWGSL={dag.compiled.wgsl}
-                />
-              </div>
-            )}
-            {rightTab === 'export' && <ExportPanel />}
-            {rightTab === 'brand' && <BrandLUTPanel active={brandLUT} onChange={setBrandLUT} />}
-          </div>
-        </aside>
-      </div>
-
-      {/* ── Timeline (full width, bottom) ── */}
-      <Timeline />
-
-      {/* ── Bottom Panel: Concept Generation ── */}
-      <div className="border-t border-line bg-ink-2 p-4 shrink-0 max-h-72 overflow-y-auto">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold">Generate Concepts</h3>
-        </div>
-        <div className="flex gap-2 flex-wrap mb-3">
-          <select
-            value={brief.service}
-            onChange={(e) => setBrief({ ...brief, service: e.target.value })}
-            className="px-2.5 py-1.5 rounded-md bg-ink border border-line text-xs"
-          >
-            <option value="branding">Branding</option>
-            <option value="signage">Signage</option>
-            <option value="large-format-printing">Large Format</option>
-            <option value="digital-printing">Digital Printing</option>
-          </select>
-          <input
-            value={brief.objective}
-            onChange={(e) => setBrief({ ...brief, objective: e.target.value })}
-            placeholder="Objective"
-            className="px-2.5 py-1.5 rounded-md bg-ink border border-line text-xs flex-1 min-w-[200px]"
-          />
-          <input
-            value={brief.audience}
-            onChange={(e) => setBrief({ ...brief, audience: e.target.value })}
-            placeholder="Audience"
-            className="px-2.5 py-1.5 rounded-md bg-ink border border-line text-xs flex-1 min-w-[140px]"
-          />
-          <input
-            value={brief.emotional_objective}
-            onChange={(e) => setBrief({ ...brief, emotional_objective: e.target.value })}
-            placeholder="Emotional objective"
-            className="px-2.5 py-1.5 rounded-md bg-ink border border-line text-xs flex-1 min-w-[140px]"
-          />
-          <button
-            type="button"
-            className="px-4 py-1.5 rounded-md bg-accent text-white text-xs font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
-            onClick={handleGenerate}
-            disabled={generating}
-          >
-            {generating ? 'Generating…' : 'Generate'}
-          </button>
-        </div>
-        {genError && <div className="text-xs text-red-400 mb-2">{genError}</div>}
-        {generated.length > 0 && (
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {generated.map((c) => {
-              const s = scoreOf(c);
-              return (
-                <div
-                  key={c.title}
-                  className="shrink-0 w-72 p-3 rounded-lg bg-ink border border-line"
-                >
-                  <div className="flex items-start gap-3">
-                    <ScoreRing value={s} />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-semibold truncate">{c.title}</h4>
-                      <p className="text-[10px] text-muted mt-1 line-clamp-2">{c.logline}</p>
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {c.territory && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-cool/10 text-cool">
-                            {c.territory}
-                          </span>
-                        )}
-                        {c.mood && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-white/5 text-muted">
-                            {c.mood}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Bottom Panel: Creative Modes ── */}
-      <div className="border-t border-line bg-ink-2 p-4 shrink-0 max-h-64 overflow-y-auto">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold">Creative Modes</h3>
-          <span className="text-xs text-muted font-mono">{modes.length} modes</span>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          {modes.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              onClick={() => setSelectedMode(m)}
-              className={`p-2.5 rounded-lg border text-left transition-all ${selectedMode?.id === m.id ? 'border-accent/50 bg-accent/5' : 'border-line hover:border-white/20 bg-ink'}`}
-            >
-              <div className="text-xs font-medium truncate">{m.name}</div>
-              <div className="text-[10px] text-muted mt-0.5 truncate">
-                {m.mood} · {m.pace} · {m.duration}s
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function _Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="px-3 py-2 rounded-lg bg-white/5 border border-line">
-      <div className="text-lg font-bold tracking-tight">{value}</div>
-      <div className="text-[10px] uppercase tracking-wider text-muted mt-0.5">{label}</div>
     </div>
   );
 }
@@ -811,9 +1469,9 @@ function ScoreRing({ value }: { value: number }) {
   const c = 2 * Math.PI * r;
   const offset = c * (1 - Math.max(0, Math.min(1, value)));
   return (
-    <svg width="44" height="44" viewBox="0 0 44 44" role="img" aria-label="Score ring">
+    <svg width="44" height="44" viewBox="0 0 44 44" role="img" aria-label="Concept score">
       <title>Score</title>
-      <circle cx="22" cy="22" r={r} fill="none" stroke="#232836" strokeWidth="3" />
+      <circle cx="22" cy="22" r={r} fill="none" stroke="#1b2230" strokeWidth="3" />
       <circle
         cx="22"
         cy="22"
@@ -832,7 +1490,7 @@ function ScoreRing({ value }: { value: number }) {
         textAnchor="middle"
         fontSize="10"
         fontWeight="700"
-        fill="#e8eaef"
+        fill="#e9ecf3"
         fontFamily="ui-monospace, monospace"
       >
         {(value * 100).toFixed(0)}

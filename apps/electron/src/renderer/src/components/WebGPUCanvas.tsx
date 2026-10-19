@@ -161,13 +161,10 @@ export function WebGPUCanvas() {
         </div>
       )}
       {status === 'error' && (
-        <div className="absolute inset-0 flex items-center justify-center text-red-400 text-sm">
-          {errorMsg}
-        </div>
-      )}
-      {status === 'ready' && (
-        <div className="absolute bottom-3 left-3 px-2 py-1 rounded bg-black/50 text-[10px] font-mono text-muted backdrop-blur">
-          WebGPU · WGSL
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="px-3 py-1.5 rounded-md border border-warning/40 bg-warning/10 text-warning text-xs font-mono">
+            {errorMsg}
+          </span>
         </div>
       )}
     </div>
