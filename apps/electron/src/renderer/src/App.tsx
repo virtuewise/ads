@@ -12,7 +12,19 @@ import { SafeZoneControls, SafeZones } from './components/SafeZones';
 import { ScriptEditor } from './components/ScriptEditor';
 import { WebGPUCanvas } from './components/WebGPUCanvas';
 import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
+import type { Command, DocumentStore } from './engine/history';
+import {
+  canRedo,
+  canUndo,
+  createDocumentStore,
+  dispatch,
+  redo,
+  replaceDoc,
+  undo,
+} from './engine/history';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
+import type { Selection, SelTarget } from './engine/selection';
+import { createSelection, deselectAll, select, selectionCount } from './engine/selection';
 import {
   addKeyframe,
   clipsFor,
@@ -20,6 +32,7 @@ import {
   moveKeyframe,
   removeKeyframe,
   setClipRange,
+  splitClip,
   TRACKS,
 } from './engine/timeline';
 import type {
@@ -248,6 +261,22 @@ export function App() {
   const [selectedClip, setSelectedClip] = useState<string | null>(null);
   const [fxQuery, setFxQuery] = useState('');
 
+  // ── History (undo/redo) ───────────────────────────────────────────────────
+  const [historyStore, setHistoryStore] = useState<DocumentStore>(() =>
+    createDocumentStore(
+      buildProject({
+        composition: createDefaultComposition(),
+        genre: 'corporate',
+        safeZones: { active: false, ratio: '16:9' },
+        brandLUT: 'none',
+        timeline: { duration: createDefaultComposition().duration, clips: [] },
+        graph: { nodes: [], edges: [] },
+        effectsStack: [],
+      }),
+    ),
+  );
+  const [selection, setSelection] = useState<Selection>(createSelection());
+
   // ── Playback ──────────────────────────────────────────────────────────────
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(1.6);
@@ -375,6 +404,22 @@ export function App() {
         actionsRef.current.export();
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          const s = redo(historyStore);
+          setHistoryStore(s);
+        } else {
+          const s = undo(historyStore);
+          setHistoryStore(s);
+        }
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        setHistoryStore(redo(historyStore));
+        return;
+      }
       if (e.key === 'Escape') {
         setShowQuickApply(false);
         setOpenMenu(null);
@@ -407,7 +452,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [historyStore]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const runMenuAction = (label: string) => {
@@ -433,6 +478,12 @@ export function App() {
       setSaveAsOpen(true);
     } else if (label === 'Add Keyframe') {
       addKeyframeAtPlayhead();
+    } else if (label === 'Undo') {
+      setHistoryStore(undo(historyStore));
+    } else if (label === 'Redo') {
+      setHistoryStore(redo(historyStore));
+    } else if (label === 'Split at Playhead') {
+      splitAtPlayhead();
     }
   };
 
@@ -502,6 +553,32 @@ export function App() {
   const notify = (msg: string) => {
     setStatusMsg(msg);
     window.setTimeout(() => setStatusMsg((m) => (m === msg ? null : m)), 3200);
+  };
+
+  /** Dispatch a timeline transform through the history stack. */
+  const dispatchTimeline = (label: string, fn: (doc: TimelineDoc) => TimelineDoc) => {
+    const fromDoc = timelineDoc;
+    const toDoc = fn(fromDoc);
+    if (fromDoc === toDoc) return;
+    const cmd: Command = {
+      id: `cmd-${Date.now().toString(36)}`,
+      label,
+      do: () => toDoc as unknown as never,
+      undo: () => fromDoc as unknown as never,
+    };
+    setHistoryStore((s) => ({
+      ...dispatch(s, cmd),
+      doc: { ...s.doc, timeline: toDoc } as never,
+    }));
+    setTimelineDoc(toDoc);
+    touch();
+  };
+
+  /** Split the selected clip at the playhead. */
+  const splitAtPlayhead = () => {
+    if (!selectedClip) return;
+    dispatchTimeline('Split Clip', (doc) => splitClip(doc, selectedClip, playhead));
+    notify('Clip split at playhead');
   };
 
   const updateTransform = (patch: Partial<TransformState>) => {
@@ -792,6 +869,11 @@ export function App() {
     deleteClip: () => void;
     export: () => void;
     canDelete: () => boolean;
+    undo: () => void;
+    redo: () => void;
+    canUndo: () => boolean;
+    canRedo: () => boolean;
+    split: () => void;
   }>({
     save: () => {},
     saveAs: () => {},
@@ -801,6 +883,11 @@ export function App() {
     deleteClip: () => {},
     export: () => {},
     canDelete: () => false,
+    undo: () => {},
+    redo: () => {},
+    canUndo: () => false,
+    canRedo: () => false,
+    split: () => {},
   });
   actionsRef.current = {
     save: () => saveProject(docFormat, docPath == null),
@@ -814,6 +901,11 @@ export function App() {
       setActiveStage('comp');
     },
     canDelete: () => selectedClip != null,
+    undo: () => setHistoryStore(undo(historyStore)),
+    redo: () => setHistoryStore(redo(historyStore)),
+    canUndo: () => canUndo(historyStore),
+    canRedo: () => canRedo(historyStore),
+    split: splitAtPlayhead,
   };
 
   const activeTool = TOOLS.find((t) => t.id === tool);

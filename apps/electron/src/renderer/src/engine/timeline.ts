@@ -165,6 +165,32 @@ export function trimClip(
   return { ...doc, clips: doc.clips.map((c) => (c.id === id ? { ...c, ...next } : c)) };
 }
 
+/** Split a clip at a given time, returning two clips. */
+export function splitClip(doc: TimelineDoc, id: string, time: number): TimelineDoc {
+  const clip = findClip(doc, id);
+  if (!clip) return doc;
+  const t = clamp(time, clip.start + 0.2, clip.end - 0.2);
+  if (t <= clip.start || t >= clip.end) return doc;
+  const left: TimelineClip = {
+    ...clip,
+    id: nextId('clip'),
+    start: clip.start,
+    end: t,
+    keyframes: clip.keyframes.filter((k) => k.time <= t),
+  };
+  const right: TimelineClip = {
+    ...clip,
+    id: nextId('clip'),
+    start: t,
+    end: clip.end,
+    keyframes: clip.keyframes.filter((k) => k.time >= t).map((k) => ({ ...k, id: nextId('kf') })),
+  };
+  return {
+    ...doc,
+    clips: [...doc.clips.filter((c) => c.id !== id), left, right].sort((a, b) => a.start - b.start),
+  };
+}
+
 export function addKeyframe(
   doc: TimelineDoc,
   clipId: string,
@@ -235,10 +261,18 @@ export function setKeyframeEasing(
   };
 }
 
-/** Sample an eased value across a clip's keyframes at a given time. */
-export function sampleKeyframes(keyframes: Keyframe[], time: number, fallback = 1): number {
-  if (keyframes.length === 0) return fallback;
-  const sorted = [...keyframes].sort((a, b) => a.time - b.time);
+/** Sample an eased value across a clip's keyframes at a given time.
+ *  Pass `property` to filter to a single property channel (recommended).
+ *  Without a property filter, keyframes of different properties may cross-contaminate. */
+export function sampleKeyframes(
+  keyframes: Keyframe[],
+  time: number,
+  fallback = 1,
+  property?: string,
+): number {
+  const filtered = property ? keyframes.filter((k) => k.property === property) : keyframes;
+  if (filtered.length === 0) return fallback;
+  const sorted = [...filtered].sort((a, b) => a.time - b.time);
   if (time <= sorted[0].time) return sorted[0].value;
   const last = sorted[sorted.length - 1];
   if (time >= last.time) return last.value;
@@ -252,6 +286,16 @@ export function sampleKeyframes(keyframes: Keyframe[], time: number, fallback = 
     }
   }
   return fallback;
+}
+
+/** Sample a specific property channel from a clip's keyframes. */
+export function sampleProperty(
+  keyframes: Keyframe[],
+  time: number,
+  property: string,
+  fallback = 1,
+): number {
+  return sampleKeyframes(keyframes, time, fallback, property);
 }
 
 function ease(t: number, kind: KeyframeEasing): number {
