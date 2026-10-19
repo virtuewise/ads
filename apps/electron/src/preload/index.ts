@@ -19,4 +19,18 @@ contextBridge.exposeInMainWorld('studio', {
   writeProject: (filePath: string, doc: unknown, format: 'json' | 'binary') =>
     ipcRenderer.invoke('project:write', filePath, doc, format),
   readProject: (filePath: string) => ipcRenderer.invoke('project:read', filePath),
+
+  // ── Export pipeline ────────────────────────────────────────────────────────
+  probeEncoders: () => ipcRenderer.invoke('export:probe'),
+  chooseExportPath: (opts: { preset: string; suggestedName?: string }) =>
+    ipcRenderer.invoke('export:choosePath', opts),
+  startExport: (req: unknown) => ipcRenderer.invoke('export:start', req),
+  writeExportFrame: (bytes: Uint8Array) => ipcRenderer.invoke('export:frame', bytes),
+  finishExport: () => ipcRenderer.invoke('export:finish'),
+  cancelExport: () => ipcRenderer.invoke('export:cancel'),
+  onExportProgress: (cb: (progress: unknown) => void) => {
+    const listener = (_e: unknown, progress: unknown) => cb(progress);
+    ipcRenderer.on('export:progress', listener);
+    return () => ipcRenderer.removeListener('export:progress', listener);
+  },
 });

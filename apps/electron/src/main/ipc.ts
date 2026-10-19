@@ -17,6 +17,7 @@ import {
   TransformationGrammar,
 } from '@printsync/visual-grammar-engine';
 import { ipcMain } from 'electron';
+import { registerExportIpc } from './export';
 import { registerProjectIpc } from './project';
 
 ipcMain.handle('engine:getModes', async () => {
@@ -120,3 +121,4 @@ ipcMain.handle('engine:getVisualGrammars', async () => {
 ipcMain.handle('engine:getConcepts', async () => []);
 
 registerProjectIpc();
+registerExportIpc();

@@ -1288,6 +1288,32 @@ select.field__input {
   transform: translateY(-1px);
 }
 
+.card--active {
+  border-color: rgba(255, 90, 44, 0.55);
+  background: var(--accent-dim);
+}
+
+.card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.progress {
+  height: 6px;
+  margin: 8px 0 4px;
+  border-radius: 999px;
+  background: #111722;
+  overflow: hidden;
+}
+
+.progress > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff5a2c, #ff8a5c);
+  transition: width 120ms linear;
+}
+
 .card__icon {
   width: 28px;
   height: 28px;

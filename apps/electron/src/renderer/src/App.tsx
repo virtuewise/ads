@@ -1853,7 +1853,12 @@ export function App() {
             )}
 
             {insTab === 'color' && <BrandLUTPanel active={brandLUT} onChange={setBrandLUT} />}
-            {insTab === 'export' && <ExportPanel />}
+            {insTab === 'export' && (
+              <ExportPanel
+                composition={composition}
+                lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
+              />
+            )}
           </div>
         </aside>
       </div>
