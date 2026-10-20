@@ -533,6 +533,79 @@ export class LensDistortionNode extends BaseNode {
   }
 }
 
+export class SolidSourceNode extends BaseNode {
+  readonly type = 'solidSource';
+  readonly label = 'Solid Color';
+  readonly category = 'source' as const;
+  readonly ports: Port[] = [
+    { id: 'color', name: 'Color', type: 'color', direction: 'input', default: '#ff5a2c' },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    const color = String(inputs.color ?? '#ff5a2c');
+    return { output: `solid_source(${color})` };
+  }
+  toWGSL() {
+    return `fn solid_source(color: vec3<f32>) -> vec4<f32> {
+      return vec4(color, 1.0);
+    }`;
+  }
+}
+
+export class GradientSourceNode extends BaseNode {
+  readonly type = 'gradientSource';
+  readonly label = 'Gradient';
+  readonly category = 'source' as const;
+  readonly ports: Port[] = [
+    {
+      id: 'startColor',
+      name: 'Start Color',
+      type: 'color',
+      direction: 'input',
+      default: '#ff5a2c',
+    },
+    { id: 'endColor', name: 'End Color', type: 'color', direction: 'input', default: '#5eead4' },
+    { id: 'angle', name: 'Angle', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `gradient_source(${inputs.startColor ?? '#ff5a2c'}, ${inputs.endColor ?? '#5eead4'}, ${inputs.angle ?? 0})`,
+    };
+  }
+  toWGSL() {
+    return `fn gradient_source(uv: vec2<f32>, start: vec3<f32>, end: vec3<f32>, angle: f32) -> vec4<f32> {
+      let t = (uv.x * cos(angle) + uv.y * sin(angle) + 1.0) * 0.5;
+      return vec4(mix(start, end, clamp(t, 0.0, 1.0)), 1.0);
+    }`;
+  }
+}
+
+export class CheckerSourceNode extends BaseNode {
+  readonly type = 'checkerSource';
+  readonly label = 'Checkerboard';
+  readonly category = 'source' as const;
+  readonly ports: Port[] = [
+    { id: 'colorA', name: 'Color A', type: 'color', direction: 'input', default: '#ffffff' },
+    { id: 'colorB', name: 'Color B', type: 'color', direction: 'input', default: '#000000' },
+    { id: 'scale', name: 'Scale', type: 'number', direction: 'input', default: 8 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `checker_source(${inputs.colorA ?? '#ffffff'}, ${inputs.colorB ?? '#000000'}, ${inputs.scale ?? 8})`,
+    };
+  }
+  toWGSL() {
+    return `fn checker_source(uv: vec2<f32>, colorA: vec3<f32>, colorB: vec3<f32>, scale: f32) -> vec4<f32> {
+      let c = floor(uv * scale);
+      let parity = (c.x + c.y) % 2.0;
+      let color = select(colorB, colorA, parity < 1.0);
+      return vec4(color, 1.0);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -634,6 +707,9 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   dataSource: DataSourceNode,
   colorSource: ColorSourceNode,
   noiseSource: NoiseSourceNode,
+  solidSource: SolidSourceNode,
+  gradientSource: GradientSourceNode,
+  checkerSource: CheckerSourceNode,
   transform: TransformNode,
   spatialTransform: SpatialTransformNode,
   oscillator: OscillatorNode,

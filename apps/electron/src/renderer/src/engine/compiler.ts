@@ -16,6 +16,9 @@ const WGSL_FN_NAME: Record<string, string> = {
   dataSource: 'data_source',
   colorSource: 'color_source',
   noiseSource: 'noise_source',
+  solidSource: 'solid_source',
+  gradientSource: 'gradient_source',
+  checkerSource: 'checker_source',
   textureTransform: 'texture_transform',
   spatialTransform: 'spatial_transform',
   chromaticAberration: 'chromatic_aberration',
@@ -36,6 +39,9 @@ const NEIGHBORHOOD_EFFECTS = new Set([
   'filmGrain',
   'lensDistortion',
 ]);
+
+/** Source nodes that need UV coordinates but no texture sampler. */
+const UV_SOURCES = new Set(['gradientSource', 'checkerSource']);
 
 /** Uniform struct matching visual.ts — the WYSIWYG contract. */
 const UNIFORM_STRUCT = `struct Uniforms {
@@ -139,6 +145,7 @@ export function compileDAG(dag: DAG): CompiledShader {
     const outputPorts = instance.ports.filter((p) => p.direction === 'output');
     if (outputPorts.length > 0) {
       const isNeighborhood = NEIGHBORHOOD_EFFECTS.has(node.type);
+      const isUvSource = UV_SOURCES.has(node.type);
       const args = inputPorts.map((p) => {
         const v = inputs[p.id];
         if (typeof v === 'string' && v.startsWith('n')) return v;
@@ -151,6 +158,9 @@ export function compileDAG(dag: DAG): CompiledShader {
         // Drop the first arg (input texture reference) — replaced below
         args.shift();
         args.unshift(`${varName}_tex`, `${varName}_samp`, 'uv');
+      } else if (isUvSource) {
+        // Inject uv as the first argument for UV-dependent source nodes
+        args.unshift('uv');
       }
       const outType = outputPorts[0].type === 'texture' ? 'vec4<f32>' : 'f32';
       bodyLines.push(
