@@ -1,3 +1,4 @@
+import Editor from '@monaco-editor/react';
 import { useCallback, useState } from 'react';
 
 interface ScriptEditorProps {
@@ -49,16 +50,39 @@ export function ScriptEditor({ code, onSync, compiledWGSL }: ScriptEditorProps) 
       {/* Editor */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'code' ? (
-          <textarea
+          <Editor
+            height="100%"
+            defaultLanguage="typescript"
             value={localCode}
-            onChange={(e) => setLocalCode(e.target.value)}
-            className="w-full h-full p-3 bg-ink text-text font-mono text-[11px] leading-relaxed resize-none outline-none"
-            spellCheck={false}
+            onChange={(v) => setLocalCode(v ?? '')}
+            theme="vs-dark"
+            options={{
+              fontSize: 12,
+              fontFamily: 'JetBrains Mono, monospace',
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              tabSize: 2,
+              automaticLayout: true,
+            }}
           />
         ) : (
-          <pre className="w-full h-full p-3 bg-ink text-cool font-mono text-[11px] leading-relaxed overflow-auto whitespace-pre-wrap">
-            {compiledWGSL}
-          </pre>
+          <Editor
+            height="100%"
+            defaultLanguage="wgsl"
+            value={compiledWGSL}
+            theme="vs-dark"
+            options={{
+              fontSize: 12,
+              fontFamily: 'JetBrains Mono, monospace',
+              minimap: { enabled: false },
+              scrollBeyondLastLine: false,
+              wordWrap: 'on',
+              tabSize: 2,
+              automaticLayout: true,
+              readOnly: true,
+            }}
+          />
         )}
       </div>
 
