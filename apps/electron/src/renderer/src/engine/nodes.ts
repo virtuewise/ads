@@ -1017,6 +1017,107 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   }
 }
 
+export class TwirlNode extends BaseNode {
+  readonly type = 'twirl';
+  readonly label = 'Twirl';
+  readonly category = 'distort' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'angle', name: 'Angle', type: 'number', direction: 'input', default: 3.14 },
+    { id: 'radius', name: 'Radius', type: 'number', direction: 'input', default: 0.5 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `twirl(${inputs.input}, ${inputs.angle ?? 3.14}, ${inputs.radius ?? 0.5})` };
+  }
+  toWGSL() {
+    return `fn twirl(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, angle: f32, radius: f32) -> vec4<f32> {
+      let center = vec2(0.5, 0.5);
+      let offset = uv - center;
+      let dist = length(offset);
+      let a = atan2(offset.y, offset.x) + angle * smoothstep(radius, 0.0, dist);
+      let tuv = center + vec2(cos(a), sin(a)) * dist;
+      return textureSample(src, samp, tuv);
+    }`;
+  }
+}
+
+export class ChromaKeyNode2 extends BaseNode {
+  readonly type = 'chromaKey';
+  readonly label = 'Chroma Key';
+  readonly category = 'keying' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'keyColor', name: 'Key Color', type: 'color', direction: 'input', default: '#00ff00' },
+    { id: 'threshold', name: 'Threshold', type: 'number', direction: 'input', default: 0.3 },
+    { id: 'softness', name: 'Softness', type: 'number', direction: 'input', default: 0.1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `chromaKey(${inputs.input}, ${inputs.keyColor ?? '#00ff00'}, ${inputs.threshold ?? 0.3}, ${inputs.softness ?? 0.1})`,
+    };
+  }
+  toWGSL() {
+    return `fn chroma_key(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, keyColor: vec3<f32>, threshold: f32, softness: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let dist = distance(col.rgb, keyColor);
+      let alpha = smoothstep(threshold, threshold + softness, dist);
+      return vec4(col.rgb, col.a * alpha);
+    }`;
+  }
+}
+
+export class HalftoneNode extends BaseNode {
+  readonly type = 'halftone';
+  readonly label = 'Halftone';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'scale', name: 'Scale', type: 'number', direction: 'input', default: 20 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `halftone(${inputs.input}, ${inputs.scale ?? 20})` };
+  }
+  toWGSL() {
+    return `fn halftone(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, scale: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let lum = dot(col.rgb, vec3(0.2126, 0.7152, 0.0722));
+      let grid = fract(uv * scale);
+      let dist = distance(grid, vec2(0.5));
+      let radius = sqrt(lum) * 0.5;
+      let mask = step(dist, radius);
+      return vec4(vec3(mask), col.a);
+    }`;
+  }
+}
+
+export class ScanlinesNode extends BaseNode {
+  readonly type = 'scanlines';
+  readonly label = 'Scanlines';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'intensity', name: 'Intensity', type: 'number', direction: 'input', default: 0.3 },
+    { id: 'count', name: 'Count', type: 'number', direction: 'input', default: 200 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `scanlines(${inputs.input}, ${inputs.intensity ?? 0.3}, ${inputs.count ?? 200})`,
+    };
+  }
+  toWGSL() {
+    return `fn scanlines(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, intensity: f32, count: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let line = sin(uv.y * count * 3.14159) * 0.5 + 0.5;
+      let mask = 1.0 - intensity * (1.0 - line);
+      return vec4(col.rgb * mask, col.a);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -1141,6 +1242,10 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   opticalFlow: OpticalFlowNode,
   particleSystem: ParticleSystemNode,
   posterize: PosterizeNode,
+  twirl: TwirlNode,
+  chromaKey: ChromaKeyNode2,
+  halftone: HalftoneNode,
+  scanlines: ScanlinesNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
   blend: BlendNode,
