@@ -1118,6 +1118,64 @@ export class ScanlinesNode extends BaseNode {
   }
 }
 
+export class EdgeDetectNode extends BaseNode {
+  readonly type = 'edgeDetect';
+  readonly label = 'Edge Detect';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'threshold', name: 'Threshold', type: 'number', direction: 'input', default: 0.1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `edgeDetect(${inputs.input}, ${inputs.threshold ?? 0.1})` };
+  }
+  toWGSL() {
+    return `fn edge_detect(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, threshold: f32) -> vec4<f32> {
+      let texSize = vec2<f32>(textureDimensions(src));
+      let step = 1.0 / texSize;
+      let tl = textureSample(src, samp, uv + vec2(-step.x, -step.y));
+      let tr = textureSample(src, samp, uv + vec2(step.x, -step.y));
+      let bl = textureSample(src, samp, uv + vec2(-step.x, step.y));
+      let br = textureSample(src, samp, uv + vec2(step.x, step.y));
+      let tlLum = dot(tl.rgb, vec3(0.2126, 0.7152, 0.0722));
+      let trLum = dot(tr.rgb, vec3(0.2126, 0.7152, 0.0722));
+      let blLum = dot(bl.rgb, vec3(0.2126, 0.7152, 0.0722));
+      let brLum = dot(br.rgb, vec3(0.2126, 0.7152, 0.0722));
+      let gx = (trLum + brLum) - (tlLum + blLum);
+      let gy = (blLum + brLum) - (tlLum + trLum);
+      let mag = sqrt(gx * gx + gy * gy);
+      let edge = smoothstep(threshold, threshold + 0.1, mag);
+      return vec4(vec3(edge), 1.0);
+    }`;
+  }
+}
+
+export class DitherNode extends BaseNode {
+  readonly type = 'dither';
+  readonly label = 'Dither';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'levels', name: 'Levels', type: 'number', direction: 'input', default: 4 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `dither(${inputs.input}, ${inputs.levels ?? 4})` };
+  }
+  toWGSL() {
+    return `fn dither(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, levels: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let l = max(levels, 1.0);
+      let bayer = mat2x2<f32>(0.0, 0.5, 0.75, 0.25);
+      let bx = i32(uv.x * 2.0) % 2;
+      let by = i32(uv.y * 2.0) % 2;
+      let threshold = bayer[by][bx] / l;
+      return vec4(floor(col.rgb * l + threshold) / l, col.a);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -1246,6 +1304,8 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   chromaKey: ChromaKeyNode2,
   halftone: HalftoneNode,
   scanlines: ScanlinesNode,
+  edgeDetect: EdgeDetectNode,
+  dither: DitherNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
   blend: BlendNode,

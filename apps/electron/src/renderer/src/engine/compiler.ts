@@ -29,6 +29,7 @@ const WGSL_FN_NAME: Record<string, string> = {
   posterize: 'posterize',
   displacementMap: 'displacement_map',
   chromaKey: 'chroma_key',
+  edgeDetect: 'edge_detect',
 };
 
 /** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
@@ -54,6 +55,8 @@ const NEIGHBORHOOD_EFFECTS = new Set([
   'chromaKey',
   'halftone',
   'scanlines',
+  'edgeDetect',
+  'dither',
 ]);
 
 /** Source nodes that need UV coordinates but no texture sampler. */
