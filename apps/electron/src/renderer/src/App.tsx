@@ -260,6 +260,7 @@ export function App() {
   const [selectedEffect, setSelectedEffect] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [selectedClip, setSelectedClip] = useState<string | null>(null);
+  const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set());
   const [fxQuery, setFxQuery] = useState('');
 
   // ── History (undo/redo) ───────────────────────────────────────────────────
@@ -833,12 +834,15 @@ export function App() {
   };
 
   const deleteSelectedClip = () => {
-    if (!selectedClip) return;
-    dispatchTimeline('Delete Clip', (doc) => ({
+    const targets =
+      selectedClips.size > 0 ? selectedClips : selectedClip ? new Set([selectedClip]) : new Set();
+    if (targets.size === 0) return;
+    dispatchTimeline('Delete Clips', (doc) => ({
       ...doc,
-      clips: doc.clips.filter((c) => c.id !== selectedClip),
+      clips: doc.clips.filter((c) => !targets.has(c.id)),
     }));
     setSelectedClip(null);
+    setSelectedClips(new Set());
   };
 
   // ── Genre workflow application ────────────────────────────────────────────
@@ -2148,10 +2152,22 @@ export function App() {
                         return (
                           <div
                             key={c.id}
-                            className={`clip ${selectedClip === c.id ? 'clip--active' : ''}`}
+                            className={`clip ${selectedClips.has(c.id) ? 'clip--active' : selectedClip === c.id ? 'clip--active' : ''}`}
                             title={`${c.name} · ${c.start.toFixed(2)}s–${c.end.toFixed(2)}s`}
                             onPointerDown={(e) => {
                               if (st.locked) return;
+                              if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                                setSelectedClips((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(c.id)) next.delete(c.id);
+                                  else next.add(c.id);
+                                  return next;
+                                });
+                                if (!selectedClips.has(c.id)) setSelectedClip(c.id);
+                                return;
+                              }
+                              setSelectedClips(new Set([c.id]));
+                              setSelectedClip(c.id);
                               beginClipDrag(e, 'move', c.id);
                             }}
                             onDoubleClick={() => onClipDoubleClick(c.id)}
@@ -2159,7 +2175,10 @@ export function App() {
                               left: `${(c.start / DURATION) * 100}%`,
                               width: `${(span / DURATION) * 100}%`,
                               background: `linear-gradient(180deg, ${t.color}55, ${t.color}33)`,
-                              borderColor: selectedClip === c.id ? t.color : `${t.color}aa`,
+                              borderColor:
+                                selectedClips.has(c.id) || selectedClip === c.id
+                                  ? t.color
+                                  : `${t.color}aa`,
                               opacity: st.locked ? 0.55 : 1,
                             }}
                           >
