@@ -919,6 +919,104 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   }
 }
 
+export class OpticalFlowNode extends ComputeNode {
+  readonly type = 'opticalFlow';
+  readonly label = 'Optical Flow';
+  readonly computeSpec: ComputeNodeSpec = {
+    type: 'opticalFlow',
+    workgroupSize: [8, 8, 1],
+    dispatch: (_inputs) => [1, 1, 1],
+    wgsl: `@group(0) @binding(0) var frameA: texture_2d<f32>;
+@group(0) @binding(1) var frameB: texture_2d<f32>;
+@group(0) @binding(2) var flowOut: texture_storage_2d<rg32float, write>;
+@group(0) @binding(3) var samp: sampler;
+
+@compute @workgroup_size(8, 8, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let texSize = textureDimensions(frameA);
+  if (gid.x >= texSize.x || gid.y >= texSize.y) { return; }
+  let uv = (vec2<f32>(gid.xy) + 0.5) / vec2<f32>(texSize);
+  let step = 1.0 / vec2<f32>(texSize);
+  // Simple block-matching optical flow
+  var bestDx = 0.0;
+  var bestDy = 0.0;
+  var bestDiff = 1e9;
+  for (var dy = -4; dy <= 4; dy++) {
+    for (var dx = -4; dx <= 4; dx++) {
+      let suv = uv + vec2<f32>(f32(dx), f32(dy)) * step;
+      let colA = textureSampleLevel(frameA, samp, uv, 0.0);
+      let colB = textureSampleLevel(frameB, samp, suv, 0.0);
+      let diff = distance(colA.rgb, colB.rgb);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestDx = f32(dx);
+        bestDy = f32(dy);
+      }
+    }
+  }
+  textureStore(flowOut, vec2<i32>(gid.xy), vec4<f32>(bestDx, bestDy, 0.0, 1.0));
+}`,
+    resources: [{ name: 'flowOut', type: 'storage-texture', format: 'rg32float' }],
+  };
+  readonly ports: Port[] = [
+    { id: 'frameA', name: 'Frame A', type: 'texture', direction: 'input' },
+    { id: 'frameB', name: 'Frame B', type: 'texture', direction: 'input' },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `opticalFlow(${inputs.frameA}, ${inputs.frameB})` };
+  }
+  toWGSL() {
+    return `fn optical_flow_placeholder() -> vec4<f32> { return vec4(0.0); }`;
+  }
+}
+
+export class ParticleSystemNode extends ComputeNode {
+  readonly type = 'particleSystem';
+  readonly label = 'Particle System';
+  readonly computeSpec: ComputeNodeSpec = {
+    type: 'particleSystem',
+    workgroupSize: [64, 1, 1],
+    dispatch: (_inputs) => [1, 1, 1],
+    wgsl: `@group(0) @binding(0) var<storage, read_write> particles: array<vec4<f32>>;
+@group(0) @binding(1) var<uniform> params: vec4<f32>;
+
+@compute @workgroup_size(64, 1, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let idx = gid.x;
+  var p = particles[idx];
+  // p.xy = position, p.zw = velocity
+  let dt = params.x;
+  let gravity = params.y;
+  let damping = params.z;
+  p.z = p.z * damping; // velocity x
+  p.w = (p.w + gravity * dt) * damping; // velocity y
+  p.x += p.z * dt;
+  p.y += p.w * dt;
+  // Respawn if out of bounds
+  if (p.y > 1.0 || p.y < -1.0 || p.x > 1.0 || p.x < -1.0) {
+    p = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+  }
+  particles[idx] = p;
+}`,
+    resources: [{ name: 'particles', type: 'storage-buffer', size: 10000 * 16 }],
+  };
+  readonly ports: Port[] = [
+    { id: 'emitter', name: 'Emitter', type: 'texture', direction: 'input' },
+    { id: 'count', name: 'Count', type: 'number', direction: 'input', default: 1000 },
+    { id: 'gravity', name: 'Gravity', type: 'number', direction: 'input', default: 0.5 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `particleSystem(${inputs.emitter}, ${inputs.count ?? 1000}, ${inputs.gravity ?? 0.5})`,
+    };
+  }
+  toWGSL() {
+    return `fn particle_system_placeholder() -> vec4<f32> { return vec4(0.0); }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -1040,6 +1138,8 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   bloom: BloomNode,
   histogram: HistogramNode,
   blurPyramid: BlurPyramidNode,
+  opticalFlow: OpticalFlowNode,
+  particleSystem: ParticleSystemNode,
   posterize: PosterizeNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
