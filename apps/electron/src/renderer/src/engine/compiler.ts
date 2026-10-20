@@ -34,6 +34,9 @@ const WGSL_FN_NAME: Record<string, string> = {
   emboss: 'emboss',
   invert: 'invert',
   threshold: 'threshold',
+  channelMixer: 'channel_mixer',
+  rgbSplit: 'rgb_split',
+  solarize: 'solarize',
 };
 
 /** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
@@ -65,6 +68,9 @@ const NEIGHBORHOOD_EFFECTS = new Set([
   'emboss',
   'invert',
   'threshold',
+  'channelMixer',
+  'rgbSplit',
+  'solarize',
 ]);
 
 /** Source nodes that need UV coordinates but no texture sampler. */

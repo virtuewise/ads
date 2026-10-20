@@ -1263,6 +1263,88 @@ export class ThresholdNode extends BaseNode {
   }
 }
 
+export class ChannelMixerNode extends BaseNode {
+  readonly type = 'channelMixer';
+  readonly label = 'Channel Mixer';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'rr', name: 'R←R', type: 'number', direction: 'input', default: 1 },
+    { id: 'rg', name: 'R←G', type: 'number', direction: 'input', default: 0 },
+    { id: 'rb', name: 'R←B', type: 'number', direction: 'input', default: 0 },
+    { id: 'gr', name: 'G←R', type: 'number', direction: 'input', default: 0 },
+    { id: 'gg', name: 'G←G', type: 'number', direction: 'input', default: 1 },
+    { id: 'gb', name: 'G←B', type: 'number', direction: 'input', default: 0 },
+    { id: 'br', name: 'B←R', type: 'number', direction: 'input', default: 0 },
+    { id: 'bg', name: 'B←G', type: 'number', direction: 'input', default: 0 },
+    { id: 'bb', name: 'B←B', type: 'number', direction: 'input', default: 1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `channelMixer(${inputs.input})` };
+  }
+  toWGSL() {
+    return `fn channel_mixer(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, rr: f32, rg: f32, rb: f32, gr: f32, gg: f32, gb: f32, br: f32, bg: f32, bb: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let r = col.r * rr + col.g * rg + col.b * rb;
+      let g = col.r * gr + col.g * gg + col.b * gb;
+      let b = col.r * br + col.g * bg + col.b * bb;
+      return vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), col.a);
+    }`;
+  }
+}
+
+export class RGBSplitNode extends BaseNode {
+  readonly type = 'rgbSplit';
+  readonly label = 'RGB Split';
+  readonly category = 'distort' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'amount', name: 'Amount', type: 'number', direction: 'input', default: 0.01 },
+    { id: 'angle', name: 'Angle', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `rgbSplit(${inputs.input}, ${inputs.amount ?? 0.01}, ${inputs.angle ?? 0})` };
+  }
+  toWGSL() {
+    return `fn rgb_split(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, amount: f32, angle: f32) -> vec4<f32> {
+      let dir = vec2(cos(angle), sin(angle)) * amount;
+      let r = textureSample(src, samp, uv + dir).r;
+      let g = textureSample(src, samp, uv).g;
+      let b = textureSample(src, samp, uv - dir).b;
+      let a = textureSample(src, samp, uv).a;
+      return vec4(r, g, b, a);
+    }`;
+  }
+}
+
+export class SolarizeNode extends BaseNode {
+  readonly type = 'solarize';
+  readonly label = 'Solarize';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'threshold', name: 'Threshold', type: 'number', direction: 'input', default: 0.5 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `solarize(${inputs.input}, ${inputs.threshold ?? 0.5})` };
+  }
+  toWGSL() {
+    return `fn solarize(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, threshold: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      var r = col.r;
+      var g = col.g;
+      var b = col.b;
+      if (r > threshold) { r = 1.0 - r; }
+      if (g > threshold) { g = 1.0 - g; }
+      if (b > threshold) { b = 1.0 - b; }
+      return vec4(r, g, b, col.a);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -1397,6 +1479,9 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   emboss: EmbossNode,
   invert: InvertNode,
   threshold: ThresholdNode,
+  channelMixer: ChannelMixerNode,
+  rgbSplit: RGBSplitNode,
+  solarize: SolarizeNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
   blend: BlendNode,
