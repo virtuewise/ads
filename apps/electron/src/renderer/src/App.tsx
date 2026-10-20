@@ -11,6 +11,7 @@ import { NodeEditor } from './components/NodeEditor';
 import { SafeZoneControls, SafeZones } from './components/SafeZones';
 import { ScriptEditor } from './components/ScriptEditor';
 import { WebGPUCanvas } from './components/WebGPUCanvas';
+import { bridgeDAGToComposite } from './engine/bridge';
 import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
 import type { Command, DocumentStore } from './engine/history';
 import {
@@ -330,6 +331,12 @@ export function App() {
 
   // ── DAG engine ────────────────────────────────────────────────────────────
   const dag = useDAG();
+
+  // Bridge the DAG output into the composite shader pipeline
+  const bridgedShader = useMemo(() => {
+    const result = bridgeDAGToComposite(dag.dag);
+    return result.ok ? result.wgsl : undefined;
+  }, [dag.dag]);
 
   const territories = useMemo(
     () => Array.from(new Set(modes.flatMap((m) => m.territories))),
@@ -1476,6 +1483,7 @@ export function App() {
                     time={playhead}
                     transform={composition.transform}
                     lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
+                    shaderCode={bridgedShader}
                   />
                   <SafeZones
                     active={safeZonesActive}

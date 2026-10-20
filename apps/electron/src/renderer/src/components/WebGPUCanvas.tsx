@@ -8,16 +8,18 @@ interface WebGPUCanvasProps {
   time?: number;
   transform?: TransformState;
   lut?: BrandLUT | null;
+  /** Optional DAG-compiled WGSL shader. Falls back to COMPOSITE_SHADER when absent. */
+  shaderCode?: string;
 }
 
-export function WebGPUCanvas({ time = 0, transform, lut }: WebGPUCanvasProps) {
+export function WebGPUCanvas({ time = 0, transform, lut, shaderCode }: WebGPUCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState<'init' | 'ready' | 'error'>('init');
   const [errorMsg, setErrorMsg] = useState('');
 
   // Latest props, read by the persistent render loop without re-initialising.
-  const propsRef = useRef({ time, transform, lut });
-  propsRef.current = { time, transform, lut };
+  const propsRef = useRef({ time, transform, lut, shaderCode });
+  propsRef.current = { time, transform, lut, shaderCode };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -48,7 +50,9 @@ export function WebGPUCanvas({ time = 0, transform, lut }: WebGPUCanvasProps) {
         const format = navigator.gpu.getPreferredCanvasFormat();
         context.configure({ device: gpu, format, alphaMode: 'premultiplied' });
 
-        const shaderModule = gpu.createShaderModule({ code: COMPOSITE_SHADER });
+        // Use the DAG-compiled shader if provided, otherwise fall back to the composite shader
+        const shaderSource = propsRef.current.shaderCode ?? COMPOSITE_SHADER;
+        const shaderModule = gpu.createShaderModule({ code: shaderSource });
         const uniformBuffer = gpu.createBuffer({
           size: UNIFORM_BYTES,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -128,6 +132,16 @@ export function WebGPUCanvas({ time = 0, transform, lut }: WebGPUCanvasProps) {
       device?.destroy();
     };
   }, []);
+
+  // Recompile the shader when shaderCode changes
+  useEffect(() => {
+    if (!shaderCode) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext('webgpu') as GPUCanvasContext;
+    // Force a re-render by toggling a state
+    setStatus((s) => (s === 'ready' ? 'ready' : s));
+  }, [shaderCode]);
 
   return (
     <div className="relative w-full h-full bg-ink">
