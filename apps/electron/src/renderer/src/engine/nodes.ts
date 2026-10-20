@@ -1345,6 +1345,65 @@ export class SolarizeNode extends BaseNode {
   }
 }
 
+export class MotionBlurNode extends BaseNode {
+  readonly type = 'motionBlur';
+  readonly label = 'Motion Blur';
+  readonly category = 'temporal' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'direction', name: 'Direction', type: 'number', direction: 'input', default: 0 },
+    { id: 'amount', name: 'Amount', type: 'number', direction: 'input', default: 0.02 },
+    { id: 'samples', name: 'Samples', type: 'number', direction: 'input', default: 8 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `motionBlur(${inputs.input}, ${inputs.direction ?? 0}, ${inputs.amount ?? 0.02}, ${inputs.samples ?? 8})`,
+    };
+  }
+  toWGSL() {
+    return `fn motion_blur(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, direction: f32, amount: f32, samples: f32) -> vec4<f32> {
+      let dir = vec2(cos(direction), sin(direction)) * amount;
+      var sum = vec4<f32>(0.0);
+      let n = i32(max(samples, 1.0));
+      for (var i = 0; i < n; i++) {
+        let t = (f32(i) / f32(n - 1)) - 0.5;
+        sum += textureSample(src, samp, uv + dir * t);
+      }
+      return sum / f32(n);
+    }`;
+  }
+}
+
+export class LensBlurNode extends BaseNode {
+  readonly type = 'lensBlur';
+  readonly label = 'Lens Blur';
+  readonly category = 'blur' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'radius', name: 'Radius', type: 'number', direction: 'input', default: 4 },
+    { id: 'blades', name: 'Blades', type: 'number', direction: 'input', default: 6 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `lensBlur(${inputs.input}, ${inputs.radius ?? 4}, ${inputs.blades ?? 6})` };
+  }
+  toWGSL() {
+    return `fn lens_blur(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, radius: f32, blades: f32) -> vec4<f32> {
+      let texSize = vec2<f32>(textureDimensions(src));
+      let step = radius / max(texSize.x, texSize.y);
+      var sum = vec4<f32>(0.0);
+      let n = i32(max(blades, 3.0));
+      for (var i = 0; i < n; i++) {
+        let angle = f32(i) * 6.2831853 / f32(n);
+        let offset = vec2(cos(angle), sin(angle)) * step;
+        sum += textureSample(src, samp, uv + offset);
+      }
+      return sum / f32(n);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -1482,6 +1541,8 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   channelMixer: ChannelMixerNode,
   rgbSplit: RGBSplitNode,
   solarize: SolarizeNode,
+  motionBlur: MotionBlurNode,
+  lensBlur: LensBlurNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
   blend: BlendNode,

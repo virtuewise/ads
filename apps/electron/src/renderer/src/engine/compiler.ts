@@ -37,6 +37,8 @@ const WGSL_FN_NAME: Record<string, string> = {
   channelMixer: 'channel_mixer',
   rgbSplit: 'rgb_split',
   solarize: 'solarize',
+  motionBlur: 'motion_blur',
+  lensBlur: 'lens_blur',
 };
 
 /** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
@@ -71,6 +73,8 @@ const NEIGHBORHOOD_EFFECTS = new Set([
   'channelMixer',
   'rgbSplit',
   'solarize',
+  'motionBlur',
+  'lensBlur',
 ]);
 
 /** Source nodes that need UV coordinates but no texture sampler. */
