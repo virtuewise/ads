@@ -13,6 +13,7 @@ import { ScopesPanel } from './components/ScopesPanel';
 import { ScriptEditor } from './components/ScriptEditor';
 import { WebGPUCanvas, type WebGPUCanvasHandle } from './components/WebGPUCanvas';
 import { bridgeDAGToComposite } from './engine/bridge';
+import { EASING_LABELS, EASING_ORDER } from './engine/easing';
 import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
 import type { Command, DocumentStore } from './engine/history';
 import {
@@ -26,7 +27,6 @@ import {
   undo,
 } from './engine/history';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
-
 import {
   addKeyframe,
   clipsFor,
@@ -34,12 +34,14 @@ import {
   moveKeyframe,
   removeKeyframe,
   setClipRange,
+  setKeyframeEasing,
   splitClip,
   TRACKS,
 } from './engine/timeline';
 import type {
   CompositionState,
   GenreId,
+  KeyframeEasing,
   ProjectFormat,
   SafeZoneRatio,
   TimelineDoc,
@@ -1840,20 +1842,39 @@ export function App() {
                           <span className="sect__meta">{clip.keyframes.length}</span>
                         </div>
                         {clip.keyframes.map((k) => (
-                          <div key={k.id} className="row">
+                          <div key={k.id} className="row row--kf">
                             <span className="row__icon">
                               <Icon name="keyframe" size={12} />
                             </span>
                             <button
                               type="button"
-                              className="rowbtn"
+                              className="rowbtn rowbtn--kf"
                               onClick={() => setPlayhead(k.time)}
+                              title={`${k.time.toFixed(2)}s · ${k.property}`}
                             >
                               <span className="row__title">{k.time.toFixed(2)}s</span>
-                              <span className="row__sub">
-                                {k.property} · {k.easing}
-                              </span>
+                              <span className="row__sub">{k.property}</span>
                             </button>
+                            <select
+                              className="field__input kf__ease"
+                              value={k.easing}
+                              title="Interpolation into this keyframe"
+                              aria-label={`Easing for ${k.property} keyframe at ${k.time.toFixed(2)}s`}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                const next = e.target.value as KeyframeEasing;
+                                if (next === k.easing) return;
+                                dispatchTimeline('Set Keyframe Easing', (doc) =>
+                                  setKeyframeEasing(doc, clip.id, k.id, next),
+                                );
+                              }}
+                            >
+                              {EASING_ORDER.map((kind) => (
+                                <option key={kind} value={kind}>
+                                  {EASING_LABELS[kind]}
+                                </option>
+                              ))}
+                            </select>
                             <button
                               type="button"
                               className="iconbtn"

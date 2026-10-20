@@ -589,6 +589,29 @@ body {
   cursor: pointer;
 }
 
+/* Keyframe row: seek button + easing select + remove, on one tight line. */
+.row--kf {
+  gap: 6px;
+  padding: 5px 7px;
+}
+
+.rowbtn--kf {
+  flex: 0 1 auto;
+  min-width: 52px;
+  max-width: 96px;
+}
+
+.kf__ease {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  color: #b6bdcf;
+}
+
 /* ── Property / inspector fields ───────────────────────────────────────── */
 
 .field {

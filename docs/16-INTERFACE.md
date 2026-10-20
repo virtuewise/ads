@@ -100,6 +100,7 @@ While the bridge resolves, panels show **"Loading engine data…"** (`useEngineD
 - **Transform fields** — x, y, scale, rotation, opacity → `packUniforms` → canvas.
 - **Brand LUT** picker (`BrandLUTPanel.tsx`).
 - **Scopes** — live histogram, waveform, and vectorscope sampled from the viewport (`ScopesPanel.tsx`, [23-COLOR](23-COLOR.md#5-scopes)).
+- **Keyframe inspector** — per-keyframe seek button, a **25-easing selector** (`EASING_ORDER`/`EASING_LABELS` from `engine/easing.ts`), and a remove button ([32](32-KEYFRAME-ANIMATION.md#5-easing-functions)).
 - **Safe-zone** controls (`SafeZoneControls`).
 - **Effects stack** — drag-and-drop reorder, add, remove.
 - **Export** — the `ExportPanel` ([07](07-EXPORT-PIPELINE.md)).

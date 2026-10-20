@@ -151,8 +151,9 @@ import { easeValue, EASING_ORDER, EASING_LABELS } from './easing';
 easeValue(0.5, 'backOut'); // → overshoot value, same math the GPU runs
 ```
 
-`KeyframeEasing` (`engine/types.ts`) is the union of these 25 strings; `EASING_ORDER` drives the UI
-picker order and `EASING_LABELS` its display names.
+`KeyframeEasing` (`engine/types.ts`) is the union of these 25 strings. `EASING_ORDER` drives the keyframe
+inspector's `<select>` order and `EASING_LABELS` its display names; changing it dispatches a
+`Set Keyframe Easing` command through history, so it is undoable.
 
 **Still missing:** `quint`, `circ`, `step`/`hold` (discrete jumps), `spring` (physics-integrated), and
 per-segment custom bezier handles — see [40](40-ANIMATION-PRINCIPLES.md#easing-library).
