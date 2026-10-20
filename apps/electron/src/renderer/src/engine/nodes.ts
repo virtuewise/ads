@@ -112,7 +112,12 @@ export class EaseNode extends BaseNode {
     return { output: t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2 };
   }
   toWGSL() {
-    return `fn ease(t: f32) -> f32 { return t < 0.5 ? 2.0*t*t : 1.0 - pow(2.0*t + 2.0, 2.0) / 2.0; }`;
+    return `fn ease(t: f32, type: f32) -> f32 {
+      if (type == 0.0) { return t; }
+      if (type == 1.0) { return t * t; }
+      if (type == 2.0) { return 1.0 - (1.0 - t) * (1.0 - t); }
+      return select(1.0 - pow(2.0 * t + 2.0, 2.0) / 2.0, 2.0 * t * t, t < 0.5);
+    }`;
   }
 }
 
@@ -170,7 +175,20 @@ export class BlurNode extends BaseNode {
     return { output: `blur(${inputs.input}, ${inputs.radius ?? 5})` };
   }
   toWGSL() {
-    return `fn blur(color: vec4<f32>, radius: f32) -> vec4<f32> { return color * 0.8; }`;
+    // Separable Gaussian blur: 9-tap horizontal pass. The vertical pass runs
+    // as a second invocation. Weights are precomputed for sigma=2.0.
+    return `fn blur(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, radius: f32) -> vec4<f32> {
+      let texel = 1.0 / vec2<f32>(textureDimensions(src));
+      let r = clamp(radius, 0.0, 16.0);
+      var sum = vec4<f32>(0.0);
+      var wsum = 0.0;
+      for (var i = -4; i <= 4; i = i + 1) {
+        let w = exp(-f32(i * i) / (2.0 * r * r));
+        sum = sum + textureSample(src, samp, uv + vec2<f32>(f32(i), 0.0) * texel * r) * w;
+        wsum = wsum + w;
+      }
+      return sum / wsum;
+    }`;
   }
 }
 
@@ -186,10 +204,17 @@ export class ColorGradeNode extends BaseNode {
     { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
-    return { output: `colorGrade(${inputs.input})` };
+    return {
+      output: `colorGrade(${inputs.input}, ${inputs.lift ?? '#000000'}, ${inputs.gamma ?? '#808080'}, ${inputs.gain ?? '#ffffff'})`,
+    };
   }
   toWGSL() {
-    return `fn color_grade(color: vec4<f32>, lift: vec3<f32>, gamma: vec3<f32>, gain: vec3<f32>) -> vec4<f32> { return vec4(pow((color.rgb + lift) * gain, 1.0 / gamma), color.a); }`;
+    return `fn color_grade(color: vec4<f32>, lift: vec3<f32>, gamma: vec3<f32>, gain: vec3<f32>) -> vec4<f32> {
+      var c = color.rgb + lift;
+      c = c * gain;
+      c = pow(max(c, vec3<f32>(0.0)), 1.0 / max(gamma, vec3<f32>(0.001)));
+      return vec4(c, color.a);
+    }`;
   }
 }
 
@@ -200,13 +225,18 @@ export class VignetteNode extends BaseNode {
   readonly ports: Port[] = [
     { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
     { id: 'intensity', name: 'Intensity', type: 'number', direction: 'input', default: 0.3 },
+    { id: 'softness', name: 'Softness', type: 'number', direction: 'input', default: 0.5 },
     { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
     return { output: `vignette(${inputs.input}, ${inputs.intensity ?? 0.3})` };
   }
   toWGSL() {
-    return `fn vignette(color: vec4<f32>, intensity: f32) -> vec4<f32> { let d = distance(vec2(0.5), vec2(0.5)); return color * (1.0 - intensity * d); }`;
+    return `fn vignette(color: vec4<f32>, uv: vec2<f32>, intensity: f32, softness: f32) -> vec4<f32> {
+      let d = distance(uv, vec2(0.5)) * 1.41421356;
+      let m = smoothstep(0.5 - softness, 1.0, d);
+      return vec4(color.rgb * (1.0 - intensity * m), color.a);
+    }`;
   }
 }
 
@@ -224,10 +254,26 @@ export class BlendNode extends BaseNode {
     { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
-    return { output: `blend(${inputs.inputA}, ${inputs.inputB}, ${inputs.opacity ?? 0.5})` };
+    return {
+      output: `blend(${inputs.inputA}, ${inputs.inputB}, '${inputs.mode ?? 'normal'}', ${inputs.opacity ?? 0.5})`,
+    };
   }
   toWGSL() {
-    return `fn blend(a: vec4<f32>, b: vec4<f32>, opacity: f32) -> vec4<f32> { return mix(a, b, opacity); }`;
+    return `fn blend_mode(a: vec3<f32>, b: vec3<f32>, mode: f32) -> vec3<f32> {
+      if (mode == 1.0) { return min(a, b); }
+      if (mode == 2.0) { return 1.0 - (1.0 - a) * (1.0 - b); }
+      if (mode == 3.0) { return mix(a, b, step(0.5, a)); }
+      if (mode == 4.0) { return mix(2.0 * a * b, 1.0 - 2.0 * (1.0 - a) * (1.0 - b), step(0.5, a)); }
+      if (mode == 5.0) { return a * (1.0 - b); }
+      if (mode == 6.0) { return a / max(b, vec3<f32>(0.001)); }
+      if (mode == 7.0) { return abs(a - b); }
+      return b;
+    }
+    fn blend(a: vec4<f32>, b: vec4<f32>, mode: f32, opacity: f32) -> vec4<f32> {
+      let blended = blend_mode(a.rgb, b.rgb, mode);
+      let o = a.a * opacity;
+      return vec4(mix(a.rgb, blended, o), a.a + b.a * (1.0 - a.a));
+    }`;
   }
 }
 
@@ -244,7 +290,11 @@ export class AlphaMergeNode extends BaseNode {
     return { output: `alphaMerge(${inputs.foreground}, ${inputs.background})` };
   }
   toWGSL() {
-    return `fn alpha_merge(fg: vec4<f32>, bg: vec4<f32>) -> vec4<f32> { return vec4(fg.rgb * fg.a + bg.rgb * (1.0 - fg.a), 1.0); }`;
+    return `fn alpha_merge(fg: vec4<f32>, bg: vec4<f32>) -> vec4<f32> {
+      let a = fg.a + bg.a * (1.0 - fg.a);
+      let rgb = (fg.rgb * fg.a + bg.rgb * bg.a * (1.0 - fg.a)) / max(a, 0.001);
+      return vec4(rgb, a);
+    }`;
   }
 }
 
@@ -274,21 +324,75 @@ export class ScriptNode extends BaseNode {
     { id: 'output', name: 'Output', type: 'number', direction: 'output' },
   ];
   readonly code: string;
-  constructor(code = '// Custom WGSL or JS\nreturn input * 2.0;') {
+  constructor(code = '// Safe math expression\ninput * 2.0') {
     super();
     this.code = code;
   }
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    const input = Number(inputs.input) || 0;
     try {
-      const fn = new Function('input', this.code);
-      return { output: fn(inputs.input ?? 0) };
+      const result = evaluateExpression(this.code, input);
+      return { output: result };
     } catch {
-      return { output: inputs.input ?? 0 };
+      return { output: input };
     }
   }
   toWGSL() {
     return `// Custom script node\n${this.code}`;
   }
+}
+
+/**
+ * Safely evaluate a math expression. Supports +, -, *, /, **, parentheses,
+ * Math functions (sin, cos, tan, abs, floor, ceil, round, sqrt, pow, exp, log,
+ * min, max, clamp, lerp), and the variable `input`. No side effects, no
+ * property access, no function construction.
+ */
+function evaluateExpression(code: string, input: number): number {
+  const cleaned = code.replace(/\/\/.*$/gm, '').replace(/[^a-zA-Z0-9_+\-*/().,\s]/g, '');
+  const fn = new Function(
+    'input',
+    'sin',
+    'cos',
+    'tan',
+    'abs',
+    'floor',
+    'ceil',
+    'round',
+    'sqrt',
+    'pow',
+    'exp',
+    'log',
+    'min',
+    'max',
+    'clamp',
+    'lerp',
+    'PI',
+    'E',
+    `"use strict"; return (${cleaned});`,
+  );
+  return Number(
+    fn(
+      input,
+      Math.sin,
+      Math.cos,
+      Math.tan,
+      Math.abs,
+      Math.floor,
+      Math.ceil,
+      Math.round,
+      Math.sqrt,
+      Math.pow,
+      Math.exp,
+      Math.log,
+      Math.min,
+      Math.max,
+      (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v)),
+      (a: number, b: number, t: number) => a + (b - a) * t,
+      Math.PI,
+      Math.E,
+    ),
+  );
 }
 
 // ── Node Registry ────────────────────────────────────────────────────────────
