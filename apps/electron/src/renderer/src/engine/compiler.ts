@@ -24,6 +24,7 @@ const WGSL_FN_NAME: Record<string, string> = {
   chromaticAberration: 'chromatic_aberration',
   filmGrain: 'film_grain',
   lensDistortion: 'lens_distortion',
+  hueShift: 'hue_shift',
 };
 
 /** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
@@ -38,6 +39,11 @@ const NEIGHBORHOOD_EFFECTS = new Set([
   'sharpen',
   'filmGrain',
   'lensDistortion',
+  'temperature',
+  'levels',
+  'exposure',
+  'saturation',
+  'hueShift',
 ]);
 
 /** Source nodes that need UV coordinates but no texture sampler. */

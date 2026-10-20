@@ -606,6 +606,145 @@ export class CheckerSourceNode extends BaseNode {
   }
 }
 
+export class TemperatureNode extends BaseNode {
+  readonly type = 'temperature';
+  readonly label = 'Temperature';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'temperature', name: 'Temperature', type: 'number', direction: 'input', default: 0 },
+    { id: 'tint', name: 'Tint', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `temperature(${inputs.input}, ${inputs.temperature ?? 0}, ${inputs.tint ?? 0})`,
+    };
+  }
+  toWGSL() {
+    return `fn temperature(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, temp: f32, tint: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      var r = col.r;
+      var g = col.g;
+      var b = col.b;
+      // Temperature: warm/cool shift
+      r += temp * 0.1;
+      b -= temp * 0.1;
+      // Tint: green/magenta shift
+      g += tint * 0.1;
+      r -= tint * 0.05;
+      b -= tint * 0.05;
+      return vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), col.a);
+    }`;
+  }
+}
+
+export class LevelsNode extends BaseNode {
+  readonly type = 'levels';
+  readonly label = 'Levels';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'black', name: 'Black Point', type: 'number', direction: 'input', default: 0 },
+    { id: 'white', name: 'White Point', type: 'number', direction: 'input', default: 1 },
+    { id: 'gamma', name: 'Gamma', type: 'number', direction: 'input', default: 1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `levels(${inputs.input}, ${inputs.black ?? 0}, ${inputs.white ?? 1}, ${inputs.gamma ?? 1})`,
+    };
+  }
+  toWGSL() {
+    return `fn levels(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, black: f32, white: f32, gamma: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let range = max(white - black, 0.0001);
+      var r = (col.r - black) / range;
+      var g = (col.g - black) / range;
+      var b = (col.b - black) / range;
+      r = pow(clamp(r, 0.0, 1.0), 1.0 / max(gamma, 0.0001));
+      g = pow(clamp(g, 0.0, 1.0), 1.0 / max(gamma, 0.0001));
+      b = pow(clamp(b, 0.0, 1.0), 1.0 / max(gamma, 0.0001));
+      return vec4(r, g, b, col.a);
+    }`;
+  }
+}
+
+export class ExposureNode extends BaseNode {
+  readonly type = 'exposure';
+  readonly label = 'Exposure';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'exposure', name: 'Exposure', type: 'number', direction: 'input', default: 0 },
+    { id: 'offset', name: 'Offset', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `exposure(${inputs.input}, ${inputs.exposure ?? 0}, ${inputs.offset ?? 0})` };
+  }
+  toWGSL() {
+    return `fn exposure(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, exp: f32, offset: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let factor = pow(2.0, exp);
+      return vec4(col.rgb * factor + offset, col.a);
+    }`;
+  }
+}
+
+export class SaturationNode extends BaseNode {
+  readonly type = 'saturation';
+  readonly label = 'Saturation';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'saturation', name: 'Saturation', type: 'number', direction: 'input', default: 1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `saturation(${inputs.input}, ${inputs.saturation ?? 1})` };
+  }
+  toWGSL() {
+    return `fn saturation(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, sat: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let lum = dot(col.rgb, vec3(0.2126, 0.7152, 0.0722));
+      return vec4(mix(vec3(lum), col.rgb, sat), col.a);
+    }`;
+  }
+}
+
+export class HueShiftNode extends BaseNode {
+  readonly type = 'hueShift';
+  readonly label = 'Hue Shift';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'hue', name: 'Hue', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `hueShift(${inputs.input}, ${inputs.hue ?? 0})` };
+  }
+  toWGSL() {
+    return `fn hue_shift(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, hue: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let angle = hue * 6.2831853;
+      let cosA = cos(angle);
+      let sinA = sin(angle);
+      let r = col.r * (0.299 + 0.701 * cosA + 0.168 * sinA)
+            + col.g * (0.587 - 0.587 * cosA + 0.330 * sinA)
+            + col.b * (0.114 - 0.114 * cosA - 0.497 * sinA);
+      let g = col.r * (0.299 - 0.299 * cosA - 0.328 * sinA)
+            + col.g * (0.587 + 0.413 * cosA + 0.035 * sinA)
+            + col.b * (0.114 - 0.114 * cosA + 0.292 * sinA);
+      let b = col.r * (0.299 - 0.300 * cosA + 1.250 * sinA)
+            + col.g * (0.587 - 0.588 * cosA - 1.050 * sinA)
+            + col.b * (0.114 + 0.886 * cosA - 0.203 * sinA);
+      return vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), col.a);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -719,6 +858,11 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   glow: GlowNode,
   blur: BlurNode,
   colorGrade: ColorGradeNode,
+  temperature: TemperatureNode,
+  levels: LevelsNode,
+  exposure: ExposureNode,
+  saturation: SaturationNode,
+  hueShift: HueShiftNode,
   vignette: VignetteNode,
   blend: BlendNode,
   alphaMerge: AlphaMergeNode,
