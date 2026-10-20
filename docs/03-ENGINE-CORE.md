@@ -1,6 +1,6 @@
 # 03 — Engine Core: DAG, Nodes & the WGSL Compiler
 
-**Status: ✅ · Code: `apps/electron/src/renderer/src/engine/{nodes,compiler,useDAG}.ts`**
+**Status: 🟡 (single-pass bridge real; texture-sampling nodes need a multi-pass runtime) · Code: `apps/electron/src/renderer/src/engine/{nodes,compiler,bridge,useDAG}.ts`**
 
 > The heart of Virtue Studio is a **Directed Acyclic Graph** whose nodes are TypeScript classes. Each
 > node knows how to *execute* (CPU semantics) and how to *emit WGSL* (GPU semantics). The compiler
@@ -143,11 +143,22 @@ fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
 }
 ```
 
-> **Important distinction:** `compileDAG` produces the **node-graph** shader. The **viewport and
-> exporter** use a *different*, fixed composite shader from `engine/visual.ts` (transform + LUT over
-> the composition). See [04-RENDERING](04-RENDERING.md). These are two shaders for two purposes:
-> `compileDAG` is the programmable effect graph; `COMPOSITE_SHADER` is the composition pipeline. Unifying
-> them — letting the DAG's output feed the composite — is a roadmap item.
+> **Two shaders, one join:** `compileDAG` produces the **node-graph** fragment. The **viewport** uses a
+> fixed composite shader from `engine/visual.ts` (transform + LUT). `bridgeDAGToComposite` in
+> `engine/bridge.ts` joins them:
+>
+> 1. compile the graph;
+> 2. **refuse** any graph that needs more than the uniform binding — texture-sampling nodes require
+>    their own render passes and the runtime does not execute them yet, so the bridge returns
+>    `COMPOSITE_SHADER` plus an error instead of presenting an invalid frame;
+> 3. extract the graph fragment body, strip its `uv` declaration and `return` statement, and inject the
+>    value into the composite fragment after the inverse transform;
+> 4. apply opacity and the three-point LUT on top of the graph's colour.
+>
+> The bridge also injects the shared vertex shader, so a compiled DAG module is a complete renderable
+> shader. The **exporter** still renders the fixed composite path, so WYSIWYG currently holds only for
+> graphs that compile through the bridge (see [04-RENDERING](04-RENDERING.md)). Multi-pass execution of
+> texture-sampling nodes is the next step of the [A3 effects phase](21-ROADMAP.md).
 
 ---
 

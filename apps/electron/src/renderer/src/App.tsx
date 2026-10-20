@@ -9,8 +9,9 @@ import { GenrePanel, GenreSelector } from './components/GenreSelector';
 import { Icon, type IconName } from './components/Icon';
 import { NodeEditor } from './components/NodeEditor';
 import { SafeZoneControls, SafeZones } from './components/SafeZones';
+import { ScopesPanel } from './components/ScopesPanel';
 import { ScriptEditor } from './components/ScriptEditor';
-import { WebGPUCanvas } from './components/WebGPUCanvas';
+import { WebGPUCanvas, type WebGPUCanvasHandle } from './components/WebGPUCanvas';
 import { bridgeDAGToComposite } from './engine/bridge';
 import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
 import type { Command, DocumentStore } from './engine/history';
@@ -153,6 +154,7 @@ const MENUS: Array<{ label: string; items: MenuEntry[] }> = [
       { id: 'tl', label: 'Timeline', hint: 'Ctrl+4' },
       { id: 'ins', label: 'Inspector', hint: 'Ctrl+5' },
       { id: 'ng', label: 'Node Graph', hint: 'Ctrl+6' },
+      { id: 'scopes', label: 'Scopes', hint: 'Ctrl+7' },
     ],
   },
   {
@@ -186,6 +188,7 @@ const INS_TABS: Array<{ id: string; icon: IconName; label: string }> = [
   { id: 'props', icon: 'sliders', label: 'Props' },
   { id: 'fx', icon: 'zap', label: 'FX' },
   { id: 'color', icon: 'palette', label: 'Color' },
+  { id: 'scopes', icon: 'wave', label: 'Scopes' },
   { id: 'export', icon: 'download', label: 'Export' },
 ];
 
@@ -331,12 +334,11 @@ export function App() {
 
   // ── DAG engine ────────────────────────────────────────────────────────────
   const dag = useDAG();
+  const viewportRef = useRef<WebGPUCanvasHandle>(null);
 
-  // Bridge the DAG output into the composite shader pipeline
-  const bridgedShader = useMemo(() => {
-    const result = bridgeDAGToComposite(dag.dag);
-    return result.ok ? result.wgsl : undefined;
-  }, [dag.dag]);
+  // Bridge the DAG output into the composite shader pipeline.
+  const bridgeResult = useMemo(() => bridgeDAGToComposite(dag.dag), [dag.dag]);
+  const bridgedShader = bridgeResult.ok ? bridgeResult.wgsl : undefined;
 
   const territories = useMemo(
     () => Array.from(new Set(modes.flatMap((m) => m.territories))),
@@ -471,6 +473,8 @@ export function App() {
       setSafeZonesActive((v) => !v);
     } else if (label === 'Node Graph') {
       setActiveStage('nodes');
+    } else if (label === 'Scopes') {
+      setInsTab('scopes');
     } else if (label === 'Browse Effects…') {
       setLeftTab('effects');
     } else if (label === 'New Text Layer') {
@@ -1088,6 +1092,11 @@ export function App() {
           </span>
           <span className="ctxbar__label">Pipeline</span>
           <span className="chip">DAG → WGSL</span>
+          {!bridgeResult.ok && (
+            <span className="chip chip--accent" title={bridgeResult.errors.join('\n')}>
+              fallback
+            </span>
+          )}
         </div>
       </div>
 
@@ -1496,6 +1505,7 @@ export function App() {
               <div className="viewport">
                 <div className="viewport__frame" style={{ transform: `scale(${stageZoom})` }}>
                   <WebGPUCanvas
+                    ref={viewportRef}
                     time={playhead}
                     transform={composition.transform}
                     lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
@@ -2014,6 +2024,11 @@ export function App() {
             )}
 
             {insTab === 'color' && <BrandLUTPanel active={brandLUT} onChange={setBrandLUT} />}
+            {insTab === 'scopes' && (
+              <ScopesPanel
+                captureFrame={() => viewportRef.current?.readPixels() ?? Promise.resolve(null)}
+              />
+            )}
             {insTab === 'export' && (
               <ExportPanel
                 composition={composition}

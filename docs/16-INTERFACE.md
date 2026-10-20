@@ -99,6 +99,7 @@ While the bridge resolves, panels show **"Loading engine data…"** (`useEngineD
 - Composition settings (name, width, height, fps, duration, background).
 - **Transform fields** — x, y, scale, rotation, opacity → `packUniforms` → canvas.
 - **Brand LUT** picker (`BrandLUTPanel.tsx`).
+- **Scopes** — live histogram, waveform, and vectorscope sampled from the viewport (`ScopesPanel.tsx`, [23-COLOR](23-COLOR.md#5-scopes)).
 - **Safe-zone** controls (`SafeZoneControls`).
 - **Effects stack** — drag-and-drop reorder, add, remove.
 - **Export** — the `ExportPanel` ([07](07-EXPORT-PIPELINE.md)).

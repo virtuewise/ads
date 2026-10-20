@@ -1,5 +1,5 @@
 /// <reference types="@webgpu/types" />
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { BrandLUT, TransformState } from '../engine/types';
 import { COMPOSITE_SHADER, packUniforms, UNIFORM_BYTES, UNIFORM_FLOATS } from '../engine/visual';
 
@@ -12,14 +12,66 @@ interface WebGPUCanvasProps {
   shaderCode?: string;
 }
 
-export function WebGPUCanvas({ time = 0, transform, lut, shaderCode }: WebGPUCanvasProps) {
+export interface WebGPUCanvasHandle {
+  /** Read the current presented frame back to the CPU for scopes. */
+  readPixels(): Promise<ImageData | null>;
+}
+
+interface RenderState {
+  device: GPUDevice;
+  context: GPUCanvasContext;
+  format: GPUTextureFormat;
+  uniformBuffer: GPUBuffer;
+  data: Float32Array;
+  pipeline: GPURenderPipeline | null;
+  bindGroup: GPUBindGroup | null;
+}
+
+interface CaptureRequest {
+  resolve: (image: ImageData | null) => void;
+  inFlight: boolean;
+  timeout: number;
+}
+
+export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(function WebGPUCanvas(
+  { time = 0, transform, lut, shaderCode },
+  ref,
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [status, setStatus] = useState<'init' | 'ready' | 'error'>('init');
+  const stateRef = useRef<RenderState | null>(null);
+  const captureRef = useRef<CaptureRequest | null>(null);
+  const [deviceReady, setDeviceReady] = useState(false);
+  const [status, setStatus] = useState<'init' | 'compiling' | 'ready' | 'error'>('init');
   const [errorMsg, setErrorMsg] = useState('');
 
   // Latest props, read by the persistent render loop without re-initialising.
   const propsRef = useRef({ time, transform, lut, shaderCode });
   propsRef.current = { time, transform, lut, shaderCode };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      readPixels: () => {
+        const state = stateRef.current;
+        if (!state?.pipeline || captureRef.current) return Promise.resolve(null);
+
+        return new Promise<ImageData | null>((resolve) => {
+          const request: CaptureRequest = {
+            resolve,
+            inFlight: false,
+            timeout: window.setTimeout(() => {
+              if (captureRef.current === request) {
+                captureRef.current = null;
+                resolve(null);
+              }
+            }, 2000),
+          };
+          captureRef.current = request;
+        });
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -28,6 +80,15 @@ export function WebGPUCanvas({ time = 0, transform, lut, shaderCode }: WebGPUCan
     let destroyed = false;
     let frameId = 0;
     let device: GPUDevice | null = null;
+    let observer: ResizeObserver | null = null;
+
+    const settleCapture = (image: ImageData | null) => {
+      const request = captureRef.current;
+      if (!request) return;
+      captureRef.current = null;
+      window.clearTimeout(request.timeout);
+      request.resolve(image);
+    };
 
     (async () => {
       try {
@@ -46,78 +107,155 @@ export function WebGPUCanvas({ time = 0, transform, lut, shaderCode }: WebGPUCan
         if (destroyed) return;
         const gpu = device;
 
-        const context = canvas.getContext('webgpu') as GPUCanvasContext;
-        const format = navigator.gpu.getPreferredCanvasFormat();
-        context.configure({ device: gpu, format, alphaMode: 'premultiplied' });
+        const context = canvas.getContext('webgpu') as GPUCanvasContext | null;
+        if (!context) {
+          setStatus('error');
+          setErrorMsg('Could not create a WebGPU canvas context');
+          return;
+        }
 
-        // Use the DAG-compiled shader if provided, otherwise fall back to the composite shader
-        const shaderSource = propsRef.current.shaderCode ?? COMPOSITE_SHADER;
-        const shaderModule = gpu.createShaderModule({ code: shaderSource });
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        context.configure({
+          device: gpu,
+          format,
+          alphaMode: 'premultiplied',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+        });
+
         const uniformBuffer = gpu.createBuffer({
           size: UNIFORM_BYTES,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
-        const pipeline = gpu.createRenderPipeline({
-          layout: 'auto',
-          vertex: { module: shaderModule, entryPoint: 'vs' },
-          fragment: { module: shaderModule, entryPoint: 'fs', targets: [{ format }] },
-          primitive: { topology: 'triangle-list' },
-        });
-
-        const bindGroup = gpu.createBindGroup({
-          layout: pipeline.getBindGroupLayout(0),
-          entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
-        });
-
-        const data = new Float32Array(UNIFORM_FLOATS);
-
-        const render = () => {
-          if (destroyed) return;
-          const w = canvas.width || 1;
-          const h = canvas.height || 1;
-          packUniforms(data, {
-            time: propsRef.current.time,
-            width: w,
-            height: h,
-            transform: propsRef.current.transform,
-            lut: propsRef.current.lut,
-          });
-          gpu.queue.writeBuffer(uniformBuffer, 0, data);
-
-          const encoder = gpu.createCommandEncoder();
-          const pass = encoder.beginRenderPass({
-            colorAttachments: [
-              {
-                view: context.getCurrentTexture().createView(),
-                clearValue: { r: 0.04, g: 0.05, b: 0.08, a: 1 },
-                loadOp: 'clear',
-                storeOp: 'store',
-              },
-            ],
-          });
-          pass.setPipeline(pipeline);
-          pass.setBindGroup(0, bindGroup);
-          pass.draw(6);
-          pass.end();
-          gpu.queue.submit([encoder.finish()]);
-          frameId = requestAnimationFrame(render);
+        const state: RenderState = {
+          device: gpu,
+          context,
+          format,
+          uniformBuffer,
+          data: new Float32Array(UNIFORM_FLOATS),
+          pipeline: null,
+          bindGroup: null,
         };
+        stateRef.current = state;
+
+        gpu.addEventListener('uncapturederror', (event) => {
+          if (destroyed) return;
+          setStatus('error');
+          setErrorMsg((event as GPUUncapturedErrorEvent).error.message);
+        });
+
+        // A validation error must be visible. Without this the viewport
+        // silently paints black when a graph compiles to invalid WGSL.
+        gpu.lost.then((info) => {
+          if (destroyed) return;
+          setStatus('error');
+          setErrorMsg(`GPU device lost: ${info.message || info.reason}`);
+        });
 
         const resize = () => {
           canvas.width = Math.max(1, Math.floor(canvas.clientWidth * devicePixelRatio));
           canvas.height = Math.max(1, Math.floor(canvas.clientHeight * devicePixelRatio));
         };
         resize();
-        const ro = new ResizeObserver(resize);
-        ro.observe(canvas);
+        observer = new ResizeObserver(resize);
+        observer.observe(canvas);
 
-        setStatus('ready');
-        render();
+        const swizzleBgra = format.startsWith('bgra');
 
-        return () => {
-          ro.disconnect();
+        const readCapture = async (texture: GPUTexture) => {
+          const width = texture.width;
+          const height = texture.height;
+          const unpaddedBytesPerRow = width * 4;
+          const bytesPerRow = Math.ceil(unpaddedBytesPerRow / 256) * 256;
+          const buffer = gpu.createBuffer({
+            size: bytesPerRow * height,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+          });
+
+          const encoder = gpu.createCommandEncoder({ label: 'scope-readback' });
+          encoder.copyTextureToBuffer(
+            { texture },
+            { buffer, bytesPerRow, rowsPerImage: height },
+            { width, height, depthOrArrayLayers: 1 },
+          );
+          gpu.queue.submit([encoder.finish()]);
+
+          try {
+            await buffer.mapAsync(GPUMapMode.READ);
+            const mapped = new Uint8Array(buffer.getMappedRange());
+            const pixels = new Uint8ClampedArray(width * height * 4);
+            for (let y = 0; y < height; y++) {
+              const sourceStart = y * bytesPerRow;
+              const targetStart = y * unpaddedBytesPerRow;
+              pixels.set(
+                mapped.subarray(sourceStart, sourceStart + unpaddedBytesPerRow),
+                targetStart,
+              );
+            }
+            buffer.unmap();
+
+            if (swizzleBgra) {
+              for (let i = 0; i < pixels.length; i += 4) {
+                const b = pixels[i];
+                pixels[i] = pixels[i + 2];
+                pixels[i + 2] = b;
+              }
+            }
+            if (!destroyed) settleCapture(new ImageData(pixels, width, height));
+          } catch {
+            if (!destroyed) settleCapture(null);
+          } finally {
+            buffer.destroy();
+          }
         };
+
+        const render = () => {
+          if (destroyed) return;
+          const width = canvas.width || 1;
+          const height = canvas.height || 1;
+
+          packUniforms(state.data, {
+            time: propsRef.current.time,
+            width,
+            height,
+            transform: propsRef.current.transform,
+            lut: propsRef.current.lut,
+          });
+          gpu.queue.writeBuffer(uniformBuffer, 0, state.data);
+
+          const texture = context.getCurrentTexture();
+          const encoder = gpu.createCommandEncoder({ label: 'viewport' });
+          const pass = encoder.beginRenderPass({
+            colorAttachments: [
+              {
+                view: texture.createView(),
+                clearValue: { r: 0.04, g: 0.05, b: 0.08, a: 1 },
+                loadOp: 'clear',
+                storeOp: 'store',
+              },
+            ],
+          });
+          if (state.pipeline && state.bindGroup) {
+            pass.setPipeline(state.pipeline);
+            pass.setBindGroup(0, state.bindGroup);
+            pass.draw(6);
+          }
+          pass.end();
+          gpu.queue.submit([encoder.finish()]);
+
+          // Scope readback is demand-driven: no GPU-to-CPU copy happens
+          // while the scopes panel is closed.
+          const request = captureRef.current;
+          if (request && !request.inFlight) {
+            request.inFlight = true;
+            void readCapture(texture);
+          }
+
+          frameId = requestAnimationFrame(render);
+        };
+
+        setDeviceReady(true);
+        render();
       } catch (e) {
         if (!destroyed) {
           setStatus('error');
@@ -129,18 +267,102 @@ export function WebGPUCanvas({ time = 0, transform, lut, shaderCode }: WebGPUCan
     return () => {
       destroyed = true;
       cancelAnimationFrame(frameId);
+      observer?.disconnect();
+      settleCapture(null);
+      stateRef.current = null;
       device?.destroy();
     };
   }, []);
 
-  // Recompile the shader when shaderCode changes
+  // Compile each shader revision into a fresh pipeline. The old pipeline
+  // stays active while compilation runs, so editing the graph does not blank
+  // the viewport. This effect is what makes DAG changes visible at all.
   useEffect(() => {
-    if (!shaderCode) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    // Force a re-render by toggling a state
-    setStatus((s) => (s === 'ready' ? 'ready' : s));
-  }, [shaderCode]);
+    const state = stateRef.current;
+    if (!deviceReady || !state) return;
+
+    let cancelled = false;
+    const source = shaderCode ?? COMPOSITE_SHADER;
+    setStatus('compiling');
+
+    (async () => {
+      try {
+        const module = state.device.createShaderModule({ code: source, label: 'viewport-shader' });
+        const info = await module.getCompilationInfo();
+        if (cancelled) return;
+
+        const messages = info.messages.filter((m) => m.type === 'error');
+        if (messages.length > 0) {
+          setStatus('error');
+          setErrorMsg(
+            messages
+              .slice(0, 6)
+              .map((m) => `line ${m.lineNum}:${m.linePos} — ${m.message}`)
+              .join('\n'),
+          );
+          return;
+        }
+
+        state.device.pushErrorScope('validation');
+        let pipeline: GPURenderPipeline;
+        try {
+          pipeline = state.device.createRenderPipeline({
+            layout: 'auto',
+            vertex: { module, entryPoint: 'vs' },
+            fragment: {
+              module,
+              entryPoint: 'fs',
+              targets: [{ format: state.format }],
+            },
+            primitive: { topology: 'triangle-list' },
+          });
+        } catch (e) {
+          await state.device.popErrorScope();
+          if (!cancelled) {
+            setStatus('error');
+            setErrorMsg(String(e));
+          }
+          return;
+        }
+
+        const validation = await state.device.popErrorScope();
+        if (cancelled) return;
+        if (validation) {
+          setStatus('error');
+          setErrorMsg(validation.message);
+          return;
+        }
+
+        let bindGroup: GPUBindGroup;
+        try {
+          bindGroup = state.device.createBindGroup({
+            layout: pipeline.getBindGroupLayout(0),
+            entries: [{ binding: 0, resource: { buffer: state.uniformBuffer } }],
+          });
+        } catch (e) {
+          if (!cancelled) {
+            setStatus('error');
+            setErrorMsg(String(e));
+          }
+          return;
+        }
+
+        state.pipeline = pipeline;
+        state.bindGroup = bindGroup;
+        setStatus('ready');
+        setErrorMsg('');
+      } catch (e) {
+        if (!cancelled) {
+          setStatus('error');
+          setErrorMsg(String(e));
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deviceReady, shaderCode]);
 
   return (
     <div className="relative w-full h-full bg-ink">
@@ -150,13 +372,17 @@ export function WebGPUCanvas({ time = 0, transform, lut, shaderCode }: WebGPUCan
           Initializing WebGPU…
         </div>
       )}
+      {status === 'compiling' && (
+        <div className="absolute right-3 top-3 rounded-md border border-line bg-ink/80 px-2 py-1 font-mono text-[10px] text-muted backdrop-blur">
+          Compiling graph…
+        </div>
+      )}
       {status === 'error' && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="px-3 py-1.5 rounded-md border border-warning/40 bg-warning/10 text-warning text-xs font-mono">
-            {errorMsg}
-          </span>
+        <div className="absolute inset-x-3 bottom-3 max-h-36 overflow-auto rounded-md border border-warning/40 bg-ink/95 p-3 font-mono text-[10px] leading-relaxed text-warning shadow-xl">
+          <div className="mb-1 font-sans text-[11px] font-medium">GPU shader error</div>
+          <pre className="whitespace-pre-wrap">{errorMsg}</pre>
         </div>
       )}
     </div>
   );
-}
+});

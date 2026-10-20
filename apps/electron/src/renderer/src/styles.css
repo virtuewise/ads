@@ -214,6 +214,14 @@ body {
   gap: 7px;
 }
 
+/* The centred project metadata competes with the right-hand controls on
+   laptop-width windows; hide it before it can overlap the menu bar. */
+@media (max-width: 1500px) {
+  .menubar__center {
+    display: none;
+  }
+}
+
 /* ── Icon buttons & toolbar rows ───────────────────────────────────────── */
 
 .iconbtn {
@@ -1574,6 +1582,119 @@ select.field__input {
 .score-fill {
   stroke: #ff5a2c;
   transition: stroke-dashoffset 500ms ease;
+}
+
+/* ── Scopes ────────────────────────────────────────────────────────────── */
+
+.scopes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scopes__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #1b2230;
+  border-radius: 7px;
+  background: #07090d;
+}
+
+.scopes__tab {
+  height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #6f7789;
+  font: inherit;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background 110ms ease,
+    color 110ms ease;
+}
+
+.scopes__tab:hover {
+  color: #b6bdcf;
+  background: #10161f;
+}
+
+.scopes__tab--active {
+  color: #e9ecf3;
+  background: #161d2b;
+  box-shadow: inset 0 0 0 1px #232c3d;
+}
+
+.scopes__frame {
+  position: relative;
+  border: 1px solid #1b2230;
+  border-radius: 7px;
+  overflow: hidden;
+  background: #07090d;
+}
+
+.scopes__frame canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.scopes__live {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  border: 1px solid #2a3345;
+  border-radius: 4px;
+  background: rgba(7, 9, 13, 0.82);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  color: #576077;
+}
+
+.scopes__live--on {
+  border-color: rgba(94, 234, 212, 0.32);
+  color: #5eead4;
+}
+
+.scopes__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0;
+}
+
+.scopes__stats > div {
+  padding: 7px 8px;
+  border: 1px solid #1b2230;
+  border-radius: 6px;
+  background: #0a0e15;
+}
+
+.scopes__stats dt {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #576077;
+}
+
+.scopes__stats dd {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #cdd3e0;
+}
+
+.scopes__note {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #576077;
 }
 
 .muted {

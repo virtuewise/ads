@@ -6,7 +6,7 @@
 
 import { compileDAG } from './compiler';
 import type { BrandLUT, DAG, TransformState } from './types';
-import { COMPOSITE_SHADER, UNIFORM_BYTES, UNIFORM_FLOATS } from './visual';
+import { COMPOSITE_SHADER, UNIFORM_BYTES, UNIFORM_FLOATS, VERTEX_SHADER } from './visual';
 
 export interface BridgeResult {
   /** The unified WGSL shader source. */
@@ -41,9 +41,25 @@ export function bridgeDAGToComposite(dag: DAG): BridgeResult {
     return { wgsl: COMPOSITE_SHADER, ok: false, errors: compiled.errors, compiled };
   }
 
-  // Extract the fragment body from the compiled DAG shader
-  const dagBody = extractFragmentBody(compiled.wgsl);
-  if (!dagBody) {
+  // The single-pass bridge can only supply the uniform block. Any other
+  // @group(0) binding means the graph contains a texture-sampling node that
+  // needs its own render pass; refuse it rather than hand WebGPU an invalid
+  // bind group and silently present a black frame.
+  const bindingCount = (compiled.wgsl.match(/@group\(0\)\s*@binding\(/g) ?? []).length;
+  if (bindingCount > 1) {
+    return {
+      wgsl: COMPOSITE_SHADER,
+      ok: false,
+      errors: [
+        'This graph contains texture-sampling nodes. The single-pass bridge currently supports source and colour-only graphs; multi-pass execution is still on the roadmap.',
+      ],
+      compiled,
+    };
+  }
+
+  // Extract the fragment body from the compiled DAG shader.
+  const extracted = extractFragmentBody(compiled.wgsl);
+  if (!extracted) {
     return {
       wgsl: COMPOSITE_SHADER,
       ok: false,
@@ -60,19 +76,43 @@ export function bridgeDAGToComposite(dag: DAG): BridgeResult {
   //    b. Applies the transform (rotation, scale, translation)
   //    c. Applies the LUT
   //    d. Returns the final color
-  const wgsl = buildUnifiedShader(dagBody, compiled.wgsl);
+  const wgsl = buildUnifiedShader(extracted, compiled.wgsl);
 
   return { wgsl, ok: true, errors: [], compiled };
 }
 
-/** Extract the fragment function body from a compiled DAG shader. */
-function extractFragmentBody(wgsl: string): string | null {
-  // Find the @fragment fn and extract its body
+interface FragmentBody {
+  /** Statements before the graph's final return. */
+  statements: string;
+  /** Expression returned by the graph. */
+  output: string;
+}
+
+/**
+ * Extract the fragment body from a compiled DAG shader.
+ *
+ * The compiled body owns its own `uv` declaration and `return` statement. The
+ * bridge has already derived the transformed `uv` and needs the graph's value
+ * as an expression, so both are stripped here. Dropping the return is critical:
+ * leaving it in place would return before opacity and the LUT are applied.
+ */
+function extractFragmentBody(wgsl: string): FragmentBody | null {
   const match = wgsl.match(
-    /@fragment\s+fn\s+fs\s*\([^)]*\)\s*->\s*@location\(0\)\s*vec4<f32>\s*\{([\s\S]*?)\n\}/,
+    /@fragment\s+fn\s+fs\s*\([\s\S]*?\)\s*->\s*@location\(0\)\s*vec4<f32>\s*\{([\s\S]*?)\n\}/,
   );
   if (!match) return null;
-  return match[1].trim();
+
+  let body = match[1].trim();
+  body = body.replace(/^let\s+uv\s*=\s*fragCoord\.xy\s*\/\s*u\.resolution;\s*/, '');
+
+  const returnMatch = body.match(/\breturn\s+([^;]+);\s*$/);
+  if (!returnMatch || returnMatch.index === undefined) return null;
+
+  const output = returnMatch[1].trim();
+  const statements = body.slice(0, returnMatch.index).trim();
+  if (!output) return null;
+
+  return { statements, output };
 }
 
 /** Extract the function definitions (everything before @fragment). */
@@ -83,16 +123,17 @@ function extractFunctions(wgsl: string): string {
 }
 
 /** Build the unified shader that combines DAG output with the transform pipeline. */
-function buildUnifiedShader(dagBody: string, fullDagWgsl: string): string {
+function buildUnifiedShader(dagBody: FragmentBody, fullDagWgsl: string): string {
   const functions = extractFunctions(fullDagWgsl);
 
   // The unified fragment shader:
   // 1. Start with UV coordinates
   // 2. Apply inverse transform (to sample the DAG output at the transformed position)
-  // 3. Call the DAG body to get the base color
+  // 3. Evaluate the DAG body, whose statements see the transformed `uv`
   // 4. Apply opacity
   // 5. Apply the LUT
-  return `${functions}
+  return `${VERTEX_SHADER}
+${functions}
 
 @fragment
 fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
@@ -107,19 +148,22 @@ fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
   c = c - u.translation;
   uv = c + vec2(0.5, 0.5);
 
-  // Sample the DAG output at the transformed position
-  var color: vec4<f32>;
-${indentLines(dagBody, '  ')}
+  // Evaluate the graph against the transformed coordinates. extractFragmentBody
+  // has already converted the graph's return statement into this assignment.
+  var color: vec4<f32> = vec4<f32>(0.0);
+${indentLines(dagBody.statements, '  ')}
+  color = ${dagBody.output};
 
   // Apply opacity
   let a = clamp(u.opacity, 0.0, 1.0);
   color = vec4(color.rgb * a, color.a * a);
 
-  // Apply the 3-point LUT
+  // Apply the 3-point LUT. WGSL does not allow assigning through a swizzle,
+  // so rebuild the vec4 instead.
   let lum = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
   var lutCol = mix(u.lutShadow.rgb, u.lutMid.rgb, smoothstep(0.0, 0.5, lum));
   lutCol = mix(lutCol, u.lutHighlight.rgb, smoothstep(0.5, 1.0, lum));
-  color.rgb = mix(color.rgb, lutCol, u.lutShadow.a);
+  color = vec4<f32>(mix(color.rgb, lutCol, u.lutShadow.a), color.a);
 
   return color;
 }

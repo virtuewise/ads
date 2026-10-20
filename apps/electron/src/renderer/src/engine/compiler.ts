@@ -15,6 +15,7 @@ export interface CompiledShader {
 const WGSL_FN_NAME: Record<string, string> = {
   dataSource: 'data_source',
   colorSource: 'color_source',
+  proceduralScene: 'procedural_scene',
   noiseSource: 'noise_source',
   solidSource: 'solid_source',
   gradientSource: 'gradient_source',
@@ -78,7 +79,7 @@ const NEIGHBORHOOD_EFFECTS = new Set([
 ]);
 
 /** Source nodes that need UV coordinates but no texture sampler. */
-const UV_SOURCES = new Set(['gradientSource', 'checkerSource']);
+const UV_SOURCES = new Set(['proceduralScene', 'gradientSource', 'checkerSource']);
 
 /** Uniform struct matching visual.ts — the WYSIWYG contract. */
 const UNIFORM_STRUCT = `struct Uniforms {
@@ -136,6 +137,7 @@ export function compileDAG(dag: DAG): CompiledShader {
   // Generate WGSL for each node
   const outputVars = new Map<string, string>(); // "nodeId:port" -> var name
   let varCounter: number = 0;
+  let emittedRenderReturn = false;
 
   for (const id of sorted) {
     const node = nodeMap.get(id);
@@ -221,6 +223,7 @@ export function compileDAG(dag: DAG): CompiledShader {
       const srcVar = outputVars.get(`${inputEdge.from.node}:${inputEdge.from.port}`);
       if (srcVar) {
         bodyLines.push(`  return ${srcVar};`);
+        emittedRenderReturn = true;
       }
     }
   }
@@ -236,7 +239,7 @@ ${functions.join('\n\n')}
 fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
   let uv = fragCoord.xy / u.resolution;
 ${bodyLines.join('\n')}
-  return vec4(uv, 0.5, 1.0);
+${emittedRenderReturn ? '' : '  return vec4<f32>(uv, 0.5, 1.0);'}
 }
 `;
 

@@ -8,6 +8,17 @@ import type { BrandLUT, TransformState } from './types';
 export const UNIFORM_FLOATS = 20;
 export const UNIFORM_BYTES = UNIFORM_FLOATS * 4;
 
+export const VERTEX_SHADER = /* wgsl */ `
+  @vertex
+  fn vs(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4<f32> {
+    var pos = array<vec2<f32>, 6>(
+      vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(-1.0, 1.0),
+      vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0)
+    );
+    return vec4(pos[vi], 0.0, 1.0);
+  }
+`;
+
 export const COMPOSITE_SHADER = /* wgsl */ `
   struct Uniforms {
     time: f32,
@@ -22,14 +33,7 @@ export const COMPOSITE_SHADER = /* wgsl */ `
   };
   @group(0) @binding(0) var<uniform> u: Uniforms;
 
-  @vertex
-  fn vs(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4<f32> {
-    var pos = array<vec2<f32>, 6>(
-      vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(-1.0, 1.0),
-      vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0)
-    );
-    return vec4(pos[vi], 0.0, 1.0);
-  }
+${VERTEX_SHADER}
 
   @fragment
   fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {

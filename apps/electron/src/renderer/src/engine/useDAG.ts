@@ -15,36 +15,16 @@ function createId(prefix: string) {
 
 const DEFAULT_DAG: DAG = {
   nodes: [
-    { id: 'n1', type: 'dataSource', position: { x: 40, y: 80 }, inputs: {}, outputs: {} },
     {
-      id: 'n2',
-      type: 'transform',
-      position: { x: 240, y: 80 },
-      inputs: { scale: 1.5 },
+      id: 'n1',
+      type: 'proceduralScene',
+      position: { x: 120, y: 120 },
+      inputs: {},
       outputs: {},
     },
-    {
-      id: 'n3',
-      type: 'ease',
-      position: { x: 440, y: 80 },
-      inputs: { type: 'easeInOut' },
-      outputs: {},
-    },
-    {
-      id: 'n4',
-      type: 'glow',
-      position: { x: 640, y: 80 },
-      inputs: { intensity: 0.3 },
-      outputs: {},
-    },
-    { id: 'n5', type: 'render', position: { x: 840, y: 80 }, inputs: {}, outputs: {} },
+    { id: 'n2', type: 'render', position: { x: 440, y: 120 }, inputs: {}, outputs: {} },
   ],
-  edges: [
-    { id: 'e1', from: { node: 'n1', port: 'values' }, to: { node: 'n2', port: 'input' } },
-    { id: 'e2', from: { node: 'n2', port: 'output' }, to: { node: 'n3', port: 'input' } },
-    { id: 'e3', from: { node: 'n3', port: 'output' }, to: { node: 'n4', port: 'input' } },
-    { id: 'e4', from: { node: 'n4', port: 'output' }, to: { node: 'n5', port: 'input' } },
-  ],
+  edges: [{ id: 'e1', from: { node: 'n1', port: 'output' }, to: { node: 'n2', port: 'input' } }],
 };
 
 export function useDAG() {

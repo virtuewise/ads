@@ -50,6 +50,7 @@ kinetic typography / transitions / VFX in the motion engine.
 | Local export via system FFmpeg (1080p H.264, 4K ProRes), probing, backpressure | ✅ | [07](07-EXPORT-PIPELINE.md) |
 | Six genre workflows: SmartCut, keyframe presets, templates, pipelines | ✅ | [09](09-GENRE-SYSTEM.md) |
 | Brand LUTs (WGSL) + safe zones | ✅ | [18](18-BRAND-AND-LUTS.md) |
+| Scopes panel (histogram / waveform / vectorscope, viewport readback) | 🟡 | [23](23-COLOR.md) |
 | Interaction depth: transform→canvas, clip drag/trim, effect drop, keyframe diamonds | ✅ | [16](16-INTERFACE.md) |
 | Electron 44.9 binary working | ✅ | [20](20-OPERATIONS.md) |
 
@@ -86,16 +87,16 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 
 | Task | Status |
 |---|---|
-| Feed the DAG's compiled output into the composite (join the two shaders) | ⬜ |
+| Feed the DAG's compiled output into the composite (join the two shaders) | ✅ (single-pass bridge; texture-sampling nodes still need multi-pass) |
 | Multi-output-port nodes in the compiler | ⬜ |
 | Real `BlurNode` / `VignetteNode` WGSL (currently placeholders) | ⬜ |
-| Monaco editor replacing the textarea in `ScriptEditor` | ⬜ |
-| Surface compile errors (cycles, unknown nodes) in the UI | ⬜ |
+| Monaco editor replacing the textarea in `ScriptEditor` | ✅ |
+| Surface compile errors (cycles, unknown nodes) in the UI | 🟡 (GPU validation errors are visible; graph-level errors are not) |
 | Colour management (linear round-trip, FFmpeg colour flags, `.cube` ingestion) | ⬜ |
 | Headless CLI (import → genre → render → export, no window) | ⬜ |
 | Pre-export brand-QA gate | ⬜ |
 | Multi-brand switching in the UI | ⬜ |
-| Undo/redo across the document | ⬜ |
+| Undo/redo across the document | 🟡 (timeline ops real; other documents pending) |
 | Native shared-memory FFmpeg path (optimisation) | ⬜ |
 | Double-buffered readback (export throughput) | ⬜ |
 
@@ -154,7 +155,7 @@ from "working editor" to "futuristic studio". Each doc is a design specification
 |---|---|---|---|
 | **A0** | Media pipeline: WebCodecs decode, zero-copy GPU, ring buffer, proxies, indexing | [29](29-MEDIA-PIPELINE.md) | — |
 | **A1** | Compositor: layers, masks, blends, 3D camera, motion blur, pre-comps | [22](22-COMPOSITOR.md) | A0 |
-| **A2** | Color: primaries, curves, qualifiers, `.cube` LUTs, scopes, ACES colour management | [23](23-COLOR.md) | A1 |
+| **A2** | Color: primaries, curves, qualifiers, `.cube` LUTs, scopes, ACES colour management | [23](23-COLOR.md) | A1 — scopes panel 🟡, rest ⬜ |
 | **A3** | Effects library: WGSL catalogue, texture-sampling nodes, compute nodes, particles | [27](27-EFFECTS-LIBRARY.md) | A1 |
 | **A4** | Transitions: WGSL engine, luma wipes, optical-flow morphs | [24](24-TRANSITIONS.md) | A1, A3 |
 | **A5** | Audio: WebAudio graph, J/L cuts, time-stretch, loudness, muxing | [25](25-AUDIO.md) | A0 |

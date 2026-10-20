@@ -9,7 +9,7 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      preload: path.join(rootDir, '../preload/index.js'),
+      preload: path.join(rootDir, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },

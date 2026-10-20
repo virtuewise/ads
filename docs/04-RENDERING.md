@@ -1,20 +1,22 @@
 # 04 — Rendering: WebGPU, the WYSIWYG Contract & Hardware
 
-**Status: ✅ (composite path real; media-texture input ⬜) · Code: `engine/visual.ts`, `engine/renderFrame.ts`, `components/WebGPUCanvas.tsx`**
+**Status: 🟡 (viewport composite + DAG bridge real; exporter consumes the fixed composite only) · Code: `engine/visual.ts`, `engine/bridge.ts`, `engine/renderFrame.ts`, `components/WebGPUCanvas.tsx`**
 
-> Rendering is split into exactly two paths that **must produce identical pixels**: the interactive
-> viewport and the headless exporter. They share one module — `engine/visual.ts` — which owns both the
-> WGSL and the uniform packing. Change the shader in one place and both follow. This is the WYSIWYG
-> contract.
+> Rendering is split into two paths: the interactive **viewport** and the headless **exporter**. They
+> share `engine/visual.ts` — the WGSL and the uniform packing — so the fallback scene cannot drift.
+> The viewport additionally accepts a DAG-bridged shader (`bridgeDAGToComposite`), which currently
+> covers source and colour-only graphs; the exporter still renders the fixed composite path.
 
 ---
 
 ## The WYSIWYG contract
 
 > **A frame rendered in the viewport at time `t` is byte-identical to the frame the exporter writes for
-> time `t`** (at equal resolution and LUT).
+> time `t`** (at equal resolution and LUT) — **as long as the viewport is running the composite
+> fallback.** A DAG-bridged viewport frame is not yet produced by the exporter; the graph must be
+> routed through the same path before byte-identity holds for node-graph compositions.
 
-This is guaranteed **structurally**, not by testing discipline:
+This is guaranteed **structurally** for the composite path, not by testing discipline:
 
 ```
                         engine/visual.ts
@@ -89,11 +91,18 @@ to drift.
 ## The interactive viewport — `components/WebGPUCanvas.tsx`
 
 - Requests adapter/device from `navigator.gpu`.
-- Configures the canvas context with `bgra8unorm` (or the preferred swapchain format).
+- Configures the canvas context with the preferred swapchain format and
+  `RENDER_ATTACHMENT | COPY_SRC` (the latter enables scope readback).
 - Runs a **persistent `requestAnimationFrame` loop** that:
   1. Computes `time` from the elapsed clock.
   2. Calls `packUniforms` with the current `time`, `transform`, `lut`, and canvas size.
   3. Submits the render pass and presents.
+- **Recompiles the pipeline when `shaderCode` changes.** The previous pipeline keeps drawing while the
+  new module compiles, and shader validation errors (`getCompilationInfo`, `pushErrorScope`) surface in
+  an on-canvas error overlay instead of a silent black frame.
+- Exposes `readPixels()` through an imperative handle. A `scope-readback` encoder copies the current
+  canvas texture into a 256-byte-aligned `MAP_READ` buffer; this runs **only on demand** while the
+  Scopes panel is mounted ([23-COLOR](23-COLOR.md#5-scopes)).
 - Is driven by **props** (`time`, `transform`, `lut`, `width`, `height`) — so editing a transform field
   or dragging a clip updates the canvas on the very next frame. This is the live-feedback contract
   described in [16-INTERFACE](16-INTERFACE.md).

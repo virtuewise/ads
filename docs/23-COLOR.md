@@ -1,10 +1,12 @@
 # 23 — Color: Grading Engine, LUTs, Scopes & Color Management
 
-**Status: 🟡 (a 5-LUT luminance gradient is real; a grading engine is ⬜) · Code: `engine/visual.ts` (today) → `engine/color/*` (target)**
+**Status: 🟡 (brand tint, a DAG bridge, and a three-scope panel are real; a full grading engine is ⬜) · Code: `engine/visual.ts`, `engine/bridge.ts`, `components/ScopesPanel.tsx` (today) → `engine/color/*` (target)**
 
 > Today "color" is a **three-point luminance gradient** driven by five hardcoded brand LUTs
-> (`BRAND_LUTS`, applied in `COMPOSITE_SHADER`). This document specifies a **real grading engine**:
-> primaries, curves, qualifiers, 3D LUTs, scopes, and a colour-managed pipeline from camera to delivery.
+> (`BRAND_LUTS`, applied in `COMPOSITE_SHADER` and in the DAG bridge), plus a **viewport-sampled
+> scopes panel**. This document specifies a **real grading engine**:
+> primaries, curves, qualifiers, 3D LUTs, GPU-reduced scopes, and a colour-managed pipeline from camera
+> to delivery.
 
 ---
 
@@ -129,19 +131,35 @@ working unchanged. See [18-BRAND-AND-LUTS](18-BRAND-AND-LUTS.md).
 
 ## 5. Scopes
 
-Professional credibility is mostly scopes. All rendered live, on the GPU, dockable in the UI:
+### What exists today
 
-| Scope | What it shows |
+The right inspector has a **Scopes** tab (`components/ScopesPanel.tsx`, mounted from `App.tsx`) with
+three scope types:
+
+| Scope | Implementation |
 |---|---|
-| **Waveform** | per-column luminance/RGB distribution |
-| **RGB Parade** | three waveforms, one per channel |
-| **Vectorscope** | hue/saturation, with skin-tone line |
-| **Histogram** | RGB + luma distribution |
-| **False colour** | exposure zones as an overlay on the picture |
-| **Gamut warning** | out-of-gamut pixels flagged |
+| **Histogram** | luma fill + additive R/G/B traces, 256 bins, square-root height scaling |
+| **Waveform** | per-column luma distribution into 512 × 256 bins, intensity from sample count |
+| **Vectorscope** | 128 × 128 Cb/Cr heat bins with graticule, axes, and the 123° skin-tone line |
 
-Implementation: a `@compute` pass reduces the frame to scope buffers; the scope UI draws them from a
-texture. At 4K this is ~8M samples per frame — a compute reduction is mandatory, not optional.
+The panel is wired to the **actual viewport**, not to synthetic data. `WebGPUCanvas.readPixels()`
+copies the current canvas texture to a `MAP_READ` buffer (256-byte-aligned rows), converts BGRA→RGBA
+when the swapchain format requires it, and returns `ImageData`. The panel samples at roughly 3.3 Hz
+**only while it is open**; closing the tab removes the interval and the GPU→CPU copies stop.
+
+The reduction is currently **CPU-side over the readback**: ~100k pixels per sample after the fixed
+stride, so the cost is bounded by canvas size rather than composition resolution. The panel also shows
+mean luma, min/max range, mean saturation, and the sample timestamp.
+
+### What the target is
+
+At 4K, ~8M samples per frame makes a CPU reduction wrong. The production design is a `@compute` pass
+that reduces the frame to scope buffers, drawn by the same UI:
+
+- **RGB Parade** — three waveforms, one per channel.
+- **False colour** — exposure zones as an overlay on the picture.
+- **Gamut warning** — out-of-gamut pixels flagged.
+- **Graticules** — 0/100 IRE guides and proper vectorscope target boxes for R, G, B, Cy, Mg, Yl.
 
 ---
 

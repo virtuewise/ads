@@ -87,6 +87,55 @@ export class NoiseSourceNode extends BaseNode {
   }
 }
 
+/**
+ * The default full-frame source. It is deliberately texture-free: the
+ * single-pass bridge can evaluate it directly, which keeps the out-of-the-box
+ * graph renderable while the multi-pass effect runtime is still being built.
+ */
+export class ProceduralSceneNode extends BaseNode {
+  readonly type = 'proceduralScene';
+  readonly label = 'Procedural Scene';
+  readonly category = 'source' as const;
+  readonly ports: Port[] = [{ id: 'output', name: 'Output', type: 'texture', direction: 'output' }];
+  execute(): Record<string, unknown> {
+    return { output: 'procedural_scene(uv)' };
+  }
+  toWGSL() {
+    return `fn procedural_scene(uv: vec2<f32>) -> vec4<f32> {
+      let t = u.time;
+      let p = uv - vec2<f32>(0.5);
+      let r = length(p);
+
+      let core = exp(-5.5 * r * r);
+      var col = mix(vec3<f32>(0.020, 0.027, 0.043), vec3<f32>(0.055, 0.075, 0.120), core);
+
+      let bandA = sin(uv.x * 5.2 + t * 0.35 + sin(uv.y * 3.8 - t * 0.28) * 1.25);
+      let bandB = sin(uv.y * 7.0 - t * 0.22 + sin(uv.x * 4.0 + t * 0.19) * 0.9);
+      col += vec3<f32>(0.018, 0.038, 0.055) * smoothstep(0.55, 1.0, bandA);
+      col += vec3<f32>(0.032, 0.022, 0.045) * smoothstep(0.62, 1.0, bandB);
+
+      let accentPos = vec2<f32>(0.53 + 0.14 * cos(t * 0.31), 0.5 + 0.10 * sin(t * 0.27));
+      let coolPos = vec2<f32>(0.47 + 0.18 * cos(t * 0.19 + 2.3), 0.5 + 0.14 * sin(t * 0.23 + 1.1));
+      let accent = exp(-42.0 * dot(uv - accentPos, uv - accentPos));
+      let cool = exp(-58.0 * dot(uv - coolPos, uv - coolPos));
+      col += accent * vec3<f32>(1.0, 0.353, 0.173) * 0.72;
+      col += cool * vec3<f32>(0.369, 0.918, 0.831) * 0.42;
+
+      let grid =
+        smoothstep(0.96, 1.0, cos(uv.x * 90.0)) +
+        smoothstep(0.96, 1.0, cos(uv.y * 90.0));
+      col += vec3<f32>(0.03, 0.045, 0.06) * grid * 0.35;
+
+      let grain = fract(sin(dot(uv, vec2<f32>(12.9898, 78.233)) + t * 0.7) * 43758.5453);
+      col += (grain - 0.5) * 0.012;
+
+      let vig = 1.0 - smoothstep(0.38, 0.85, r);
+      col *= mix(0.55, 1.0, vig);
+      return vec4<f32>(max(col, vec3<f32>(0.0)), 1.0);
+    }`;
+  }
+}
+
 // ── Transform Nodes ──────────────────────────────────────────────────────────
 
 export class TransformNode extends BaseNode {
@@ -1520,6 +1569,7 @@ function evaluateExpression(code: string, input: number): number {
 export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   dataSource: DataSourceNode,
   colorSource: ColorSourceNode,
+  proceduralScene: ProceduralSceneNode,
   noiseSource: NoiseSourceNode,
   mediaSource: MediaSourceNode,
   solidSource: SolidSourceNode,
