@@ -7,7 +7,23 @@ import type { Port } from './types';
 export abstract class BaseNode {
   abstract readonly type: string;
   abstract readonly label: string;
-  abstract readonly category: 'source' | 'transform' | 'effect' | 'composite' | 'output' | 'script';
+  abstract readonly category:
+    | 'source'
+    | 'transform'
+    | 'effect'
+    | 'composite'
+    | 'output'
+    | 'script'
+    | 'distort'
+    | 'stylize'
+    | 'color'
+    | 'blur'
+    | 'keying'
+    | 'temporal'
+    | 'light'
+    | 'compute'
+    | 'utility'
+    | 'generate';
   abstract readonly ports: Port[];
   abstract execute(inputs: Record<string, unknown>): Record<string, unknown>;
   abstract toWGSL(): string;
@@ -416,6 +432,107 @@ export class AlphaMergeNode extends BaseNode {
 
 // ── Output Nodes ─────────────────────────────────────────────────────────────
 
+export class ChromaticAberrationNode extends BaseNode {
+  readonly type = 'chromaticAberration';
+  readonly label = 'Chromatic Aberration';
+  readonly category = 'distort' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'amount', name: 'Amount', type: 'number', direction: 'input', default: 0.005 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `chromaticAberration(${inputs.input}, ${inputs.amount ?? 0.005})` };
+  }
+  toWGSL() {
+    return `fn chromatic_aberration(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, amount: f32) -> vec4<f32> {
+      let center = vec2(0.5, 0.5);
+      let dir = uv - center;
+      let r = textureSample(src, samp, uv + dir * amount).r;
+      let g = textureSample(src, samp, uv).g;
+      let b = textureSample(src, samp, uv - dir * amount).b;
+      let a = textureSample(src, samp, uv).a;
+      return vec4(r, g, b, a);
+    }`;
+  }
+}
+
+export class SharpenNode extends BaseNode {
+  readonly type = 'sharpen';
+  readonly label = 'Sharpen';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'amount', name: 'Amount', type: 'number', direction: 'input', default: 1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `sharpen(${inputs.input}, ${inputs.amount ?? 1})` };
+  }
+  toWGSL() {
+    return `fn sharpen(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, amount: f32) -> vec4<f32> {
+      let texSize = vec2<f32>(textureDimensions(src));
+      let step = 1.0 / texSize;
+      let center = textureSample(src, samp, uv);
+      let n = textureSample(src, samp, uv + vec2(0.0, -step.y));
+      let s = textureSample(src, samp, uv + vec2(0.0, step.y));
+      let e = textureSample(src, samp, uv + vec2(step.x, 0.0));
+      let w = textureSample(src, samp, uv + vec2(-step.x, 0.0));
+      let laplacian = (n + s + e + w) * 0.25 - center;
+      return center - laplacian * amount;
+    }`;
+  }
+}
+
+export class FilmGrainNode extends BaseNode {
+  readonly type = 'filmGrain';
+  readonly label = 'Film Grain';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'amount', name: 'Amount', type: 'number', direction: 'input', default: 0.1 },
+    { id: 'time', name: 'Time', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `filmGrain(${inputs.input}, ${inputs.amount ?? 0.1}, ${inputs.time ?? 0})` };
+  }
+  toWGSL() {
+    return `fn film_grain(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, amount: f32, time: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let n = fract(sin(dot(uv * 1000.0 + time * 100.0, vec2(12.9898, 78.233))) * 43758.5453);
+      let grain = (n - 0.5) * amount;
+      return vec4(col.rgb + grain, col.a);
+    }`;
+  }
+}
+
+export class LensDistortionNode extends BaseNode {
+  readonly type = 'lensDistortion';
+  readonly label = 'Lens Distortion';
+  readonly category = 'distort' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'k1', name: 'K1', type: 'number', direction: 'input', default: 0.1 },
+    { id: 'k2', name: 'K2', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `lensDistortion(${inputs.input}, ${inputs.k1 ?? 0.1}, ${inputs.k2 ?? 0})` };
+  }
+  toWGSL() {
+    return `fn lens_distortion(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, k1: f32, k2: f32) -> vec4<f32> {
+      let center = vec2(0.5, 0.5);
+      var p = uv - center;
+      let r2 = dot(p, p);
+      let factor = 1.0 + k1 * r2 + k2 * r2 * r2;
+      p = p * factor;
+      let tuv = p + center;
+      return textureSample(src, samp, tuv);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -529,6 +646,10 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   vignette: VignetteNode,
   blend: BlendNode,
   alphaMerge: AlphaMergeNode,
+  chromaticAberration: ChromaticAberrationNode,
+  sharpen: SharpenNode,
+  filmGrain: FilmGrainNode,
+  lensDistortion: LensDistortionNode,
   render: RenderNode,
   script: ScriptNode,
 };

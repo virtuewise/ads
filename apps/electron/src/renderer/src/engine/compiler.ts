@@ -18,6 +18,9 @@ const WGSL_FN_NAME: Record<string, string> = {
   noiseSource: 'noise_source',
   textureTransform: 'texture_transform',
   spatialTransform: 'spatial_transform',
+  chromaticAberration: 'chromatic_aberration',
+  filmGrain: 'film_grain',
+  lensDistortion: 'lens_distortion',
 };
 
 /** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
@@ -28,6 +31,10 @@ const NEIGHBORHOOD_EFFECTS = new Set([
   'glow',
   'textureTransform',
   'spatialTransform',
+  'chromaticAberration',
+  'sharpen',
+  'filmGrain',
+  'lensDistortion',
 ]);
 
 /** Uniform struct matching visual.ts — the WYSIWYG contract. */
