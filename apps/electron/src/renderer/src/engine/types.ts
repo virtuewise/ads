@@ -19,6 +19,25 @@ export interface NodeInstance {
   code?: string; // custom WGSL/JS for script nodes
 }
 
+/** Compute node specification for GPU compute passes. */
+export interface ComputeNodeSpec {
+  type: string;
+  workgroupSize: [number, number, number];
+  /** Dispatch dimensions derived from the input or a parameter. */
+  dispatch: (inputs: Record<string, unknown>) => [number, number, number];
+  /** WGSL binding declarations + the @compute entry. */
+  wgsl: string;
+  /** Storage resources the node creates/uses. */
+  resources: ResourceSpec[];
+}
+
+export interface ResourceSpec {
+  name: string;
+  type: 'storage-buffer' | 'storage-texture' | 'uniform-buffer';
+  size?: number;
+  format?: string;
+}
+
 export interface Edge {
   id: string;
   from: { node: string; port: string };

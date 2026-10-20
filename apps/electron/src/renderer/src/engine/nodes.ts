@@ -2,7 +2,7 @@
 // Every visual node is a TypeScript class. Nodes serialize to JSON and compile
 // to WGSL fragment shaders for the WebGPU pipeline.
 
-import type { Port } from './types';
+import type { ComputeNodeSpec, Port } from './types';
 
 export abstract class BaseNode {
   abstract readonly type: string;
@@ -830,6 +830,55 @@ export class DisplacementNode extends BaseNode {
   }
 }
 
+// ── Compute Nodes ────────────────────────────────────────────────────────────
+
+export abstract class ComputeNode extends BaseNode {
+  abstract readonly computeSpec: ComputeNodeSpec;
+  readonly category = 'compute' as const;
+}
+
+export class HistogramNode extends ComputeNode {
+  readonly type = 'histogram';
+  readonly label = 'Histogram';
+  readonly computeSpec: ComputeNodeSpec = {
+    type: 'histogram',
+    workgroupSize: [256, 1, 1],
+    dispatch: (_inputs) => [1, 1, 1],
+    wgsl: `@group(0) @binding(0) var inputTex: texture_2d<f32>;
+@group(0) @binding(1) var inputSamp: sampler;
+@group(0) @binding(2) var<storage, read_write> histogram: array<atomic<u32>, 256>;
+
+@compute @workgroup_size(256, 1, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let texSize = textureDimensions(inputTex);
+  let totalPixels = texSize.x * texSize.y;
+  let pixelsPerThread = (totalPixels + 255u) / 256u;
+  let start = gid.x * pixelsPerThread;
+  let end = min(start + pixelsPerThread, totalPixels);
+  for (var i = start; i < end; i = i + 1u) {
+    let x = i % texSize.x;
+    let y = i / texSize.x;
+    let uv = (vec2<f32>(f32(x), f32(y)) + 0.5) / vec2<f32>(texSize);
+    let col = textureSampleLevel(inputTex, inputSamp, uv, 0.0);
+    let lum = dot(col.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+    let bin = u32(clamp(lum * 255.0, 0.0, 255.0));
+    atomicAdd(&histogram[bin], 1u);
+  }
+}`,
+    resources: [{ name: 'histogram', type: 'storage-buffer', size: 256 * 4 }],
+  };
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `histogram(${inputs.input})` };
+  }
+  toWGSL() {
+    return `fn histogram_placeholder() -> vec4<f32> { return vec4(0.0); }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -949,6 +998,7 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   saturation: SaturationNode,
   hueShift: HueShiftNode,
   bloom: BloomNode,
+  histogram: HistogramNode,
   posterize: PosterizeNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
