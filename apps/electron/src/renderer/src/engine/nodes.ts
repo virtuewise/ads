@@ -745,6 +745,91 @@ export class HueShiftNode extends BaseNode {
   }
 }
 
+export class BloomNode extends BaseNode {
+  readonly type = 'bloom';
+  readonly label = 'Bloom';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'threshold', name: 'Threshold', type: 'number', direction: 'input', default: 0.8 },
+    { id: 'intensity', name: 'Intensity', type: 'number', direction: 'input', default: 1 },
+    { id: 'radius', name: 'Radius', type: 'number', direction: 'input', default: 4 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `bloom(${inputs.input}, ${inputs.threshold ?? 0.8}, ${inputs.intensity ?? 1}, ${inputs.radius ?? 4})`,
+    };
+  }
+  toWGSL() {
+    return `fn bloom(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, threshold: f32, intensity: f32, radius: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let lum = dot(col.rgb, vec3(0.2126, 0.7152, 0.0722));
+      let bloomMask = smoothstep(threshold, 1.0, lum);
+      var bloomCol = vec4(col.rgb * bloomMask, col.a);
+      // Simple box blur for bloom
+      let texSize = vec2<f32>(textureDimensions(src));
+      let step = radius / max(texSize.x, texSize.y);
+      var sum = vec4(0.0);
+      for (var x = -2; x <= 2; x++) {
+        for (var y = -2; y <= 2; y++) {
+          let offset = vec2<f32>(f32(x), f32(y)) * step;
+          let s = textureSample(src, samp, uv + offset);
+          let sl = dot(s.rgb, vec3(0.2126, 0.7152, 0.0722));
+          sum += vec4(s.rgb * smoothstep(threshold, 1.0, sl), s.a);
+        }
+      }
+      bloomCol = sum / 25.0 * intensity;
+      return vec4(col.rgb + bloomCol.rgb, col.a);
+    }`;
+  }
+}
+
+export class PosterizeNode extends BaseNode {
+  readonly type = 'posterize';
+  readonly label = 'Posterize';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'levels', name: 'Levels', type: 'number', direction: 'input', default: 4 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `posterize(${inputs.input}, ${inputs.levels ?? 4})` };
+  }
+  toWGSL() {
+    return `fn posterize(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, levels: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let l = max(levels, 1.0);
+      return vec4(floor(col.rgb * l) / l, col.a);
+    }`;
+  }
+}
+
+export class DisplacementNode extends BaseNode {
+  readonly type = 'displacementMap';
+  readonly label = 'Displacement Map';
+  readonly category = 'distort' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'displacement', name: 'Displacement', type: 'texture', direction: 'input' },
+    { id: 'strength', name: 'Strength', type: 'number', direction: 'input', default: 0.1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `displacementMap(${inputs.input}, ${inputs.displacement}, ${inputs.strength ?? 0.1})`,
+    };
+  }
+  toWGSL() {
+    return `fn displacement_map(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, disp: texture_2d<f32>, dispSamp: sampler, strength: f32) -> vec4<f32> {
+      let d = textureSample(disp, dispSamp, uv).rg * 2.0 - 1.0;
+      let tuv = uv + d * strength;
+      return textureSample(src, samp, tuv);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -863,6 +948,9 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   exposure: ExposureNode,
   saturation: SaturationNode,
   hueShift: HueShiftNode,
+  bloom: BloomNode,
+  posterize: PosterizeNode,
+  displacementMap: DisplacementNode,
   vignette: VignetteNode,
   blend: BlendNode,
   alphaMerge: AlphaMergeNode,
