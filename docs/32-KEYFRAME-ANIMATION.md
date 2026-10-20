@@ -1,6 +1,6 @@
 # 32 — Keyframe Animation System
 
-**Status: 🟡 (real keyframe engine; per-property sampling, richer easings, and graph editor are ⬜) · Code: `engine/timeline.ts`, `engine/types.ts`, `engine/nodes.ts`**
+**Status: 🟡 (real keyframe engine + 25-easing library; per-property sampling UI and a graph editor are ⬜) · Code: `engine/timeline.ts`, `engine/easing.ts`, `engine/types.ts`, `engine/nodes.ts`**
 
 > The keyframe system is one of the most real parts of the editor: a pure data model, four timeline
 > transforms, easing interpolation, snapping, and a UI with draggable diamonds. This document is the
@@ -131,18 +131,31 @@ Algorithm:
 
 ## 5. Easing functions
 
-Four easings, all quadratic, in the private `ease(t, kind)` function:
+**25 easings**, all in the single source of truth `engine/easing.ts` — consumed by the timeline sampler
+(`sampleKeyframes`), the `EaseNode`, and the WGSL compiler (`EASE_WGSL`), so JS and GPU cannot drift:
 
-| Easing | Formula | Character |
+| Family | Easings | Character |
 |---|---|---|
-| `linear` | `t` | constant velocity |
-| `easeIn` | `t²` | accelerate from zero |
-| `easeOut` | `1-(1-t)²` | decelerate to zero |
-| `easeInOut` | `t<0.5 ? 2t² : 1-2(1-t)²` | accelerate then decelerate |
+| Linear | `linear` | constant velocity |
+| Quad | `easeIn`, `easeOut`, `easeInOut` | the classic four-quadrant default |
+| Sine | `sineIn`, `sineOut`, `sineInOut` | softest start/stop |
+| Cubic | `cubicIn`, `cubicOut`, `cubicInOut` | snappier than quad |
+| Quart | `quartIn`, `quartOut`, `quartInOut` | hard accel/decel |
+| Expo | `expoIn`, `expoOut`, `expoInOut` | near-instant whip |
+| Back | `backIn`, `backOut`, `backInOut` | overshoot (c1 = 1.70158) |
+| Elastic | `elasticIn`, `elasticOut`, `elasticInOut` | spring oscillation |
+| Bounce | `bounceIn`, `bounceOut`, `bounceInOut` | settle with bounces |
 
-**What is missing:** cubic/bezier easings, `back` (overshoot), `elastic`, `bounce`, `spring`, and
-`step`/`hold` (discrete jumps). The advanced easing library is specified in
-[40](40-ANIMATION-PRINCIPLES.md#easing-library).
+```typescript
+import { easeValue, EASING_ORDER, EASING_LABELS } from './easing';
+easeValue(0.5, 'backOut'); // → overshoot value, same math the GPU runs
+```
+
+`KeyframeEasing` (`engine/types.ts`) is the union of these 25 strings; `EASING_ORDER` drives the UI
+picker order and `EASING_LABELS` its display names.
+
+**Still missing:** `quint`, `circ`, `step`/`hold` (discrete jumps), `spring` (physics-integrated), and
+per-segment custom bezier handles — see [40](40-ANIMATION-PRINCIPLES.md#easing-library).
 
 ---
 
@@ -224,17 +237,17 @@ In `App.tsx`:
 
 ## 10. The advanced keyframe model (target)
 
-The current system is **2D affine, scalar-valued, 4 easings, no graph editor**. The target:
+The current system is **2D affine, scalar-valued, 25 easings, no graph editor**. The target:
 
 | Dimension | Today | Target |
 |---|---|---|
 | Properties | `x, y, scale, rotation, opacity` | + `scaleX, scaleY, rotationX/Y/Z, skew, anchorX/Y, z, custom params` |
 | Value type | single `number` | `number \| vec2 \| vec3 \| color` |
-| Easings | 4 quadratic | full library: cubic, back, elastic, bounce, spring, step, custom bezier |
+| Easings | 25 (`engine/easing.ts`, JS + WGSL) | + `quint`, `circ`, `step`, `spring`, per-segment custom bezier |
 | Interpolation | per-keyframe easing | per-segment bezier handles, velocity curves, graph editor |
-| Sampling | across all keyframes (bug) | per-property channels, no cross-contamination |
+| Sampling | per-property channel available (`sampleKeyframes(property)`) | enforced everywhere, no cross-contamination by default |
 | Expressions | none | `value = f(time, otherParams)` — see [39](39-SCRIPTING-AND-EXPRESSIONS.md) |
-| Procedural | StaggerNode only | full procedural motion — see [40](40-ANIMATION-PRINCIPLES.md) |
+| Procedural | `StaggerNode`, `OscillatorNode`, `SpringNode` | full procedural motion — see [40](40-ANIMATION-PRINCIPLES.md) |
 
 ### The graph editor (target)
 

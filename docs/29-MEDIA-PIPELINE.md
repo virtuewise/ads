@@ -1,6 +1,6 @@
 # 29 — Media Pipeline: Import, Decode, Proxies & Indexing
 
-**Status: ⬜ (the timeline holds only engine-seeded placeholder clips) · Code (target): `engine/media/*`, `main/media.ts`**
+**Status: ⬜ (scaffolding only: metadata probe + decoder shell exist; demux, GPU upload, and audio are ⬜) · Code: `engine/media.ts` (today) → `engine/media/*`, `main/media.ts` (target)**
 
 > **This is the frontier.** The compositor, timeline, and export are real; the media they operate on is
 > not. The timeline holds placeholder clips and the composite renders a procedural scene
@@ -12,13 +12,19 @@
 
 | Capability | Today |
 |---|---|
-| Import media | ⬜ none |
-| Decode video | ⬜ none behind the compositor |
+| Import media | 🟡 file picker → `createMediaDecoder(file)` probes duration/size via `<video>` metadata |
+| Decode video | 🟡 `decodeVideo()` builds a WebCodecs `VideoDecoder` but **feeds it nothing** — no container parsing, so `source.frames` stays empty |
 | Frame → GPU texture | ⬜ none (the composite samples nothing) |
-| Clip → media reference | ⬜ (`TimelineClip` has a `name`, not a `mediaId`) |
+| Clip → media reference | ⬡ `MediaSourceNode` exists in the DAG, but nothing binds real frames to it |
 | Audio | ⬜ none behind the track ([25](25-AUDIO.md)) |
-| Metadata / indexing | ⬜ none |
+| Metadata / indexing | 🟡 duration, width, height (fps hardcoded to 30) |
 | Proxies | ⬜ none |
+| Disposal | 🟡 `disposeMediaSource()` closes every cached `VideoFrame` |
+
+The honest one-line summary: **`engine/media.ts` is a typed shell with a real ring-buffer shape and a
+real disposal path, but no demuxer behind it.** The missing piece is exactly one dependency — a container
+parser (mp4box.js) that produces `EncodedVideoChunk`s — plus the `importExternalTexture()` binding into
+the DAG. Everything else in the file is already the right structure to receive them.
 
 ---
 

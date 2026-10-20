@@ -2,7 +2,7 @@
 // biome-ignore-all lint/a11y/useKeyWithClickEvents: pointer-driven timeline affordances mirror keyboard shortcuts handled globally.
 import { AnimatePresence, motion } from 'motion/react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrandLUTPanel } from './components/BrandLUTPanel';
 import { ExportPanel } from './components/ExportPanel';
 import { GenrePanel, GenreSelector } from './components/GenreSelector';
@@ -281,6 +281,16 @@ export function App() {
     ),
   );
 
+  /**
+   * Apply a history transition and mirror its timeline back into the state the
+   * UI renders. Without this, undo/redo would move an invisible store while the
+   * timeline kept showing the pre-undo document.
+   */
+  const applyHistory = useCallback((next: DocumentStore) => {
+    setHistoryStore(next);
+    setTimelineDoc(next.doc.timeline);
+  }, []);
+
   // ── Playback ──────────────────────────────────────────────────────────────
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(1.6);
@@ -416,17 +426,15 @@ export function App() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) {
-          const s = redo(historyStore);
-          setHistoryStore(s);
+          applyHistory(redo(historyStore));
         } else {
-          const s = undo(historyStore);
-          setHistoryStore(s);
+          applyHistory(undo(historyStore));
         }
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
         e.preventDefault();
-        setHistoryStore(redo(historyStore));
+        applyHistory(redo(historyStore));
         return;
       }
       if (e.key === 'Escape') {
@@ -461,7 +469,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [historyStore]);
+  }, [historyStore, applyHistory]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const runMenuAction = (label: string) => {
@@ -490,9 +498,9 @@ export function App() {
     } else if (label === 'Add Keyframe') {
       addKeyframeAtPlayhead();
     } else if (label === 'Undo') {
-      setHistoryStore(undo(historyStore));
+      applyHistory(undo(historyStore));
     } else if (label === 'Redo') {
-      setHistoryStore(redo(historyStore));
+      applyHistory(redo(historyStore));
     } else if (label === 'Split at Playhead') {
       splitAtPlayhead();
     }
@@ -571,16 +579,15 @@ export function App() {
     const fromDoc = timelineDoc;
     const toDoc = fn(fromDoc);
     if (fromDoc === toDoc) return;
+    // A timeline-scoped command: both halves operate on the project document
+    // but only swap its `timeline`, so undo/redo can never corrupt the store.
     const cmd: Command = {
       id: `cmd-${Date.now().toString(36)}`,
       label,
-      do: () => toDoc as unknown as never,
-      undo: () => fromDoc as unknown as never,
+      do: (doc) => ({ ...doc, timeline: toDoc }),
+      undo: (doc) => ({ ...doc, timeline: fromDoc }),
     };
-    setHistoryStore((s) => ({
-      ...dispatch(s, cmd),
-      doc: { ...s.doc, timeline: toDoc } as never,
-    }));
+    setHistoryStore((s) => dispatch(s, cmd));
     setTimelineDoc(toDoc);
     touch();
   };
@@ -928,8 +935,8 @@ export function App() {
       setActiveStage('comp');
     },
     canDelete: () => selectedClip != null,
-    undo: () => setHistoryStore(undo(historyStore)),
-    redo: () => setHistoryStore(redo(historyStore)),
+    undo: () => applyHistory(undo(historyStore)),
+    redo: () => applyHistory(redo(historyStore)),
     canUndo: () => canUndo(historyStore),
     canRedo: () => canRedo(historyStore),
     split: splitAtPlayhead,

@@ -1,32 +1,55 @@
 # 27 — The Effects Library: WGSL Effect Catalogue & Compute Nodes
 
-**Status: 🟡 (14 nodes, several stubbed) · Code: `engine/nodes.ts` → `engine/effects/*`, `engine/shaders/effects/*.wgsl`**
+**Status: 🟡 (53 nodes with real WGSL; the multi-pass runtime that would execute texture-sampling nodes is ⬜) · Code: `engine/nodes.ts`**
 
-> The node registry has **14 nodes**; several are placeholders and the catalogue is thin. This document is
-> the **effect library**: the full WGSL catalogue the advanced system needs, plus the compute-pass node
+> `NODE_REGISTRY` in `engine/nodes.ts` holds **53 nodes** across 13 categories. Every node emits real
+> WGSL — there are no placeholder `return color * 0.8` stubs left. What is missing is the **multi-pass
+> runtime**: the single-pass bridge ([03](03-ENGINE-CORE.md)) refuses any graph that samples a texture,
+> so blur/keying/displacement graphs compile but do not yet reach the viewport. This document is the
+> **effect library**: the catalogue that exists, the conventions every node follows, and the compute-pass
 > class that makes real-time effects possible.
 
 ---
 
 ## What exists today
 
-`NODE_REGISTRY` in `engine/nodes.ts`: `dataSource`, `colorSource`, `noiseSource`, `transform`, `ease`,
-`stagger`, `glow`, `blur`, `colorGrade`, `vignette`, `blend`, `alphaMerge`, `render`, `script`.
+`NODE_REGISTRY` in `engine/nodes.ts` — 53 nodes by category:
 
-Honest state of each:
+| Category | Nodes |
+|---|---|
+| **source** (8) | `dataSource`, `colorSource`, `proceduralScene`, `noiseSource`, `mediaSource`, `solidSource`, `gradientSource`, `checkerSource` |
+| **transform** (6) | `transform`, `spatialTransform`, `oscillator`, `spring`, `ease`, `stagger` |
+| **effect** (4) | `glow`, `blur`, `colorGrade`, `vignette` |
+| **color** (9) | `temperature`, `levels`, `exposure`, `saturation`, `hueShift`, `invert`, `threshold`, `channelMixer`, `solarize` |
+| **stylize** (10) | `sharpen`, `filmGrain`, `bloom`, `posterize`, `halftone`, `scanlines`, `edgeDetect`, `dither`, `pixelate`, `emboss` |
+| **distort** (5) | `chromaticAberration`, `lensDistortion`, `displacementMap`, `twirl`, `rgbSplit` |
+| **blur** (1) | `lensBlur` |
+| **temporal** (1) | `motionBlur` |
+| **keying** (1) | `chromaKey` |
+| **compute** (4) | `histogram`, `blurPyramid`, `opticalFlow`, `particleSystem` |
+| **composite** (2) | `blend`, `alphaMerge` |
+| **output / script** (2) | `render`, `script` |
+
+Honest state of the interesting ones:
 
 | Node | State |
 |---|---|
 | `transform`, `ease`, `stagger` | real math, but scalar — not the layer transform ([22](22-COMPOSITOR.md)) |
-| `glow` | real (additive) |
-| `colorGrade` | real lift/gamma/gain, but `execute` drops the parameters |
-| `blur` | **stub** — `return color * 0.8` |
-| `vignette` | **stub** — `distance(vec2(0.5), vec2(0.5))` is always 0 |
-| `blend` | linear `mix`, not a blend mode ([22](22-COMPOSITOR.md#blend-modes)) |
+| `spatialTransform`, `oscillator`, `spring` | real spatial/easing generators; not yet bound to `composition.transform` |
+| `blur` | real 9-tap separable Gaussian — **texture-gated** (see below) |
+| `vignette` | real radial falloff with `uv` — **texture-gated** |
+| `glow` | approximate (additive tint, no bright-pass threshold) |
+| `colorGrade` | real lift/gamma/gain; parameters reach the emitted WGSL |
+| `blend` | real modes (`darken`, `screen`, `overlay`, `hardlight`, `subtract`, `divide`, `difference`) selected at compile time |
 | `alphaMerge` | real alpha-over |
+| `compute` nodes | specs + WGSL written; **no dispatch runtime yet** |
 | `script` | real WGSL passthrough; `new Function` for CPU (sandbox needed) |
+| `mediaSource` | node exists; frames require the demux pipeline ([29](29-MEDIA-PIPELINE.md)) |
 
-So the catalogue is roughly **6 real effects** with two stubs and two mis-specified nodes.
+**Texture-gated** means: the node's WGSL is correct and follows the neighbourhood convention below, but the
+single-pass bridge rejects any graph whose compiled module declares more than the uniform binding — the
+viewport falls back to `COMPOSITE_SHADER` with that reason in its tooltip. Multi-pass execution is the
+next phase ([21](21-ROADMAP.md)).
 
 ---
 
@@ -57,68 +80,32 @@ This is the **catalogue the docs commit to**; nodes land over time, and the tabl
 
 ---
 
-## Fixing the stubs (immediately)
+## The neighbourhood convention (implemented)
 
-These are corrections, not additions:
+The old blocker was that a node's WGSL received a *colour*, not an *image*, so blur/vignette/displacement
+could not be correct. That is fixed at the compiler level. A node declares its first input port as
+`texture`, and when the compiler emits the call it **drops that argument and injects the binding**:
 
-### Real Gaussian blur (separable, mip-accelerated)
-
-```wgsl
-// Separable blur: run twice (H then V). Kernel from a small weight array.
-fn gaussian_h(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, radius: f32, texel: vec2<f32>) -> vec4<f32> {
-  var sum = vec4(0.0);
-  let r = i32(clamp(radius, 0.0, 64.0));
-  for (var i = -r; i <= r; i = i + 1) {
-    let w = exp(-f32(i * i) / (2.0 * max(radius * 0.5, 0.001) * max(radius * 0.5, 0.001)));
-    sum = sum + textureSample(src, samp, uv + texel * f32(i)) * w;
-  }
-  return sum;
-}
+```typescript
+// compiler.ts — neighbourhood-effect calling convention
+// the node's first (input-texture) argument is replaced by:
+//   `${varName}_tex, ${varName}_samp, 'uv'`
 ```
 
-For large radii, use a **mip pyramid** (downsample → blur small → upsample) — O(log n) instead of O(n²).
-
-### Real vignette
+so the emitted WGSL signature is:
 
 ```wgsl
-fn vignette(color: vec4<f32>, uv: vec2<f32>, intensity: f32, softness: f32) -> vec4<f32> {
-  let d = distance(uv, vec2(0.5)) * 1.41421356;
-  let m = smoothstep(0.5 - softness, 1.0, d);
-  return vec4(color.rgb * (1.0 - intensity * m), color.a);
-}
+fn blur(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, radius: f32) -> vec4<f32>
 ```
 
-> The current stub computes `distance(vec2(0.5), vec2(0.5))` = `0`, so it does nothing. The fix is to pass
-> `uv` in, which also requires the **texture-sampling node contract** (§below) — this is why "fix the
-> stubs" is really "give nodes access to the input texture and `uv`", the compositor milestone.
+and the call site passes the upstream node's texture, sampler, and the fragment's `uv`. Point effects
+(`color → color`) keep the simple signature; neighbourhood effects opt into sampling by taking a
+`texture` first port.
 
-### Real blend modes
-
-Replaced by the full set in [22](22-COMPOSITOR.md#blend-modes).
-
----
-
-## The texture-sampling node contract
-
-Today a node's WGSL is `fn blur(color: vec4<f32>, radius: f32) -> vec4<f32>` — it receives a *color*, not
-an *image*. That is why effects like blur, vignette, and displacement cannot be correct: **they need
-neighbouring pixels**.
-
-The real contract, per node:
-
-```wgsl
-// Every effect node may sample its input texture at an arbitrary uv.
-@group(0) @binding(1) var inputTex: texture_2d<f32>;
-@group(0) @binding(2) var inputSamp: sampler;
-
-fn effect_blur(uv: vec2<f32>, params: vec4<f32>) -> vec4<f32> {
-  // …sample inputTex at neighbours…
-}
-```
-
-The compiler ([03](03-ENGINE-CORE.md)) changes: a node's WGSL declares whether it is a **point effect**
-(`color → color`) or a **neighbourhood effect** (`uv + sampler → color`). This is the same change that
-lets the DAG feed the real compositor (Phase 0.1).
+What is **not** yet built is the runtime that binds those textures: the bridge
+(`engine/bridge.ts`) runs the whole graph in one fragment pass, so a graph with any texture-sampling node
+is rejected with an explicit error rather than presented as an invalid bind group. Until a multi-pass
+interpreter exists, such graphs stay on the composite fallback.
 
 ---
 
@@ -135,6 +122,11 @@ The second node class: nodes that run a **`@compute` pass** rather than a fragme
 | `reduce` | generic parallel reduction | mean/min/max/percentiles |
 | `gpu-sort` | bitonic sort | depth sorting for 3D/particles |
 | `frame-blend` | temporal accumulation | motion blur, echo, denoise |
+
+The first four rows exist as registered nodes (`histogram`, `blurPyramid`, `opticalFlow`,
+`particleSystem`); the last three are still catalogue commitments. **None of them is dispatched yet** —
+the viewport is a single fragment pass, so the compute specs have no interpreter. The first consumer is
+planned to be the scopes panel's GPU reduction ([23](23-COLOR.md#5-scopes)).
 
 A compute node declares workgroup size, dispatch dimensions, and storage buffers/textures:
 
