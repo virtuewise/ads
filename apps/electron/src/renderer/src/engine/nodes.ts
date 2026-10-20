@@ -1176,6 +1176,93 @@ export class DitherNode extends BaseNode {
   }
 }
 
+export class PixelateNode extends BaseNode {
+  readonly type = 'pixelate';
+  readonly label = 'Pixelate';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'size', name: 'Size', type: 'number', direction: 'input', default: 8 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `pixelate(${inputs.input}, ${inputs.size ?? 8})` };
+  }
+  toWGSL() {
+    return `fn pixelate(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, size: f32) -> vec4<f32> {
+      let texSize = vec2<f32>(textureDimensions(src));
+      let blockSize = max(size, 1.0) / texSize;
+      let blockUV = floor(uv / blockSize) * blockSize + blockSize * 0.5;
+      return textureSample(src, samp, blockUV);
+    }`;
+  }
+}
+
+export class EmbossNode extends BaseNode {
+  readonly type = 'emboss';
+  readonly label = 'Emboss';
+  readonly category = 'stylize' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'strength', name: 'Strength', type: 'number', direction: 'input', default: 1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `emboss(${inputs.input}, ${inputs.strength ?? 1})` };
+  }
+  toWGSL() {
+    return `fn emboss(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, strength: f32) -> vec4<f32> {
+      let texSize = vec2<f32>(textureDimensions(src));
+      let step = 1.0 / texSize;
+      let tl = textureSample(src, samp, uv + vec2(-step.x, -step.y));
+      let br = textureSample(src, samp, uv + vec2(step.x, step.y));
+      let diff = (tl.rgb - br.rgb) * strength + 0.5;
+      return vec4(clamp(diff, 0.0, 1.0), 1.0);
+    }`;
+  }
+}
+
+export class InvertNode extends BaseNode {
+  readonly type = 'invert';
+  readonly label = 'Invert';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `invert(${inputs.input})` };
+  }
+  toWGSL() {
+    return `fn invert(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      return vec4(1.0 - col.rgb, col.a);
+    }`;
+  }
+}
+
+export class ThresholdNode extends BaseNode {
+  readonly type = 'threshold';
+  readonly label = 'Threshold';
+  readonly category = 'color' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'threshold', name: 'Threshold', type: 'number', direction: 'input', default: 0.5 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `threshold(${inputs.input}, ${inputs.threshold ?? 0.5})` };
+  }
+  toWGSL() {
+    return `fn threshold(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, thresh: f32) -> vec4<f32> {
+      let col = textureSample(src, samp, uv);
+      let lum = dot(col.rgb, vec3(0.2126, 0.7152, 0.0722));
+      let v = select(0.0, 1.0, lum > thresh);
+      return vec4(vec3(v), col.a);
+    }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -1306,6 +1393,10 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   scanlines: ScanlinesNode,
   edgeDetect: EdgeDetectNode,
   dither: DitherNode,
+  pixelate: PixelateNode,
+  emboss: EmbossNode,
+  invert: InvertNode,
+  threshold: ThresholdNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
   blend: BlendNode,

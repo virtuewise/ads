@@ -30,6 +30,10 @@ const WGSL_FN_NAME: Record<string, string> = {
   displacementMap: 'displacement_map',
   chromaKey: 'chroma_key',
   edgeDetect: 'edge_detect',
+  pixelate: 'pixelate',
+  emboss: 'emboss',
+  invert: 'invert',
+  threshold: 'threshold',
 };
 
 /** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
@@ -57,6 +61,10 @@ const NEIGHBORHOOD_EFFECTS = new Set([
   'scanlines',
   'edgeDetect',
   'dither',
+  'pixelate',
+  'emboss',
+  'invert',
+  'threshold',
 ]);
 
 /** Source nodes that need UV coordinates but no texture sampler. */
