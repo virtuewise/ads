@@ -14,7 +14,16 @@ import { WebGPUCanvas } from './components/WebGPUCanvas';
 import { bridgeDAGToComposite } from './engine/bridge';
 import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
 import type { Command, DocumentStore } from './engine/history';
-import { canRedo, canUndo, createDocumentStore, dispatch, redo, undo } from './engine/history';
+import {
+  canRedo,
+  canUndo,
+  createDocumentStore,
+  dispatch,
+  dispatchMerged,
+  makeTimelineDragCommand,
+  redo,
+  undo,
+} from './engine/history';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
 
 import {
@@ -713,6 +722,7 @@ export function App() {
     origStart: number;
     origEnd: number;
     moved: boolean;
+    fromDoc: TimelineDoc;
   } | null>(null);
 
   const timeFromClientX = (clientX: number): number => {
@@ -744,6 +754,7 @@ export function App() {
       origStart: clip.start,
       origEnd: clip.end,
       moved: false,
+      fromDoc: timelineDoc,
     };
     setSelectedClip(clipId);
   };
@@ -759,6 +770,7 @@ export function App() {
       origStart: time,
       origEnd: time,
       moved: false,
+      fromDoc: timelineDoc,
     };
     setSelectedClip(clipId);
   };
@@ -788,6 +800,18 @@ export function App() {
   };
 
   const endTimelineDrag = () => {
+    const d = dragRef.current;
+    if (d?.moved) {
+      const label =
+        d.mode === 'move'
+          ? 'Move Clip'
+          : d.mode === 'trim-start' || d.mode === 'trim-end'
+            ? 'Trim Clip'
+            : 'Move Keyframe';
+      const cmd = makeTimelineDragCommand(label, d.fromDoc, timelineDoc);
+      setHistoryStore((s) => dispatchMerged(s, cmd));
+      touch();
+    }
     dragRef.current = null;
   };
 

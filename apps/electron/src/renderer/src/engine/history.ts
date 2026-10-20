@@ -2,7 +2,7 @@
 // Every user action is a command with do/undo. The history stack wraps the
 // document and provides push/undo/redo. See docs/36-UNDO-REDO.md.
 
-import type { ProjectDocument } from './types';
+import type { ProjectDocument, TimelineDoc } from './types';
 
 /** A reversible document transform. */
 export interface Command {
@@ -159,4 +159,43 @@ export function makeDragCommand(
   toDoc: ProjectDocument,
 ): DragCommand {
   return new DragCommand(label, fromDoc, toDoc);
+}
+
+// ── Timeline drag command (mergeable, timeline-scoped) ────────────────────────
+
+export class TimelineDragCommand implements Command {
+  id: string;
+  label: string;
+  private fromDoc: TimelineDoc;
+  private toDoc: TimelineDoc;
+
+  constructor(label: string, fromDoc: TimelineDoc, toDoc: TimelineDoc) {
+    this.id = nextCmdId();
+    this.label = label;
+    this.fromDoc = fromDoc;
+    this.toDoc = toDoc;
+  }
+
+  do(doc: ProjectDocument): ProjectDocument {
+    return { ...doc, timeline: this.toDoc };
+  }
+
+  undo(doc: ProjectDocument): ProjectDocument {
+    return { ...doc, timeline: this.fromDoc };
+  }
+
+  mergeWith(prev: Command): Command | null {
+    if (prev instanceof TimelineDragCommand && prev.label === this.label) {
+      return new TimelineDragCommand(this.label, prev.fromDoc, this.toDoc);
+    }
+    return null;
+  }
+}
+
+export function makeTimelineDragCommand(
+  label: string,
+  fromDoc: TimelineDoc,
+  toDoc: TimelineDoc,
+): TimelineDragCommand {
+  return new TimelineDragCommand(label, fromDoc, toDoc);
 }
