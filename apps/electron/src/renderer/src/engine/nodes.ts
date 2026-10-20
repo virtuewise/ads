@@ -1404,6 +1404,22 @@ export class LensBlurNode extends BaseNode {
   }
 }
 
+export class MediaSourceNode extends BaseNode {
+  readonly type = 'mediaSource';
+  readonly label = 'Media';
+  readonly category = 'source' as const;
+  readonly ports: Port[] = [
+    { id: 'src', name: 'Source', type: 'string', direction: 'input', default: '' },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `media_source(${inputs.src ?? ''})` };
+  }
+  toWGSL() {
+    return `fn media_source() -> vec4<f32> { return vec4(0.5, 0.5, 0.5, 1.0); }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -1505,6 +1521,7 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   dataSource: DataSourceNode,
   colorSource: ColorSourceNode,
   noiseSource: NoiseSourceNode,
+  mediaSource: MediaSourceNode,
   solidSource: SolidSourceNode,
   gradientSource: GradientSourceNode,
   checkerSource: CheckerSourceNode,
