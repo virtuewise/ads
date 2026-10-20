@@ -11,11 +11,32 @@ export interface CompiledShader {
   errors: string[];
 }
 
+/** Map node type to WGSL function name (some differ from the type string). */
+const WGSL_FN_NAME: Record<string, string> = {
+  dataSource: 'data_source',
+  colorSource: 'color_source',
+  noiseSource: 'noise_source',
+};
+
+/** Uniform struct matching visual.ts — the WYSIWYG contract. */
+const UNIFORM_STRUCT = `struct Uniforms {
+  time: f32,
+  scale: f32,
+  rotation: f32,
+  opacity: f32,
+  resolution: vec2<f32>,
+  translation: vec2<f32>,
+  lutShadow: vec4<f32>,
+  lutMid: vec4<f32>,
+  lutHighlight: vec4<f32>,
+};`;
+
 export function compileDAG(dag: DAG): CompiledShader {
   const errors: string[] = [];
   const uniforms: string[] = [];
   const functions: string[] = [];
   const bodyLines: string[] = [];
+  const textureBindings: string[] = [];
 
   // Build adjacency for topological sort
   const inDegree = new Map<string, number>();
@@ -87,6 +108,7 @@ export function compileDAG(dag: DAG): CompiledShader {
 
     // Generate WGSL
     const varName = `n${varCounter++}`;
+    const wgslFn = WGSL_FN_NAME[node.type] ?? node.type;
     functions.push(instance.toWGSL());
 
     for (const [port, _value] of Object.entries(outputs)) {
@@ -103,9 +125,9 @@ export function compileDAG(dag: DAG): CompiledShader {
         if (typeof v === 'number') return v.toString();
         return '0.0';
       });
-      const _outType = outputPorts[0].type === 'texture' ? 'vec4<f32>' : 'f32';
+      const outType = outputPorts[0].type === 'texture' ? 'vec4<f32>' : 'f32';
       bodyLines.push(
-        `  let ${varName}_${outputPorts[0].id} = ${instance.type}(${args.join(', ')});`,
+        `  let ${varName}_${outputPorts[0].id}: ${outType} = ${wgslFn}(${args.join(', ')});`,
       );
     }
   }
@@ -123,11 +145,7 @@ export function compileDAG(dag: DAG): CompiledShader {
   }
 
   const wgsl = `
-struct Uniforms {
-  time: f32,
-  resolution: vec2<f32>,
-  mouse: vec2<f32>,
-};
+${UNIFORM_STRUCT}
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 ${functions.join('\n\n')}
