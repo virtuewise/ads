@@ -879,6 +879,46 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   }
 }
 
+export class BlurPyramidNode extends ComputeNode {
+  readonly type = 'blurPyramid';
+  readonly label = 'Blur Pyramid';
+  readonly computeSpec: ComputeNodeSpec = {
+    type: 'blurPyramid',
+    workgroupSize: [8, 8, 1],
+    dispatch: (_inputs) => [1, 1, 1],
+    wgsl: `@group(0) @binding(0) var inputTex: texture_2d<f32>;
+@group(0) @binding(1) var outputTex: texture_storage_2d<rgba8unorm, write>;
+
+@compute @workgroup_size(8, 8, 1)
+fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let texSize = textureDimensions(inputTex);
+  if (gid.x >= texSize.x || gid.y >= texSize.y) { return; }
+  // Downsample by 2x2
+  let uv = (vec2<f32>(gid.xy) + 0.5) / vec2<f32>(texSize);
+  let step = 1.0 / vec2<f32>(texSize);
+  var sum = vec4<f32>(0.0);
+  for (var x = 0; x < 2; x++) {
+    for (var y = 0; y < 2; y++) {
+      let offset = vec2<f32>(f32(x), f32(y)) * step;
+      sum += textureLoad(inputTex, vec2<i32>(gid.xy * 2u + vec2<u32>(u32(x), u32(y))), 0);
+    }
+  }
+  textureStore(outputTex, vec2<i32>(gid.xy), sum / 4.0);
+}`,
+    resources: [{ name: 'outputTex', type: 'storage-texture', format: 'rgba8unorm' }],
+  };
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `blurPyramid(${inputs.input})` };
+  }
+  toWGSL() {
+    return `fn blur_pyramid_placeholder() -> vec4<f32> { return vec4(0.0); }`;
+  }
+}
+
 export class RenderNode extends BaseNode {
   readonly type = 'render';
   readonly label = 'Render';
@@ -999,6 +1039,7 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   hueShift: HueShiftNode,
   bloom: BloomNode,
   histogram: HistogramNode,
+  blurPyramid: BlurPyramidNode,
   posterize: PosterizeNode,
   displacementMap: DisplacementNode,
   vignette: VignetteNode,
