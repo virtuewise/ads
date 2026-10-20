@@ -18,6 +18,9 @@ const WGSL_FN_NAME: Record<string, string> = {
   noiseSource: 'noise_source',
 };
 
+/** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
+const NEIGHBORHOOD_EFFECTS = new Set(['blur', 'vignette', 'blend', 'glow']);
+
 /** Uniform struct matching visual.ts — the WYSIWYG contract. */
 const UNIFORM_STRUCT = `struct Uniforms {
   time: f32,
@@ -119,16 +122,28 @@ export function compileDAG(dag: DAG): CompiledShader {
     const inputPorts = instance.ports.filter((p) => p.direction === 'input');
     const outputPorts = instance.ports.filter((p) => p.direction === 'output');
     if (outputPorts.length > 0) {
+      const isNeighborhood = NEIGHBORHOOD_EFFECTS.has(node.type);
       const args = inputPorts.map((p) => {
         const v = inputs[p.id];
         if (typeof v === 'string' && v.startsWith('n')) return v;
         if (typeof v === 'number') return v.toString();
         return '0.0';
       });
+      // Inject uv as the first argument for neighborhood-effect nodes
+      if (isNeighborhood) {
+        args.unshift('uv');
+      }
       const outType = outputPorts[0].type === 'texture' ? 'vec4<f32>' : 'f32';
       bodyLines.push(
         `  let ${varName}_${outputPorts[0].id}: ${outType} = ${wgslFn}(${args.join(', ')});`,
       );
+      // Add texture sampler binding for neighborhood-effect nodes
+      if (isNeighborhood) {
+        textureBindings.push(
+          `  @group(0) @binding(${textureBindings.length + 1}) var ${varName}_tex: texture_2d<f32>;`,
+          `  @group(0) @binding(${textureBindings.length + 2}) var ${varName}_samp: sampler;`,
+        );
+      }
     }
   }
 
@@ -147,6 +162,7 @@ export function compileDAG(dag: DAG): CompiledShader {
   const wgsl = `
 ${UNIFORM_STRUCT}
 @group(0) @binding(0) var<uniform> u: Uniforms;
+${textureBindings.length > 0 ? `\n${textureBindings.join('\n')}\n` : ''}
 
 ${functions.join('\n\n')}
 
