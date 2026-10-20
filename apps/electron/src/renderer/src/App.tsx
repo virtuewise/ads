@@ -14,18 +14,9 @@ import { WebGPUCanvas } from './components/WebGPUCanvas';
 import { bridgeDAGToComposite } from './engine/bridge';
 import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
 import type { Command, DocumentStore } from './engine/history';
-import {
-  canRedo,
-  canUndo,
-  createDocumentStore,
-  dispatch,
-  redo,
-  replaceDoc,
-  undo,
-} from './engine/history';
+import { canRedo, canUndo, createDocumentStore, dispatch, redo, undo } from './engine/history';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
-import type { Selection, SelTarget } from './engine/selection';
-import { createSelection, deselectAll, select, selectionCount } from './engine/selection';
+
 import {
   addKeyframe,
   clipsFor,
@@ -276,7 +267,6 @@ export function App() {
       }),
     ),
   );
-  const [selection, setSelection] = useState<Selection>(createSelection());
 
   // ── Playback ──────────────────────────────────────────────────────────────
   const [playing, setPlaying] = useState(false);
@@ -794,8 +784,7 @@ export function App() {
   };
 
   const onClipDoubleClick = (clipId: string) => {
-    setTimelineDoc((doc) => addKeyframe(doc, clipId, playhead));
-    touch();
+    dispatchTimeline('Add Keyframe', (doc) => addKeyframe(doc, clipId, playhead));
   };
 
   const endTimelineDrag = () => {
@@ -805,8 +794,7 @@ export function App() {
   const onKeyframeClick = (e: ReactPointerEvent, clipId: string, kfId: string, time: number) => {
     e.stopPropagation();
     if (e.altKey) {
-      setTimelineDoc((doc) => removeKeyframe(doc, clipId, kfId));
-      touch();
+      dispatchTimeline('Remove Keyframe', (doc) => removeKeyframe(doc, clipId, kfId));
       return;
     }
     beginKeyframeDrag(e, clipId, kfId, time);
@@ -817,15 +805,16 @@ export function App() {
       notify('Select a clip first');
       return;
     }
-    setTimelineDoc((doc) => addKeyframe(doc, selectedClip, playhead));
-    touch();
+    dispatchTimeline('Add Keyframe', (doc) => addKeyframe(doc, selectedClip, playhead));
   };
 
   const deleteSelectedClip = () => {
     if (!selectedClip) return;
-    setTimelineDoc((doc) => ({ ...doc, clips: doc.clips.filter((c) => c.id !== selectedClip) }));
+    dispatchTimeline('Delete Clip', (doc) => ({
+      ...doc,
+      clips: doc.clips.filter((c) => c.id !== selectedClip),
+    }));
     setSelectedClip(null);
-    touch();
   };
 
   // ── Genre workflow application ────────────────────────────────────────────
@@ -834,12 +823,11 @@ export function App() {
       notify('Select a clip to apply the keyframe preset');
       return;
     }
-    setTimelineDoc((doc) => {
+    dispatchTimeline('Apply Keyframe Preset', (doc) => {
       let next = addKeyframe(doc, selectedClip, playhead, preset.property, 0);
       next = addKeyframe(next, selectedClip, playhead + preset.duration, preset.property, 1);
       return next;
     });
-    touch();
     notify(`Applied "${preset.label}" (${preset.easing})`);
   };
 
@@ -1827,8 +1815,9 @@ export function App() {
                               title="Remove keyframe"
                               aria-label="Remove keyframe"
                               onClick={() => {
-                                setTimelineDoc((doc) => removeKeyframe(doc, clip.id, k.id));
-                                touch();
+                                dispatchTimeline('Remove Keyframe', (doc) =>
+                                  removeKeyframe(doc, clip.id, k.id),
+                                );
                               }}
                             >
                               <Icon name="close" size={12} />

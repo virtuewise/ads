@@ -138,7 +138,6 @@ export function WebGPUCanvas({ time = 0, transform, lut, shaderCode }: WebGPUCan
     if (!shaderCode) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const context = canvas.getContext('webgpu') as GPUCanvasContext;
     // Force a re-render by toggling a state
     setStatus((s) => (s === 'ready' ? 'ready' : s));
   }, [shaderCode]);

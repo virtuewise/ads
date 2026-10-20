@@ -97,7 +97,7 @@ export function selectAll(sel: Selection, kind: SelTarget['kind'], allIds: strin
 }
 
 /** Clear all selections. */
-export function deselectAll(sel: Selection): Selection {
+export function deselectAll(_sel: Selection): Selection {
   return createSelection();
 }
 
