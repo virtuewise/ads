@@ -16,10 +16,19 @@ const WGSL_FN_NAME: Record<string, string> = {
   dataSource: 'data_source',
   colorSource: 'color_source',
   noiseSource: 'noise_source',
+  textureTransform: 'texture_transform',
+  spatialTransform: 'spatial_transform',
 };
 
 /** Nodes that need UV coordinates and a texture sampler (neighborhood effects). */
-const NEIGHBORHOOD_EFFECTS = new Set(['blur', 'vignette', 'blend', 'glow']);
+const NEIGHBORHOOD_EFFECTS = new Set([
+  'blur',
+  'vignette',
+  'blend',
+  'glow',
+  'textureTransform',
+  'spatialTransform',
+]);
 
 /** Uniform struct matching visual.ts — the WYSIWYG contract. */
 const UNIFORM_STRUCT = `struct Uniforms {
@@ -129,9 +138,12 @@ export function compileDAG(dag: DAG): CompiledShader {
         if (typeof v === 'number') return v.toString();
         return '0.0';
       });
-      // Inject uv as the first argument for neighborhood-effect nodes
+      // For neighborhood effects, replace the input texture ref with this node's
+      // own texture/sampler bindings and inject UV coordinates.
       if (isNeighborhood) {
-        args.unshift('uv');
+        // Drop the first arg (input texture reference) — replaced below
+        args.shift();
+        args.unshift(`${varName}_tex`, `${varName}_samp`, 'uv');
       }
       const outType = outputPorts[0].type === 'texture' ? 'vec4<f32>' : 'f32';
       bodyLines.push(

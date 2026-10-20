@@ -3,6 +3,7 @@
 // TimelineDoc so React state updates stay immutable and undo-friendly.
 
 import type { IconName } from '../components/Icon';
+import { easeValue } from './easing';
 import type { Keyframe, KeyframeEasing, TimelineClip, TimelineDoc } from './types';
 
 export interface TrackMeta {
@@ -299,14 +300,5 @@ export function sampleProperty(
 }
 
 function ease(t: number, kind: KeyframeEasing): number {
-  switch (kind) {
-    case 'easeIn':
-      return t * t;
-    case 'easeOut':
-      return 1 - (1 - t) * (1 - t);
-    case 'easeInOut':
-      return t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
-    default:
-      return t;
-  }
+  return easeValue(t, kind);
 }

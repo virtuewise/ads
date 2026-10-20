@@ -144,6 +144,122 @@ export class StaggerNode extends BaseNode {
 
 // ── Effect Nodes ─────────────────────────────────────────────────────────────
 
+export class SpatialTransformNode extends BaseNode {
+  readonly type = 'spatialTransform';
+  readonly label = 'Spatial Transform';
+  readonly category = 'transform' as const;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
+    { id: 'x', name: 'Position X', type: 'number', direction: 'input', default: 0 },
+    { id: 'y', name: 'Position Y', type: 'number', direction: 'input', default: 0 },
+    { id: 'scale', name: 'Scale', type: 'number', direction: 'input', default: 1 },
+    { id: 'rotation', name: 'Rotation', type: 'number', direction: 'input', default: 0 },
+    { id: 'opacity', name: 'Opacity', type: 'number', direction: 'input', default: 1 },
+    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `spatialTransform(${inputs.input}, ${inputs.x ?? 0}, ${inputs.y ?? 0}, ${inputs.scale ?? 1}, ${inputs.rotation ?? 0}, ${inputs.opacity ?? 1})`,
+    };
+  }
+  toWGSL() {
+    return `fn spatial_transform(
+      src: texture_2d<f32>,
+      samp: sampler,
+      uv: vec2<f32>,
+      x: f32,
+      y: f32,
+      scale: f32,
+      rotation: f32,
+      opacity: f32,
+    ) -> vec4<f32> {
+      var c = uv - vec2(0.5, 0.5);
+      let ca = cos(rotation);
+      let sa = sin(rotation);
+      c = vec2(c.x * ca - c.y * sa, c.x * sa + c.y * ca);
+      c = c / max(scale, 0.0001);
+      c = c - vec2(x, y);
+      let tuv = c + vec2(0.5, 0.5);
+      var col = textureSample(src, samp, tuv);
+      let a = clamp(opacity, 0.0, 1.0);
+      return vec4(col.rgb * a, col.a * a);
+    }`;
+  }
+}
+
+export class OscillatorNode extends BaseNode {
+  readonly type = 'oscillator';
+  readonly label = 'Oscillator';
+  readonly category = 'transform' as const;
+  readonly ports: Port[] = [
+    { id: 'time', name: 'Time', type: 'number', direction: 'input', default: 0 },
+    { id: 'waveform', name: 'Waveform', type: 'string', direction: 'input', default: 'sine' },
+    { id: 'frequency', name: 'Frequency', type: 'number', direction: 'input', default: 1 },
+    { id: 'amplitude', name: 'Amplitude', type: 'number', direction: 'input', default: 1 },
+    { id: 'output', name: 'Output', type: 'number', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    const t = Number(inputs.time) || 0;
+    const freq = Number(inputs.frequency) || 1;
+    const amp = Number(inputs.amplitude) || 1;
+    const phase = t * freq;
+    const w = String(inputs.waveform ?? 'sine');
+    let v: number;
+    switch (w) {
+      case 'square':
+        v = Math.sin(phase) >= 0 ? 1 : -1;
+        break;
+      case 'triangle':
+        v = (2 / Math.PI) * Math.asin(Math.sin(phase));
+        break;
+      case 'sawtooth':
+        v = 2 * (phase / (2 * Math.PI) - Math.floor(phase / (2 * Math.PI) + 0.5));
+        break;
+      default:
+        v = Math.sin(phase);
+    }
+    return { output: v * amp };
+  }
+  toWGSL() {
+    return `fn oscillator(time: f32, kind: f32, freq: f32, amp: f32) -> f32 {
+      let phase = time * freq;
+      if (kind == 1.0) { return step(0.0, sin(phase)) * 2.0 * amp - amp; }
+      if (kind == 2.0) { return asin(sin(phase)) * (2.0 / ${Math.PI}) * amp; }
+      if (kind == 3.0) { return (2.0 * (phase / ${2 * Math.PI} - floor(phase / ${2 * Math.PI} + 0.5))) * amp; }
+      return sin(phase) * amp;
+    }`;
+  }
+}
+
+export class SpringNode extends BaseNode {
+  readonly type = 'spring';
+  readonly label = 'Spring';
+  readonly category = 'transform' as const;
+  readonly ports: Port[] = [
+    { id: 'time', name: 'Time', type: 'number', direction: 'input', default: 0 },
+    { id: 'target', name: 'Target', type: 'number', direction: 'input', default: 1 },
+    { id: 'stiffness', name: 'Stiffness', type: 'number', direction: 'input', default: 0.1 },
+    { id: 'damping', name: 'Damping', type: 'number', direction: 'input', default: 0.7 },
+    { id: 'output', name: 'Output', type: 'number', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    const t = Number(inputs.time) || 0;
+    const target = Number(inputs.target) || 1;
+    const stiffness = Number(inputs.stiffness) || 0.1;
+    const damping = Number(inputs.damping) || 0.7;
+    // Analytic underdamped spring: x(t) = target * (1 - e^(-d t) cos(w t))
+    const w = Math.sqrt(Math.max(stiffness, 0.0001));
+    const v = target * (1 - Math.exp(-damping * t) * Math.cos(w * t));
+    return { output: v };
+  }
+  toWGSL() {
+    return `fn spring(time: f32, target: f32, stiffness: f32, damping: f32) -> f32 {
+      let w = sqrt(max(stiffness, 0.0001));
+      return target * (1.0 - exp(-damping * time) * cos(w * time));
+    }`;
+  }
+}
+
 export class GlowNode extends BaseNode {
   readonly type = 'glow';
   readonly label = 'Glow';
@@ -402,6 +518,9 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   colorSource: ColorSourceNode,
   noiseSource: NoiseSourceNode,
   transform: TransformNode,
+  spatialTransform: SpatialTransformNode,
+  oscillator: OscillatorNode,
+  spring: SpringNode,
   ease: EaseNode,
   stagger: StaggerNode,
   glow: GlowNode,

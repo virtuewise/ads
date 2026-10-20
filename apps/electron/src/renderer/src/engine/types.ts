@@ -263,7 +263,32 @@ export interface CompositionState {
   transform: TransformState;
 }
 
-export type KeyframeEasing = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+export type KeyframeEasing =
+  | 'linear'
+  | 'easeIn'
+  | 'easeOut'
+  | 'easeInOut'
+  | 'sineIn'
+  | 'sineOut'
+  | 'sineInOut'
+  | 'cubicIn'
+  | 'cubicOut'
+  | 'cubicInOut'
+  | 'quartIn'
+  | 'quartOut'
+  | 'quartInOut'
+  | 'expoIn'
+  | 'expoOut'
+  | 'expoInOut'
+  | 'backIn'
+  | 'backOut'
+  | 'backInOut'
+  | 'elasticIn'
+  | 'elasticOut'
+  | 'elasticInOut'
+  | 'bounceIn'
+  | 'bounceOut'
+  | 'bounceInOut';
 
 export interface Keyframe {
   id: string;
