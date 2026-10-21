@@ -1,6 +1,6 @@
 # 33 — Text & Typography Engine
 
-**Status: 🟡 (typography presets are real data; text rendering, animation, and variable fonts are ⬜) · Code: `hooks/useEngineData.ts`, `engine/types.ts` → target: `engine/text/*`**
+**Status: 🟡 (the `text` node renders — an editor-painted title over the picture, driven by the script's timing; the layered text model, kinetic type and the SDF atlas are still ⬜) · Code: `engine/text.ts`, `engine/nodes.ts` (`text`), `hooks/useEngineData.ts`**
 
 > The editor displays typography presets fetched from the engine and seeds caption clips from them.
 > There is **no text rendering engine** — no font loading, no text layer in the compositor, no text
@@ -9,6 +9,26 @@
 ---
 
 ## 1. What exists today
+
+### 1.0 Titles render — `engine/text.ts`, `engine/nodes.ts` (`text`)
+
+The **`text` node (the 56th) renders.** The GPU has no font, so the editor draws: the node declares
+`usesAppTexture`, the compiler gives it a texture binding pair of its own and reports those numbers
+(`compiled.appTextures[nodeId]`), the editor rasterises the words into a 2D canvas
+(`rasteriseText`) and paints them into that texture through the viewport's `writeAppTexture` slot
+handle. The node's WGSL is alpha-over — glyph coverage, not a rectangle:
+
+```wgsl
+fn text(color: vec4<f32>, src: texture_2d<f32>, samp: sampler, uv: vec2<f32>) -> vec4<f32> {
+  let t = textureSample(src, samp, uv);
+  return vec4<f32>(mix(color.rgb, t.rgb, t.a), max(color.a, t.a));
+}
+```
+
+The plan's titles come from the **script**: `compilePlan` puts a `title` node on after the grade
+stage — the picture is graded, the title keeps the colour it was set in — and the node's words follow
+the script step that is on screen, so the title changes as the edit plays. What this is *not* (yet)
+is the layered text model below: one node, one style, no per-glyph animation, no SDF atlas.
 
 ### 1.1 Typography presets (real data)
 
@@ -36,15 +56,15 @@ canvas does not place text.
 
 | Capability | Today |
 |---|---|
-| Font loading | ⬜ none |
-| Text layer in compositor | ⬜ none |
-| Text rendering (WGSL/Skia/Wasm) | ⬜ none |
+| Font loading | ⬜ system fonts through 2D canvas only |
+| Text layer in compositor | ✅ the `text` node, painted by the editor into its own GPU texture |
+| Text rendering (WGSL/Skia/Wasm) | 🟡 2D canvas rasterisation → `rgba8unorm` texture (`rasteriseText`); SDF atlas ⬜ |
 | Text animation (kinetic type) | ⬜ none |
 | Text on path | ⬜ none |
 | Variable font axes control | ⬜ displayed but not wired to state |
-| Text effects (glow, shadow, outline) | ⬜ none |
+| Text effects (glow, shadow, outline) | 🟡 a soft drop shadow from the rasteriser; distance-field effects ⬜ |
 | Auto-fit / text wrapping | ⬜ none |
-| Multi-language / RTL / CJK | ⬜ none |
+| Multi-language / RTL / CJK | ⬜ whatever 2D canvas gives |
 | Text as a layer kind | ⬜ `LayerKind` has no `'text'` |
 
 ---

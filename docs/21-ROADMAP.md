@@ -80,7 +80,7 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | Per-clip transform/effects/grade driving the composition | ⬜ |
 | Per-clip keyframes driving the composition transform for the active clip | ⬜ |
 | Compute passes (the four compute nodes) inside a graph | ⬜ reported as an error; no compute runtime |
-| A plan's typography, audio and transitions rendered | ⬜ the plan compiles the effects and the edit only |
+| A plan's typography, audio and transitions rendered | 🟡 the titles render (`text` node, editor-painted, driven by the script); audio and transitions ⬜ |
 | A per-shot look: each shot rendered with its own graph | ✅ the shots share one graph and each clip switches its effects on or off (`look`) |
 | Audio decode + WebAudio graph + J/L crossfades | ⬜ |
 | Audio/video muxing in the FFmpeg export (remove `-an`) | ⬜ |

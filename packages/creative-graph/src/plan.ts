@@ -45,38 +45,36 @@ export interface TimelineItem {
  * `params` are the node's port values when the effect is on; `off` are the
  * values that make the node a no-op, so a shot that does not use the effect
  * still has it in the graph, switched off.
+ *
+ * **Only the effects the single-pass compositor can run are here.** An effect
+ * that samples its input — a blur, a bloom, a chromatic aberration — needs
+ * the multi-pass runtime, and is reported rather than mapped: a graph the
+ * compositor refuses falls back to the flat composite shader, so the plan's
+ * effects would silently not happen.
  */
 const EFFECT_NODES: Record<
   string,
   { kind: string; params: Record<string, unknown>; off: Record<string, unknown> }
 > = {
   glow_pulse: { kind: 'glow', params: { intensity: 1.5 }, off: { intensity: 0 } },
-  light_sweep: {
-    kind: 'bloom',
-    params: { threshold: 0.6, intensity: 2.0 },
-    off: { intensity: 0 },
-  },
-  lens_flare: {
-    kind: 'bloom',
-    params: { threshold: 0.8, intensity: 0.8 },
-    off: { intensity: 0 },
-  },
-  chromatic_aberration: {
-    kind: 'chromaticAberration',
-    params: { amount: 0.4 },
-    off: { amount: 0 },
-  },
-  motion_blur: {
-    kind: 'motionBlur',
-    params: { amount: 0.5, samples: 8 },
-    off: { amount: 0 },
-  },
-  depth_of_field: {
-    kind: 'lensBlur',
-    params: { radius: 6, blades: 6 },
-    off: { radius: 0 },
-  },
 };
+
+/**
+ * The effects that need the multi-pass runtime: they sample their input, so
+ * each one is a render pass of its own.
+ */
+const MULTI_PASS_EFFECTS = new Set([
+  'light_sweep',
+  'lens_flare',
+  'chromatic_aberration',
+  'motion_blur',
+  'depth_of_field',
+  'transition_reveal',
+  'transition_wipe',
+  'particle_burst',
+  'particle_trail',
+  'glitch',
+]);
 
 /** The result of compiling a plan. */
 export interface PlanCompilation {
@@ -127,7 +125,11 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
   for (const effect of plan.vfx.effects) {
     const mapping = EFFECT_NODES[effect];
     if (!mapping) {
-      warnings.push(`The effect "${effect}" has no node in the renderer yet.`);
+      warnings.push(
+        MULTI_PASS_EFFECTS.has(effect)
+          ? `The effect "${effect}" samples the picture, so it needs the multi-pass compositor. It is not in this render.`
+          : `The effect "${effect}" has no node in the renderer yet.`,
+      );
       continue;
     }
     if (usedKinds.has(mapping.kind)) {
@@ -163,6 +165,35 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
     to: { node: 'grade', port: 'input' },
   });
   previous = 'grade';
+
+  // The titles. The script's on-screen text becomes a title over the picture.
+  // The editor draws it — the GPU has no font — and the renderer follows the
+  // script's timing.
+  //
+  // The title goes on *after* the grade: the picture is graded to match the
+  // rest of the film, and the title keeps the colour it was set in. That is
+  // how a title is added in a real edit.
+  const titled = (plan.script?.steps ?? []).filter((s) => s.text);
+  if (titled.length > 0) {
+    const first = titled[0];
+    nodes.push({
+      id: 'title',
+      kind: 'text',
+      position: { x: 120 + nodes.length * 40, y: 120 },
+      params: {
+        text: first?.text ?? '',
+        size: 96,
+        x: 0.5,
+        y: 0.12,
+        colour: '#ffffff',
+      },
+    });
+    connections.push({
+      from: { node: previous, port: 'output' },
+      to: { node: 'title', port: 'input' },
+    });
+    previous = 'title';
+  }
 
   // The output.
   nodes.push({

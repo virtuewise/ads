@@ -26,7 +26,7 @@
 
 ### 1.2 The node registry
 
-**55 node types** in `engine/nodes.ts`, every one of them emitting real WGSL:
+**56 node types** in `engine/nodes.ts`, every one of them emitting real WGSL:
 
 | Category | Count | Examples |
 |---|---|---|

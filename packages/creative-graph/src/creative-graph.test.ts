@@ -217,11 +217,43 @@ describe('compilePlan', () => {
     expect(result.timeline[1]?.look?.glow?.intensity).toBe(1.5);
   });
 
-  it('warns when two effects want the same node', () => {
+  it('reports the effects that need the multi-pass compositor', () => {
+    // An effect that samples the picture cannot run in the single-pass
+    // compositor, and saying so is better than a graph that is quietly
+    // refused and falls back to the flat composite shader.
     const plan = makePlan();
-    plan.vfx.effects = ['light_sweep', 'lens_flare'];
+    plan.vfx.effects = ['glow_pulse', 'light_sweep'];
     const result = compilePlan(plan as unknown as Plan);
-    expect(result.warnings.some((w) => w.includes('bloom'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('light_sweep'))).toBe(true);
+    expect(result.warnings.some((w) => w.includes('multi-pass'))).toBe(true);
+    // The effect it can run is in the graph.
+    expect(result.graph.nodes.some((n) => n.kind === 'glow')).toBe(true);
+  });
+
+  it('turns the script on screen into a title', () => {
+    // The GPU has no font, so the editor draws the titles; the graph needs a
+    // node to hold them.
+    const plan = makePlan();
+    plan.script = {
+      steps: [
+        { start: 0, end: 4, visual: 'a', text: 'Setup' },
+        { start: 4, end: 8, visual: 'b', text: 'Resolution' },
+      ],
+    };
+    const result = compilePlan(plan as unknown as Plan);
+    const title = result.graph.nodes.find((n) => n.kind === 'text');
+    expect(title).toBeDefined();
+    expect(title?.params.text).toBe('Setup');
+    // It sits in the chain, over the picture.
+    const kinds = result.graph.nodes.map((n) => n.kind);
+    expect(kinds.indexOf('text')).toBeGreaterThan(kinds.indexOf('oklabGrade'));
+  });
+
+  it('has no title when the script says nothing', () => {
+    const plan = makePlan();
+    plan.script = { steps: [{ start: 0, end: 4, visual: 'a' }] };
+    const result = compilePlan(plan as unknown as Plan);
+    expect(result.graph.nodes.find((n) => n.kind === 'text')).toBeUndefined();
   });
 });
 
@@ -237,12 +269,13 @@ interface TestPlan {
   }>;
   vfx: { effects: string[]; shotEffects?: Record<string, string[]> };
   assets: Array<{ type: string; url: string }>;
+  script: { steps: Array<{ start: number; end: number; visual: string; text?: string }> };
 }
 
 function makePlan(): TestPlan {
   return {
     brief: {},
-    script: {},
+    script: { steps: [] },
     storyboard: {},
     shots: [
       { id: 's1', start: 0, duration: 4, purpose: 'HOOK', camera: {} },

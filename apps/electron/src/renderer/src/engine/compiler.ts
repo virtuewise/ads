@@ -23,6 +23,13 @@ export interface CompiledShader {
    * graph with any of them.
    */
   neighborhoodBindings: number;
+  /**
+   * The texture bindings the editor has to paint, keyed by node id.
+   *
+   * A node whose content the editor draws — a title, a matte — gets a texture
+   * of its own, and the editor writes into it.
+   */
+  appTextures?: Record<string, { texture: number; sampler: number }>;
 }
 
 /** Map node type to WGSL function name (some differ from the type string). */
@@ -371,6 +378,13 @@ export function compileDAG(
   let emittedRenderReturn = false;
   /** Whether any node needs the shared colour functions. */
   let needsColour = false;
+  /**
+   * The texture bindings the editor has to paint, keyed by node id.
+   *
+   * A node whose content the editor draws — a title, a matte — gets a texture
+   * of its own, and the editor writes into it.
+   */
+  const appTextures = new Map<string, { texture: number; sampler: number }>();
 
   // A media source samples a texture the compositor supplies, so its bindings
   // are reserved before any neighbourhood-effect bindings are numbered.
@@ -479,16 +493,30 @@ export function compileDAG(
           continue;
         }
         if (param.type.includes('texture')) {
-          // A texture parameter: bind one and skip the port that fed it.
-          portIndex += 1;
+          // A texture parameter. A neighbourhood effect samples the node
+          // upstream of it, which needs a render pass per node; an app
+          // texture is painted by the editor and bound directly.
           const idx = pair++;
           lastTexPair = idx;
-          nodeBindings.push(
-            `  @group(0) @binding(${nextBinding++}) var ${varName}_tex${idx}: texture_2d<f32>;`,
-            `  @group(0) @binding(${nextBinding++}) var ${varName}_samp${idx}: sampler;`,
-          );
+          if (instance.usesAppTexture) {
+            // The editor paints this one, so it takes no input port.
+            const texture = nextBinding++;
+            const sampler = nextBinding++;
+            nodeBindings.push(
+              `  @group(0) @binding(${texture}) var ${varName}_tex${idx}: texture_2d<f32>;`,
+              `  @group(0) @binding(${sampler}) var ${varName}_samp${idx}: sampler;`,
+            );
+            appTextures.set(id, { texture, sampler });
+          } else {
+            // Skip the port that fed it.
+            portIndex += 1;
+            nodeBindings.push(
+              `  @group(0) @binding(${nextBinding++}) var ${varName}_tex${idx}: texture_2d<f32>;`,
+              `  @group(0) @binding(${nextBinding++}) var ${varName}_samp${idx}: sampler;`,
+            );
+            neighborhoodBindings += 1;
+          }
           args.push(`${varName}_tex${idx}`);
-          neighborhoodBindings += 1;
           continue;
         }
         if (param.name === 'uv' && param.type.includes('vec2')) {
@@ -555,6 +583,7 @@ ${emittedRenderReturn ? '' : '  return vec4<f32>(uv, 0.5, 1.0);'}
     ...(hasMediaSource
       ? { mediaBindings: { texture: MEDIA_TEXTURE_BINDING, sampler: MEDIA_SAMPLER_BINDING } }
       : {}),
+    ...(appTextures.size > 0 ? { appTextures: Object.fromEntries(appTextures) } : {}),
   };
 }
 

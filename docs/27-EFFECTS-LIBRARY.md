@@ -1,6 +1,6 @@
 # 27 — The Effects Library: WGSL Effect Catalogue & Compute Nodes
 
-**Status: 🟡 (53 nodes with real WGSL; the multi-pass runtime that would execute texture-sampling nodes is ⬜) · Code: `engine/nodes.ts`**
+**Status: 🟡 (56 nodes with real WGSL; the multi-pass runtime that would execute texture-sampling nodes is ⬜, and the plan reports the effects that need it) · Code: `engine/nodes.ts`**
 
 > `NODE_REGISTRY` in `engine/nodes.ts` holds **53 nodes** across 13 categories. Every node emits real
 > WGSL — there are no placeholder `return color * 0.8` stubs left. What is missing is the **multi-pass
@@ -13,7 +13,7 @@
 
 ## What exists today
 
-`NODE_REGISTRY` in `engine/nodes.ts` — 55 nodes by category:
+`NODE_REGISTRY` in `engine/nodes.ts` — 56 nodes by category:
 
 | Category | Nodes |
 |---|---|

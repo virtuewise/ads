@@ -16,11 +16,24 @@ interface WebGPUCanvasProps {
    * a 1×1 black frame.
    */
   mediaFrame?: VideoFrame | null;
+  /**
+   * The texture bindings the editor has to paint, by binding number.
+   *
+   * The compiler reports these for the nodes whose content the editor draws.
+   */
+  appTextureSlots?: number[];
 }
 
 export interface WebGPUCanvasHandle {
   /** Read the current presented frame back to the CPU for scopes. */
   readPixels(): Promise<ImageData | null>;
+  /**
+   * Paint into the texture a node samples.
+   *
+   * The slot is the binding number the compiler gave the node. A title, a
+   * matte, a shape: the editor draws it in a 2D canvas and hands it over.
+   */
+  writeAppTexture(slot: number, image: ImageData): void;
 }
 
 interface RenderState {
@@ -35,9 +48,16 @@ interface RenderState {
   needsMedia: boolean;
   /** Non-filtering sampler: external textures only support nearest sampling. */
   mediaSampler: GPUSampler;
+  /** Filtering sampler for the textures the editor paints into. */
+  appSampler: GPUSampler;
   /** A 1×1 black frame used when the graph wants media but none is selected. */
   fallbackFrame: VideoFrame | null;
+  /** The textures the editor paints into, keyed by binding number. */
+  appTextures: Map<number, GPUTexture>;
 }
+
+/** The size of a texture the editor paints into. */
+const APP_TEXTURE_SIZE = 1024;
 
 /** Binding numbers the compiler reserves for the media texture and its sampler. */
 const MEDIA_TEXTURE_BINDING = 1;
@@ -50,7 +70,7 @@ interface CaptureRequest {
 }
 
 export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(function WebGPUCanvas(
-  { time = 0, transform, lut, shaderCode, mediaFrame = null },
+  { time = 0, transform, lut, shaderCode, mediaFrame = null, appTextureSlots = [] },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -61,8 +81,8 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
   const [errorMsg, setErrorMsg] = useState('');
 
   // Latest props, read by the persistent render loop without re-initialising.
-  const propsRef = useRef({ time, transform, lut, shaderCode, mediaFrame });
-  propsRef.current = { time, transform, lut, shaderCode, mediaFrame };
+  const propsRef = useRef({ time, transform, lut, shaderCode, mediaFrame, appTextureSlots });
+  propsRef.current = { time, transform, lut, shaderCode, mediaFrame, appTextureSlots };
 
   useImperativeHandle(
     ref,
@@ -85,9 +105,48 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           captureRef.current = request;
         });
       },
+      writeAppTexture: (slot: number, image: ImageData) => {
+        const state = stateRef.current;
+        const texture = state?.appTextures.get(slot);
+        if (!texture || !state) return;
+        state.device.queue.writeTexture(
+          { texture },
+          image.data,
+          { bytesPerRow: image.width * 4, rowsPerImage: image.height },
+          { width: image.width, height: image.height },
+        );
+      },
     }),
     [],
   );
+
+  /**
+   * The textures the editor paints into are created as soon as the graph asks
+   * for them, not when the pipeline is rebuilt.
+   *
+   * The editor paints into them in the same commit that asks for them, and a
+   * child effect runs before its parent's — so the texture has to exist by then,
+   * or the paint is silently dropped and the title never appears.
+   */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the device is published through a ref, so the effect has to re-run when it becomes ready
+  useEffect(() => {
+    const state = stateRef.current;
+    if (!state) return;
+    for (const slot of appTextureSlots) {
+      if (state.appTextures.has(slot)) continue;
+      state.appTextures.set(
+        slot,
+        state.device.createTexture({
+          size: [APP_TEXTURE_SIZE, APP_TEXTURE_SIZE],
+          format: 'rgba8unorm',
+          usage:
+            GPUTextureUsage.TEXTURE_BINDING |
+            GPUTextureUsage.COPY_DST |
+            GPUTextureUsage.RENDER_ATTACHMENT,
+        }),
+      );
+    }
+  }, [appTextureSlots, deviceReady]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -154,6 +213,14 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           minFilter: 'nearest',
           mipmapFilter: 'nearest',
         });
+        // The textures the editor paints into are ordinary images, and want
+        // smooth edges: a title's glyphs must not look like stairs.
+        const appSampler = gpu.createSampler({
+          magFilter: 'linear',
+          minFilter: 'linear',
+          addressModeU: 'clamp-to-edge',
+          addressModeV: 'clamp-to-edge',
+        });
         const fallbackFrame = new VideoFrame(new Uint8Array([0, 0, 0, 255]), {
           format: 'RGBA',
           codedWidth: 1,
@@ -171,7 +238,9 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           bindGroup: null,
           needsMedia: false,
           mediaSampler,
+          appSampler,
           fallbackFrame,
+          appTextures: new Map(),
         };
         stateRef.current = state;
 
@@ -411,6 +480,16 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
             });
             entries.push({ binding: MEDIA_TEXTURE_BINDING, resource: external });
             entries.push({ binding: MEDIA_SAMPLER_BINDING, resource: state.mediaSampler });
+          }
+          // The textures the editor paints into. They live across pipeline
+          // rebuilds, so a title is not lost when the graph changes.
+          for (const slot of propsRef.current.appTextureSlots) {
+            const texture = state.appTextures.get(slot);
+            if (!texture) continue;
+            entries.push({ binding: slot, resource: texture.createView() });
+            // The sampler that goes with it: the compiler gives the pair
+            // consecutive numbers, and the sampler is the one after.
+            entries.push({ binding: slot + 1, resource: state.appSampler });
           }
           bindGroup = state.device.createBindGroup({
             layout: pipeline.getBindGroupLayout(0),

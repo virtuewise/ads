@@ -35,6 +35,14 @@ export abstract class BaseNode {
    * nodes in one graph would otherwise define the same helper twice.
    */
   readonly usesColour: boolean = false;
+  /**
+   * Whether the node samples a texture the editor paints.
+   *
+   * A title, a matte, a shape: content the editor draws in a 2D canvas and
+   * hands to the GPU. The node gets a texture binding of its own, and the
+   * editor writes into it.
+   */
+  readonly usesAppTexture: boolean = false;
 
   toJSON() {
     return { type: this.type, label: this.label, category: this.category, ports: this.ports };
@@ -579,6 +587,41 @@ export class ToneMapNode extends BaseNode {
 }
 
 // ── Output Nodes ─────────────────────────────────────────────────────────────
+
+/**
+ * A title.
+ *
+ * The text is drawn by the editor — the GPU has no font — and handed to the
+ * shader as a texture, which the node composites over what comes in. The
+ * title's own settings (the words, the size, where it sits) are the editor's
+ * business; the shader only ever sees the finished pixels.
+ */
+export class TextNode extends BaseNode {
+  readonly type = 'text';
+  readonly label = 'Text';
+  readonly category = 'composite' as const;
+  readonly usesAppTexture = true;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'color', direction: 'input' },
+    { id: 'text', name: 'Text', type: 'string', direction: 'input', default: 'A title' },
+    { id: 'size', name: 'Size', type: 'number', direction: 'input', default: 96 },
+    { id: 'x', name: 'X', type: 'number', direction: 'input', default: 0.5 },
+    { id: 'y', name: 'Y', type: 'number', direction: 'input', default: 0.12 },
+    { id: 'colour', name: 'Colour', type: 'color', direction: 'input', default: '#ffffff' },
+    { id: 'output', name: 'Output', type: 'color', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `text(${inputs.input}, ${inputs.text ?? ''})` };
+  }
+  toWGSL() {
+    // The text's alpha is the coverage of the drawn glyphs, so the title is
+    // composited over the picture rather than replacing it.
+    return `fn text(color: vec4<f32>, src: texture_2d<f32>, samp: sampler, uv: vec2<f32>) -> vec4<f32> {
+  let t = textureSample(src, samp, uv);
+  return vec4<f32>(mix(color.rgb, t.rgb, t.a), max(color.a, t.a));
+}`;
+  }
+}
 
 export class ChromaticAberrationNode extends BaseNode {
   readonly type = 'chromaticAberration';
@@ -1691,6 +1734,7 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   spatialTransform: SpatialTransformNode,
   oklabGrade: OklabGradeNode,
   toneMap: ToneMapNode,
+  text: TextNode,
   oscillator: OscillatorNode,
   spring: SpringNode,
   ease: EaseNode,

@@ -35,6 +35,7 @@ import {
 import { decodeFrameAt, decodeVideoBuffer, type MediaSource } from './engine/media';
 import { graphToDAG, timelineToDoc } from './engine/plan';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
+import { rasteriseText, textStyleFrom } from './engine/text';
 import {
   addKeyframe,
   addMediaClip,
@@ -287,6 +288,8 @@ export function App() {
   const [mediaBin, setMediaBin] = useState<MediaSource[]>([]);
   const [importing, setImporting] = useState(false);
   const [dropActive, setDropActive] = useState(false);
+  /** The production plan the graph was built from, if it came from one. */
+  const [plan, setPlan] = useState<ProductionPlan | null>(null);
 
   // ── History (undo/redo) ───────────────────────────────────────────────────
   const [historyStore, setHistoryStore] = useState<DocumentStore>(() =>
@@ -411,6 +414,33 @@ export function App() {
     [dag.dag, activeLook],
   );
   const bridgedShader = bridgeResult.ok ? bridgeResult.wgsl : undefined;
+
+  /**
+   * The titles in the graph, and the texture each one owns.
+   *
+   * The GPU has no font, so the editor draws every title and hands it over.
+   */
+  const appTextures = bridgeResult.compiled?.appTextures ?? {};
+  const appTextureSlots = useMemo(
+    () => Object.values(appTextures).map((b) => b.texture),
+    [appTextures],
+  );
+  useEffect(() => {
+    const slots = appTextures;
+    const nodes = dag.dag.nodes;
+    if (Object.keys(slots).length === 0) return;
+    for (const [nodeId, binding] of Object.entries(slots)) {
+      const node = nodes.find((n) => n.id === nodeId);
+      if (!node) continue;
+      const style = textStyleFrom(node.inputs ?? {});
+      // A title follows the script: the line that is on screen now.
+      const step = plan?.script?.steps?.find(
+        (s) => s.text && playhead >= s.start && playhead < s.end,
+      );
+      const image = rasteriseText(step?.text ? { ...style, text: step.text } : style);
+      if (image) viewportRef.current?.writeAppTexture(binding.texture, image);
+    }
+  }, [appTextures, dag.dag.nodes, plan, playhead]);
 
   // The decoded frame the graph's media source samples. It comes from the
   // The frame the compositor samples. It is decoded on demand around the
@@ -767,6 +797,8 @@ export function App() {
       const compiled = compilePlan(plan);
       const nextGraph = graphToDAG(compiled.graph);
       const nextTimeline = timelineToDoc(compiled.timeline, composition.duration);
+      // The plan is kept: a title follows the script's timing.
+      setPlan(plan);
 
       // Loading a plan replaces the production, so it goes through the
       // history: one Ctrl+Z puts the previous timeline and graph back.
@@ -2100,6 +2132,7 @@ export function App() {
                     lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
                     shaderCode={bridgedShader}
                     mediaFrame={mediaFrame}
+                    appTextureSlots={appTextureSlots}
                   />
                   <SafeZones
                     active={safeZonesActive}
