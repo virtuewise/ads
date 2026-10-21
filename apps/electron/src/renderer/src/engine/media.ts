@@ -38,7 +38,21 @@ export interface MediaSource {
   height: number;
   /** RFC 6381 codec string, e.g. 'avc1.42c01e'. */
   codec: string;
-  /** The decoded frames (ring buffer). */
+  /**
+   * The decoder configuration record, kept so the source can be decoded again
+   * around a new playhead position.
+   */
+  description?: Uint8Array;
+  /**
+   * The compressed samples, kept so the source can be decoded again around a
+   * new playhead position. These are the bytes, not pixels: a 4K clip is a few
+   * megabytes, while its decoded frames are gigabytes.
+   */
+  samples: DemuxedSample[];
+  /**
+   * The decoded window around the playhead. It is a window, not the whole
+   * clip: the frames outside it are released, and are re-decoded on demand.
+   */
   frames: DecodedFrame[];
   /** Current decode position. */
   decodePosition: number;
@@ -88,6 +102,8 @@ export async function decodeVideoBuffer(
     width: demuxed.width,
     height: demuxed.height,
     codec: demuxed.codec,
+    description: demuxed.description,
+    samples: demuxed.samples,
     frames: [],
     decodePosition: 0,
     complete: false,
@@ -136,7 +152,12 @@ export async function decodeVideoBuffer(
   // sample after the first is a delta frame, so the decoder dies with
   // "A key frame is required after configure() or flush()". Instead, wait for
   // the queue to drain and only flush once, at the end.
-  for (const sample of demuxed.samples) {
+  //
+  // Only the first window is decoded: the rest of the clip stays compressed
+  // until the playhead needs it, which keeps the import fast and the memory
+  // bounded no matter how long the clip is.
+  const windowSamples = demuxed.samples.slice(0, LOOKAHEAD_FRAMES);
+  for (const sample of windowSamples) {
     if (failed || decoder.state === 'closed') break;
     while (decoder.decodeQueueSize > 8) {
       await new Promise<void>((resolve) => {
@@ -161,6 +182,13 @@ export async function decodeVideoBuffer(
     }
   }
   await decoder.flush().catch(() => undefined);
+  // The decoder has done its job; release it. The source can be decoded again
+  // later from the compressed samples.
+  try {
+    decoder.close();
+  } catch {
+    // Already closed.
+  }
   source.complete = !failed;
   return source;
 }
@@ -189,6 +217,8 @@ export function probeVideo(input: ArrayBuffer, name: string): Omit<MediaSource, 
     width: d.width,
     height: d.height,
     codec: d.codec,
+    description: d.description,
+    samples: d.samples,
     decodePosition: 0,
     complete: false,
   };
@@ -196,6 +226,10 @@ export function probeVideo(input: ArrayBuffer, name: string): Omit<MediaSource, 
 
 /**
  * Get the frame closest to a given time.
+ *
+ * Only the decoded window is searched. A miss returns null rather than the
+ * nearest frame that happens to be left: returning a frame from the wrong
+ * part of the clip is worse than returning none.
  */
 export function getFrameAtTime(source: MediaSource, time: number): DecodedFrame | null {
   if (source.frames.length === 0) return null;
@@ -208,7 +242,105 @@ export function getFrameAtTime(source: MediaSource, time: number): DecodedFrame 
       closest = frame;
     }
   }
-  return closest;
+  // Half a frame interval: close enough to be the right picture.
+  const tolerance = 0.5 / Math.max(1, source.fps);
+  return minDiff <= tolerance ? closest : null;
+}
+
+/** How many frames to decode ahead of the playhead. */
+const LOOKAHEAD_FRAMES = 30;
+
+/**
+ * Make sure the frame at `time` is decoded, and return it.
+ *
+ * The decoded frames are a window around the playhead, not the whole clip:
+ * a 4K clip's frames are gigabytes, while its compressed samples are
+ * megabytes. When the playhead leaves the window, the window is re-decoded
+ * from the nearest keyframe — which is fast, because only the compressed
+ * samples are re-read.
+ */
+export async function decodeFrameAt(
+  source: MediaSource,
+  time: number,
+  onProgress?: (progress: number) => void,
+): Promise<DecodedFrame | null> {
+  // Already in the window?
+  const cached = getFrameAtTime(source, time);
+  if (cached) return cached;
+  if (!hasVideoDecoder() || source.samples.length === 0) return null;
+
+  // The keyframe at or before the target, and the samples to decode.
+  const targetUs = time * 1e6;
+  let start = 0;
+  for (let i = 0; i < source.samples.length; i += 1) {
+    const s = source.samples[i];
+    if (s.timestamp > targetUs) break;
+    if (s.isKey) start = i;
+  }
+  let end = start;
+  while (
+    end < source.samples.length &&
+    (source.samples[end].timestamp <= targetUs || end - start < LOOKAHEAD_FRAMES)
+  ) {
+    end += 1;
+    if (end - start >= LOOKAHEAD_FRAMES && source.samples[end - 1].timestamp > targetUs) break;
+  }
+
+  const decoded: DecodedFrame[] = [];
+  let failed = false;
+  const decoder = new VideoDecoder({
+    output: (frame: VideoFrame) => {
+      decoded.push({ frame, timestamp: frame.timestamp / 1e6, frameNumber: decoded.length });
+    },
+    error: (e) => {
+      console.error('Decode error:', e);
+      failed = true;
+    },
+  });
+
+  try {
+    decoder.configure({
+      codec: source.codec,
+      ...(source.description ? { description: source.description } : {}),
+      codedWidth: source.width,
+      codedHeight: source.height,
+      optimizeForLatency: true,
+    });
+    for (let i = start; i < end && i < source.samples.length; i += 1) {
+      const s = source.samples[i];
+      decoder.decode(
+        new EncodedVideoChunk({
+          type: s.isKey ? 'key' : 'delta',
+          timestamp: s.timestamp,
+          duration: s.duration,
+          data: s.data,
+        }),
+      );
+    }
+    await decoder.flush().catch(() => undefined);
+  } catch (e) {
+    console.error('Could not decode the window:', e);
+    failed = true;
+  } finally {
+    try {
+      decoder.close();
+    } catch {
+      // Already closed.
+    }
+  }
+  if (failed) {
+    for (const d of decoded) d.frame.close();
+    return null;
+  }
+
+  // Replace the window, releasing the frames it held.
+  for (const frame of source.frames) frame.frame.close();
+  source.frames = decoded;
+  source.decodePosition = start;
+
+  if (onProgress) onProgress(Math.min(1, (end - start) / Math.max(1, source.samples.length)));
+
+  return getFrameAtTime(source, time);
 }
 
 /**
@@ -219,5 +351,6 @@ export function disposeMediaSource(source: MediaSource): void {
     frame.frame.close();
   }
   source.frames = [];
+  source.samples = [];
   source.complete = false;
 }

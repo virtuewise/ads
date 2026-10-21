@@ -2,7 +2,7 @@
 // Compiles a DAG of nodes into a WGSL fragment shader for WebGPU execution.
 
 import { createNode } from './nodes';
-import type { DAG, NodeInstance } from './types';
+import type { DAG, Edge, NodeInstance } from './types';
 
 export interface CompiledShader {
   wgsl: string;
@@ -481,18 +481,22 @@ export function dagToCode(dag: DAG): string {
   lines.push('// Edit this code and it will sync back to the node graph.');
   lines.push('');
   lines.push('export const nodeGraph = {');
-  lines.push('  nodes: [');
-  for (const n of dag.nodes) {
-    lines.push(
-      `    { type: '${n.type}', position: { x: ${n.position.x}, y: ${n.position.y}}, inputs: ${JSON.stringify(n.inputs)} },`,
-    );
-  }
+  // The object literal is JSON-compatible — no trailing commas — so the same
+  // text can be parsed back into a graph. It is still valid TypeScript.
+  lines.push('  "nodes": [');
+  const nodeLines = dag.nodes.map((n) => {
+    const code = n.code ? `, "code": ${JSON.stringify(n.code)}` : '';
+    return `    { "id": ${JSON.stringify(n.id)}, "type": ${JSON.stringify(n.type)}, "position": { "x": ${n.position.x}, "y": ${n.position.y} }, "inputs": ${JSON.stringify(n.inputs ?? {})}${code} }`;
+  });
+  lines.push(nodeLines.join(',\n'));
   lines.push('  ],');
-  lines.push('  edges: [');
-  for (const e of dag.edges) {
-    lines.push(`    { from: '${e.from.node}:${e.from.port}', to: '${e.to.node}:${e.to.port}' },`);
-  }
-  lines.push('  ],');
+  lines.push('  "edges": [');
+  const edgeLines = dag.edges.map(
+    (e) =>
+      `    { "from": { "node": ${JSON.stringify(e.from.node)}, "port": ${JSON.stringify(e.from.port)} }, "to": { "node": ${JSON.stringify(e.to.node)}, "port": ${JSON.stringify(e.to.port)} } }`,
+  );
+  lines.push(edgeLines.join(',\n'));
+  lines.push('  ]');
   lines.push('};');
   lines.push('');
   lines.push('// Custom functions');
@@ -506,40 +510,89 @@ export function dagToCode(dag: DAG): string {
 
 export function codeToDAG(code: string): DAG | null {
   try {
-    // Extract the nodeGraph object from code
-    const match = code.match(/export const nodeGraph = ({[\s\S]*?});/);
-    if (!match) return null;
-    const obj = JSON.parse(match[1]);
-    return {
-      nodes: obj.nodes.map(
-        (
-          n: {
-            type: string;
-            position: { x: number; y: number };
-            inputs: Record<string, unknown>;
-            code?: string;
-          },
-          i: number,
-        ) => ({
-          id: `node-${i}`,
-          type: n.type,
-          position: n.position,
-          inputs: n.inputs ?? {},
-          outputs: {},
-          code: n.code,
-        }),
-      ),
-      edges: obj.edges.map((e: { from: string; to: string }, i: number) => {
-        const [fromNode, fromPort] = e.from.split(':');
-        const [toNode, toPort] = e.to.split(':');
-        return {
-          id: `edge-${i}`,
-          from: { node: fromNode, port: fromPort },
-          to: { node: toNode, port: toPort },
-        };
-      }),
+    const source = extractGraphObject(code);
+    if (!source) return null;
+    const obj = JSON.parse(source) as {
+      nodes?: Array<{
+        id?: string;
+        type: string;
+        position?: { x: number; y: number };
+        inputs?: Record<string, unknown>;
+        code?: string;
+      }>;
+      edges?: Array<{
+        from: { node: string; port: string } | string;
+        to: { node: string; port: string } | string;
+      }>;
     };
+    if (!Array.isArray(obj.nodes)) return null;
+
+    // The node ids are kept, so the edges still point at the right nodes.
+    const nodes: NodeInstance[] = obj.nodes.map((n, i) => ({
+      id: typeof n.id === 'string' && n.id ? n.id : `node-${i}`,
+      type: n.type,
+      position: n.position ?? { x: 0, y: 0 },
+      inputs: n.inputs ?? {},
+      outputs: {},
+      ...(typeof n.code === 'string' ? { code: n.code } : {}),
+    }));
+    const known = new Set(nodes.map((n) => n.id));
+
+    const edges: Edge[] = (Array.isArray(obj.edges) ? obj.edges : [])
+      .map((e, i) => {
+        const from = typeof e.from === 'string' ? splitRef(e.from) : e.from;
+        const to = typeof e.to === 'string' ? splitRef(e.to) : e.to;
+        return { id: `edge-${i}`, from, to };
+      })
+      // An edge to a node that is not in the graph would dangle.
+      .filter((e) => known.has(e.from.node) && known.has(e.to.node));
+
+    return { nodes, edges };
   } catch {
     return null;
   }
+}
+
+/**
+ * Find the `nodeGraph` object literal in the code.
+ *
+ * A regex cannot do this reliably: the object contains nested braces and
+ * strings, and the code the user typed may not be the code that was
+ * generated. Scanning for the matching brace does.
+ */
+function extractGraphObject(code: string): string | null {
+  const marker = code.indexOf('export const nodeGraph');
+  if (marker < 0) return null;
+  const open = code.indexOf('{', marker);
+  if (open < 0) return null;
+  let depth = 0;
+  let quote = '';
+  for (let i = open; i < code.length; i += 1) {
+    const ch = code[i];
+    if (quote) {
+      if (ch === '\\') {
+        i += 1;
+        continue;
+      }
+      if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return code.slice(open, i + 1);
+    }
+  }
+  return null;
+}
+
+/** Split a 'node:port' reference. */
+function splitRef(ref: string): { node: string; port: string } {
+  const at = ref.lastIndexOf(':');
+  if (at < 0) return { node: ref, port: 'output' };
+  return { node: ref.slice(0, at), port: ref.slice(at + 1) };
 }

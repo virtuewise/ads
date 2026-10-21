@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { bridgeDAGToComposite } from './bridge';
-import { compileDAG } from './compiler';
+import { codeToDAG, compileDAG, dagToCode } from './compiler';
 import { NODE_REGISTRY } from './nodes';
 import type { DAG, NodeInstance } from './types';
 
@@ -221,5 +221,36 @@ describe('compileDAG — every node type', () => {
   it('survives a malformed document', () => {
     expect(() => compileDAG({} as DAG)).not.toThrow();
     expect(() => compileDAG({ nodes: [], edges: [] } as DAG)).not.toThrow();
+  });
+});
+
+describe('code <-> graph', () => {
+  it('round-trips a graph through the generated code', () => {
+    // The Script editor is a two-way bridge: the code the user sees must parse
+    // back into the same graph, edges included.
+    const dag = sceneDAG();
+    const parsed = codeToDAG(dagToCode(dag));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.nodes.map((n) => n.type)).toEqual(['proceduralScene', 'render']);
+    expect(parsed?.edges).toHaveLength(1);
+    expect(parsed?.edges[0].from.node).toBe(dag.nodes[0].id);
+    expect(parsed?.edges[0].to.node).toBe(dag.nodes[1].id);
+  });
+
+  it('keeps the node ids, so the edges still resolve', () => {
+    const dag = sceneDAG();
+    const parsed = codeToDAG(dagToCode(dag));
+    expect(parsed?.nodes.map((n) => n.id)).toEqual(['p1', 'r1']);
+  });
+
+  it('drops an edge that points at a node that is not there', () => {
+    const code = dagToCode(sceneDAG()).replace('"p1"', '"missing"');
+    const parsed = codeToDAG(code);
+    expect(parsed?.edges).toHaveLength(0);
+  });
+
+  it('returns null for code that is not a graph', () => {
+    expect(codeToDAG('const x = 1;')).toBeNull();
+    expect(codeToDAG('export const nodeGraph = { oops')).toBeNull();
   });
 });

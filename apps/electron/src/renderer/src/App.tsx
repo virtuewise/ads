@@ -28,7 +28,7 @@ import {
   replaceDoc,
   undo,
 } from './engine/history';
-import { decodeVideoBuffer, getFrameAtTime, type MediaSource } from './engine/media';
+import { decodeFrameAt, decodeVideoBuffer, type MediaSource } from './engine/media';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
 import {
   addKeyframe,
@@ -37,6 +37,8 @@ import {
   defaultTimeline,
   moveKeyframe,
   removeKeyframe,
+  renameClip,
+  setClipFields,
   setClipRange,
   setKeyframeEasing,
   splitClip,
@@ -365,19 +367,35 @@ export function App() {
   const bridgedShader = bridgeResult.ok ? bridgeResult.wgsl : undefined;
 
   // The decoded frame the graph's media source samples. It comes from the
-  // topmost media clip under the playhead, so scrubbing the timeline scrubs
-  // the footage.
-  const mediaFrame = useMemo(() => {
+  // The frame the compositor samples. It is decoded on demand around the
+  // playhead, so scrubbing the timeline scrubs the footage — and a long clip
+  // only ever holds a window of decoded frames, not the whole thing.
+  const [mediaFrame, setMediaFrame] = useState<VideoFrame | null>(null);
+  useEffect(() => {
+    // The topmost media clip under the playhead.
     let clip: TimelineClip | undefined;
     for (const c of timelineDoc.clips) {
       if (!c.mediaId) continue;
       if (playhead >= c.start && playhead < c.end) clip = c;
     }
-    if (!clip?.mediaId) return null;
+    if (!clip?.mediaId) {
+      setMediaFrame(null);
+      return;
+    }
     const source = mediaBin.find((m) => m.id === clip.mediaId);
-    if (!source) return null;
+    if (!source) {
+      setMediaFrame(null);
+      return;
+    }
     const sourceTime = playhead - clip.start + (clip.sourceStart ?? 0);
-    return getFrameAtTime(source, sourceTime)?.frame ?? null;
+    let cancelled = false;
+    void (async () => {
+      const frame = await decodeFrameAt(source, sourceTime);
+      if (!cancelled) setMediaFrame(frame?.frame ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [timelineDoc.clips, mediaBin, playhead]);
 
   const territories = useMemo(
@@ -640,6 +658,47 @@ export function App() {
     };
     setHistoryStore((s) => dispatch(s, cmd));
     setTimelineDoc(toDoc);
+    touch();
+  };
+
+  /**
+   * Commit an inspector edit to the history.
+   *
+   * The inspector edits the clip live, so a text field would otherwise record
+   * one history entry per keystroke. The edit is captured when the field gains
+   * focus and committed when it loses it: one undo for the whole edit.
+   */
+  const clipEditRef = useRef<{ clipId: string; name: string; start: number; end: number } | null>(
+    null,
+  );
+  const beginClipEdit = (clip: TimelineClip) => {
+    clipEditRef.current = {
+      clipId: clip.id,
+      name: clip.name,
+      start: clip.start,
+      end: clip.end,
+    };
+  };
+  const endClipEdit = (clip: TimelineClip) => {
+    const before = clipEditRef.current;
+    clipEditRef.current = null;
+    if (!before || before.clipId !== clip.id) return;
+    if (before.name === clip.name && before.start === clip.start && before.end === clip.end) {
+      return;
+    }
+    const cmd: Command = {
+      id: `cmd-${Date.now().toString(36)}`,
+      label: 'Edit Clip',
+      do: (doc) => ({
+        ...doc,
+        timeline: setClipFields(doc.timeline, clip.id, clip.name, clip.start, clip.end),
+      }),
+      undo: (doc) => ({
+        ...doc,
+        timeline: setClipFields(doc.timeline, clip.id, before.name, before.start, before.end),
+      }),
+    };
+    setHistoryStore((s) => dispatch(s, cmd));
     touch();
   };
 
@@ -2095,14 +2154,12 @@ export function App() {
                           <input
                             className="field__input"
                             value={clip.name}
-                            onChange={(e) =>
-                              setTimelineDoc((doc) => ({
-                                ...doc,
-                                clips: doc.clips.map((c) =>
-                                  c.id === clip.id ? { ...c, name: e.target.value } : c,
-                                ),
-                              }))
-                            }
+                            onFocus={() => beginClipEdit(clip)}
+                            onBlur={() => endClipEdit(clip)}
+                            onChange={(e) => {
+                              setTimelineDoc((doc) => renameClip(doc, clip.id, e.target.value));
+                              touch();
+                            }}
                             aria-label="Clip name"
                           />
                         </label>
@@ -2111,6 +2168,8 @@ export function App() {
                           <input
                             className="field__input"
                             value={clip.start.toFixed(2)}
+                            onFocus={() => beginClipEdit(clip)}
+                            onBlur={() => endClipEdit(clip)}
                             onChange={(e) => {
                               setTimelineDoc((doc) =>
                                 setClipRange(
@@ -2130,6 +2189,8 @@ export function App() {
                           <input
                             className="field__input"
                             value={clip.end.toFixed(2)}
+                            onFocus={() => beginClipEdit(clip)}
+                            onBlur={() => endClipEdit(clip)}
                             onChange={(e) => {
                               setTimelineDoc((doc) =>
                                 setClipRange(
