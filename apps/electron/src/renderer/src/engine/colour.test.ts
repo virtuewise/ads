@@ -84,6 +84,43 @@ describe('grading in Oklab', () => {
     const after = linearSrgbToOklab(...applyOklabGrade(colour, { ...NEUTRAL_GRADE, exposure: 1 }));
     expect(after[0]).toBeGreaterThan(before[0]);
   });
+
+  it('matches the numbers the shader produced on the GPU', () => {
+    // The shader is the oracle: these are the pixels the real WGSL grade
+    // wrote into a 1x1 target, measured in the running app. The TypeScript
+    // mirror must agree, or the editor would measure one curve and the
+    // renderer would grade another.
+    const srgb = (v: number) =>
+      linearToSrgb(
+        applyOklabGrade([srgbToLinear(v), srgbToLinear(v), srgbToLinear(v)], {
+          exposure: 0,
+          contrast: 1,
+          saturation: 1,
+          hue: 0,
+        })[0],
+      );
+    expect(Math.round(srgb(0.5) * 255)).toBe(128);
+
+    const exposed = linearToSrgb(
+      applyOklabGrade([srgbToLinear(0.5), srgbToLinear(0.5), srgbToLinear(0.5)], {
+        exposure: 1,
+        contrast: 1,
+        saturation: 1,
+        hue: 0,
+      })[0],
+    );
+    expect(Math.round(exposed * 255)).toBe(175);
+
+    const contrasted = linearToSrgb(
+      applyOklabGrade([srgbToLinear(0.5), srgbToLinear(0.5), srgbToLinear(0.5)], {
+        exposure: 0,
+        contrast: 1.5,
+        saturation: 1,
+        hue: 0,
+      })[0],
+    );
+    expect(Math.round(contrasted * 255)).toBe(142);
+  });
 });
 
 describe('shot matching', () => {
