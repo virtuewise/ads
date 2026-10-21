@@ -2,6 +2,7 @@
 // Compiles a DAG of nodes into a WGSL fragment shader for WebGPU execution.
 
 import type { NodeCatalog, NodeKindInfo, ValueType } from '@printsync/creative-graph';
+import { COLOUR_WGSL } from './colour';
 import { createNode, NODE_REGISTRY } from './nodes';
 import type { DAG, Edge, NodeInstance } from './types';
 
@@ -55,6 +56,8 @@ const WGSL_FN_NAME: Record<string, string> = {
   motionBlur: 'motion_blur',
   lensBlur: 'lens_blur',
   colorGrade: 'color_grade',
+  oklabGrade: 'oklab_grade',
+  toneMap: 'tone_map',
   ease: 'ease_val',
   alphaMerge: 'alpha_merge',
 };
@@ -366,6 +369,8 @@ export function compileDAG(
   const outputTypes = new Map<string, string>(); // "nodeId:port" -> WGSL type
   let varCounter: number = 0;
   let emittedRenderReturn = false;
+  /** Whether any node needs the shared colour functions. */
+  let needsColour = false;
 
   // A media source samples a texture the compositor supplies, so its bindings
   // are reserved before any neighbourhood-effect bindings are numbered.
@@ -445,6 +450,7 @@ export function compileDAG(
     // redefinition — which made a second node of any type uncompilable.
     const scopedFn = `${varName}_${wgslFn}`;
     functions.push(scopeFunctions(nodeWgsl, varName));
+    if (instance.usesColour) needsColour = true;
 
     for (const [port, _value] of Object.entries(outputs)) {
       outputVars.set(`${id}:${port}`, `${varName}_${port}`);
@@ -529,7 +535,7 @@ export function compileDAG(
 ${UNIFORM_STRUCT}
 @group(0) @binding(0) var<uniform> u: Uniforms;
 ${textureBindings.length > 0 ? `\n${textureBindings.join('\n')}\n` : ''}
-
+${needsColour ? `\n${COLOUR_WGSL}\n` : ''}
 ${functions.join('\n\n')}
 
 @fragment

@@ -1,12 +1,97 @@
 # 23 — Color: Grading Engine, LUTs, Scopes & Color Management
 
-**Status: 🟡 (brand tint, a DAG bridge, and a three-scope panel are real; a full grading engine is ⬜) · Code: `engine/visual.ts`, `engine/bridge.ts`, `components/ScopesPanel.tsx` (today) → `engine/color/*` (target)**
+**Status: 🟡 (a perceptual grade, a filmic tone map, a three-scope panel and automatic shot matching are real; primaries, curves, qualifiers and 3D LUTs are ⬜) · Code: `engine/colour.ts`, `engine/balance.ts`, `engine/nodes.ts`, `components/ScopesPanel.tsx` (today) → `engine/color/*` (target)**
 
 > Today "color" is a **three-point luminance gradient** driven by five hardcoded brand LUTs
 > (`BRAND_LUTS`, applied in `COMPOSITE_SHADER` and in the DAG bridge), plus a **viewport-sampled
-> scopes panel**. This document specifies a **real grading engine**:
-> primaries, curves, qualifiers, 3D LUTs, GPU-reduced scopes, and a colour-managed pipeline from camera
-> to delivery.
+> scopes panel**. On top of that there is now a **perceptual grade** (`oklabGrade`), a **filmic tone
+> map** (`toneMap`) and **automatic shot matching**. This document specifies a **full grading
+> engine**: primaries, curves, qualifiers, 3D LUTs, GPU-reduced scopes, and a colour-managed pipeline
+> from camera to delivery.
+
+---
+
+## The perceptual grade — `oklabGrade`
+
+The grade is done in **Oklab**, a perceptually uniform space, rather than in gamma-encoded RGB.
+
+Why it matters: in sRGB, a saturation change also moves the picture's lightness, and a hue rotation
+brightens some colours while darkening others. Those crosstalk terms are what make a gamma-space
+grade feel like a filter. In Oklab they are gone, so a grade does what it says.
+
+The node takes display-referred sRGB in and gives display-referred sRGB back, so it sits anywhere in
+a graph:
+
+```wgsl
+fn oklab_grade(color: vec4<f32>, exposure: f32, contrast: f32,
+               saturation: f32, hue: f32) -> vec4<f32> {
+  let linear = srgb_to_linear(color.rgb) * pow(2.0, exposure);
+  var lab = linear_srgb_to_oklab(linear);
+  let pivot = 0.5;
+  lab.x = (lab.x - pivot) * contrast + pivot;   // contrast around middle grey
+  let ca = lab.y * saturation;                    // saturation scales the chroma
+  let cb = lab.z * saturation;
+  let angle = hue * 0.0174532925;                // hue rotates it
+  lab.y = ca * cos(angle) - cb * sin(angle);
+  lab.z = ca * sin(angle) + cb * cos(angle);
+  return vec4<f32>(linear_to_srgb(oklab_to_linear_srgb(lab)), color.a);
+}
+```
+
+The same maths exists in TypeScript (`engine/colour.ts`), because the editor *measures* in it while
+the shader *grades* in it. `engine/colour.test.ts` pins the two together.
+
+> **Known limitation.** The grade node is display-referred: it converts to linear, grades, and
+> converts back. A scene-referred working space — where the graph itself is linear and the tone map
+> happens once at the output — is the correct broadcast pipeline, and is the next step.
+
+---
+
+## The tone map — `toneMap`
+
+A film's highlights roll off; they do not clip to white. The node applies the **ACES** fit (Stephen
+Hill) or a Reinhard curve, with the mode chosen by a number:
+
+```wgsl
+fn tone_map(color: vec4<f32>, mode: f32) -> vec4<f32> {
+  let linear = srgb_to_linear(color.rgb);
+  var mapped = linear;
+  if (mode < 0.5) { mapped = aces_filmic(linear); }
+  else if (mode < 1.5) { mapped = reinhard_extended(linear, 4.0); }
+  else { mapped = linear; }
+  return vec4<f32>(linear_to_srgb(mapped), color.a);
+}
+```
+
+---
+
+## Automatic shot matching — `engine/balance.ts`
+
+Every shot is lit slightly differently. A colourist fixes that by measuring one shot and grading the
+next to match. It is the most valuable half of a grade and the most tedious.
+
+The editor does it automatically: when the playhead enters a shot, the frame is **measured** and the
+difference from a reference shot becomes that shot's grade. The measurement is the colourist's, not
+the engineer's:
+
+| Measure | What it is | Why |
+|---|---|---|
+| **midtone** | the median linear luminance | a frame with one small bright highlight has a useless mean and a perfectly good median |
+| **spread** | the 10th-to-90th percentile spread of log luminance | this is contrast, measured the way a waveform monitor shows it |
+| **chroma** | the mean colourfulness in Oklab's a/b axes | for matching saturation between shots |
+
+The reference is the **first shot of the current timeline**. A clip from a previous document is never
+a reference — it is a different piece of film.
+
+A frame with no light in it is refused rather than used: such a readback was taken before the
+picture was on screen, and grading against it would push the whole film up by several stops.
+
+The corrections land in a colourist's range — a fraction of a stop and a few per cent of contrast —
+and the clip's label shows what was applied:
+
+```
+SOLUTION · 6.00s–9.60s · +0.29 EV · 1.13×
+```
 
 ---
 
@@ -23,6 +108,8 @@ col        = mix(col,            lutCol,             u.lutShadow.a);   // intens
 
 It is a **tonal tint**, not a grade. It cannot express a hue shift, a curve, a qualifier, or a real LUT.
 It is a good *brand tint* and a poor *grader*, and the two should stop being the same thing.
+
+On top of it, the graph can carry the perceptual grade, the tone map, and the shot matching above.
 
 ---
 
@@ -241,6 +328,21 @@ interface CompositionState {
 ---
 
 ## Verification
+
+| Property | Test |
+|---|---|
+| sRGB ↔ linear round-trips | ✅ `engine/colour.test.ts` |
+| Oklab ↔ linear sRGB round-trips | ✅ `engine/colour.test.ts` |
+| A neutral grade changes nothing | ✅ `engine/colour.test.ts` |
+| A saturation change does not move the lightness | ✅ `engine/colour.test.ts` |
+| A hue rotation does not change the colourfulness | ✅ `engine/colour.test.ts` |
+| The tone map rolls highlights off rather than clipping | ✅ `engine/colour.test.ts` |
+| A shot's grade is the colourist's: midtone in stops | ✅ `engine/colour.test.ts` |
+| A black frame is refused as a reference | ✅ `engine/colour.test.ts` |
+| The grade and the shader agree | ✅ both are pinned to the same matrices, and the shader compiles on the GPU |
+| A measured shot is matched to the reference | ✅ verified in the running app: the shots of a production differ by 0.08–0.29 EV |
+
+Still to come:
 
 | Property | Test |
 |---|---|

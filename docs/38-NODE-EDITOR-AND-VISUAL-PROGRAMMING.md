@@ -26,14 +26,14 @@
 
 ### 1.2 The node registry
 
-**53 node types** in `engine/nodes.ts`, every one of them emitting real WGSL:
+**55 node types** in `engine/nodes.ts`, every one of them emitting real WGSL:
 
 | Category | Count | Examples |
 |---|---|---|
 | Source | 8 | `proceduralScene`, `mediaSource`, `solidSource`, `gradientSource`, `checkerSource` |
 | Transform | 6 | `transform`, `spatialTransform`, `oscillator`, `spring`, `ease`, `stagger` |
 | Effect | 4 | `glow`, `blur`, `colorGrade`, `vignette` |
-| Colour | 9 | `temperature`, `levels`, `exposure`, `saturation`, `hueShift`, `invert`, `threshold`, `channelMixer`, `solarize` |
+| Colour | 11 | `temperature`, `levels`, `exposure`, `saturation`, `hueShift`, `invert`, `threshold`, `channelMixer`, `solarize`, `oklabGrade`, `toneMap` |
 | Stylize | 10 | `sharpen`, `filmGrain`, `bloom`, `posterize`, `halftone`, `scanlines`, `edgeDetect`, `dither`, `pixelate`, `emboss` |
 | Distort | 5 | `chromaticAberration`, `lensDistortion`, `displacementMap`, `twirl`, `rgbSplit` |
 | Composite | 2 | `blend`, `alphaMerge` |

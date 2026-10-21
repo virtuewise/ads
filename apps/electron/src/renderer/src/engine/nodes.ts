@@ -28,6 +28,13 @@ export abstract class BaseNode {
   abstract readonly ports: Port[];
   abstract execute(inputs: Record<string, unknown>): Record<string, unknown>;
   abstract toWGSL(): string;
+  /**
+   * Whether the node's shader needs the shared colour functions.
+   *
+   * The functions are emitted once per module, not once per node: two grade
+   * nodes in one graph would otherwise define the same helper twice.
+   */
+  readonly usesColour: boolean = false;
 
   toJSON() {
     return { type: this.type, label: this.label, category: this.category, ports: this.ports };
@@ -479,6 +486,95 @@ export class AlphaMergeNode extends BaseNode {
       let rgb = (fg.rgb * fg.a + bg.rgb * bg.a * (1.0 - fg.a)) / max(a, 0.001);
       return vec4(rgb, a);
     }`;
+  }
+}
+
+// ── Colour Nodes ─────────────────────────────────────────────────────────────
+
+/**
+ * A grade in a perceptually uniform space.
+ *
+ * The corrections are made in Oklab, so they do what they say: a saturation
+ * change does not move the picture's lightness, and a hue rotation does not
+ * brighten one colour and darken another. Grading in gamma-encoded RGB — what
+ * every compositing tool does — has both crosstalk terms.
+ *
+ * The input is display-referred sRGB; the node converts to linear, grades in
+ * Oklab, and converts back, so it can sit anywhere in a graph.
+ */
+export class OklabGradeNode extends BaseNode {
+  readonly type = 'oklabGrade';
+  readonly label = 'Oklab Grade';
+  readonly category = 'color' as const;
+  readonly usesColour = true;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'color', direction: 'input' },
+    { id: 'exposure', name: 'Exposure', type: 'number', direction: 'input', default: 0 },
+    { id: 'contrast', name: 'Contrast', type: 'number', direction: 'input', default: 1 },
+    { id: 'saturation', name: 'Saturation', type: 'number', direction: 'input', default: 1 },
+    { id: 'hue', name: 'Hue', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'color', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return {
+      output: `oklabGrade(${inputs.input}, ${inputs.exposure ?? 0}, ${inputs.contrast ?? 1}, ${inputs.saturation ?? 1}, ${inputs.hue ?? 0})`,
+    };
+  }
+  toWGSL() {
+    return `fn oklab_grade(color: vec4<f32>, exposure: f32, contrast: f32, saturation: f32, hue: f32) -> vec4<f32> {
+  let linear = srgb_to_linear(color.rgb) * pow(2.0, exposure);
+  var lab = linear_srgb_to_oklab(linear);
+  // Contrast pivots around middle grey, in perceptual lightness.
+  let pivot = 0.5;
+  lab.x = (lab.x - pivot) * contrast + pivot;
+  // Saturation scales the chroma; the hue rotates it. The rotation is applied
+  // to the colour's own chroma vector, so it keeps its hue and its
+  // colourfulness.
+  let ca = lab.y * saturation;
+  let cb = lab.z * saturation;
+  let angle = hue * 0.0174532925;
+  let ra = ca * cos(angle) - cb * sin(angle);
+  let rb = ca * sin(angle) + cb * cos(angle);
+  lab.y = ra;
+  lab.z = rb;
+  return vec4<f32>(linear_to_srgb(oklab_to_linear_srgb(lab)), color.a);
+}`;
+  }
+}
+
+/**
+ * A filmic tone map.
+ *
+ * Highlights roll off the way a print does instead of clipping to white, and
+ * the result keeps its saturation in the shoulder. `mode` selects the curve:
+ * 0 is the ACES fit, 1 a Reinhard curve, 2 none.
+ */
+export class ToneMapNode extends BaseNode {
+  readonly type = 'toneMap';
+  readonly label = 'Tone Map';
+  readonly category = 'color' as const;
+  readonly usesColour = true;
+  readonly ports: Port[] = [
+    { id: 'input', name: 'Input', type: 'color', direction: 'input' },
+    { id: 'mode', name: 'Mode', type: 'number', direction: 'input', default: 0 },
+    { id: 'output', name: 'Output', type: 'color', direction: 'output' },
+  ];
+  execute(inputs: Record<string, unknown>): Record<string, unknown> {
+    return { output: `toneMap(${inputs.input}, ${inputs.mode ?? 0})` };
+  }
+  toWGSL() {
+    return `fn tone_map(color: vec4<f32>, mode: f32) -> vec4<f32> {
+  let linear = srgb_to_linear(color.rgb);
+  var mapped = linear;
+  if (mode < 0.5) {
+    mapped = aces_filmic(linear);
+  } else if (mode < 1.5) {
+    mapped = reinhard_extended(linear, 4.0);
+  } else {
+    mapped = linear;
+  }
+  return vec4<f32>(linear_to_srgb(mapped), color.a);
+}`;
   }
 }
 
@@ -1593,6 +1689,8 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   checkerSource: CheckerSourceNode,
   transform: TransformNode,
   spatialTransform: SpatialTransformNode,
+  oklabGrade: OklabGradeNode,
+  toneMap: ToneMapNode,
   oscillator: OscillatorNode,
   spring: SpringNode,
   ease: EaseNode,

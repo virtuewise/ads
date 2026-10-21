@@ -13,14 +13,14 @@
 
 ## What exists today
 
-`NODE_REGISTRY` in `engine/nodes.ts` — 53 nodes by category:
+`NODE_REGISTRY` in `engine/nodes.ts` — 55 nodes by category:
 
 | Category | Nodes |
 |---|---|
 | **source** (8) | `dataSource`, `colorSource`, `proceduralScene`, `noiseSource`, `mediaSource`, `solidSource`, `gradientSource`, `checkerSource` |
 | **transform** (6) | `transform`, `spatialTransform`, `oscillator`, `spring`, `ease`, `stagger` |
 | **effect** (4) | `glow`, `blur`, `colorGrade`, `vignette` |
-| **color** (9) | `temperature`, `levels`, `exposure`, `saturation`, `hueShift`, `invert`, `threshold`, `channelMixer`, `solarize` |
+| **color** (11) | `temperature`, `levels`, `exposure`, `saturation`, `hueShift`, `invert`, `threshold`, `channelMixer`, `solarize`, `oklabGrade`, `toneMap` |
 | **stylize** (10) | `sharpen`, `filmGrain`, `bloom`, `posterize`, `halftone`, `scanlines`, `edgeDetect`, `dither`, `pixelate`, `emboss` |
 | **distort** (5) | `chromaticAberration`, `lensDistortion`, `displacementMap`, `twirl`, `rgbSplit` |
 | **blur** (1) | `lensBlur` |

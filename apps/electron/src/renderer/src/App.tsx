@@ -16,6 +16,7 @@ import { SafeZoneControls, SafeZones } from './components/SafeZones';
 import { ScopesPanel } from './components/ScopesPanel';
 import { ScriptEditor } from './components/ScriptEditor';
 import { WebGPUCanvas, type WebGPUCanvasHandle } from './components/WebGPUCanvas';
+import { analyseFrame, type FrameStats, gradeToMatch, isMeasurable } from './engine/balance';
 import { bridgeDAGToComposite } from './engine/bridge';
 import { EASING_LABELS, EASING_ORDER } from './engine/easing';
 import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
@@ -443,6 +444,87 @@ export function App() {
     };
   }, [timelineDoc.clips, mediaBin, playhead]);
 
+  /**
+   * Match each shot to the first one, so a film reads as one film.
+   *
+   * Every shot is lit slightly differently. A colourist measures one shot and
+   * grades the next to match; this does the same thing automatically: when the
+   * playhead enters a shot, the frame is measured and the difference from the
+   * reference shot becomes that shot's grade.
+   *
+   * The measurement is of the *ungraded* frame, so a shot is measured once
+   * and then keeps its grade.
+   */
+  const shotStatsRef = useRef(new Map<string, FrameStats>());
+  const balancingRef = useRef(false);
+  useEffect(() => {
+    // The clip under the playhead, whether it shows media or not: a shot's
+    // light comes from the whole frame.
+    const clip = timelineDoc.clips.find((c) => playhead >= c.start && playhead < c.end);
+    if (!clip || balancingRef.current) return;
+    // Already matched.
+    if (clip.look?.oklabGrade) return;
+
+    // Forget clips that are no longer in the timeline: a new document is a
+    // different film, and its shots are not a reference for this one.
+    const currentIds = new Set(timelineDoc.clips.map((c) => c.id));
+    for (const id of [...shotStatsRef.current.keys()]) {
+      if (!currentIds.has(id)) shotStatsRef.current.delete(id);
+    }
+
+    balancingRef.current = true;
+    let cancelled = false;
+    void (async () => {
+      const pixels = await viewportRef.current?.readPixels();
+      if (cancelled) {
+        balancingRef.current = false;
+        return;
+      }
+      if (pixels) {
+        const stats = analyseFrame(pixels);
+        // A frame with no light in it is not a measurement; it is a readback
+        // taken before the picture was on screen. Grading against it would
+        // push the whole film up by several stops.
+        if (!isMeasurable(stats)) {
+          balancingRef.current = false;
+          return;
+        }
+        shotStatsRef.current.set(clip.id, stats);
+        // The reference is the first shot of *this* timeline that has been
+        // measured. A clip from a previous document must never be the
+        // reference: it is a different piece of film.
+        const referenceClip = timelineDoc.clips.find((c) => shotStatsRef.current.has(c.id));
+        const reference = referenceClip ? shotStatsRef.current.get(referenceClip.id) : undefined;
+        if (reference && referenceClip && referenceClip.id !== clip.id) {
+          const grade = gradeToMatch(stats, reference);
+          setTimelineDoc((doc) => ({
+            ...doc,
+            clips: doc.clips.map((c) =>
+              c.id === clip.id
+                ? {
+                    ...c,
+                    look: {
+                      ...(c.look ?? {}),
+                      oklabGrade: {
+                        exposure: grade.exposure,
+                        contrast: grade.contrast,
+                        saturation: grade.saturation,
+                        hue: 0,
+                      },
+                    },
+                  }
+                : c,
+            ),
+          }));
+        }
+      }
+      balancingRef.current = false;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [timelineDoc.clips, playhead]);
+
   const territories = useMemo(
     () => Array.from(new Set(modes.flatMap((m) => m.territories))),
     [modes],
@@ -474,6 +556,23 @@ export function App() {
       ),
     );
   }, [typography, effects, composition.duration]);
+
+  /**
+   * A clip's label, with the grade that was matched onto it.
+   *
+   * The colourist's readout: how far this shot was moved to match the
+   * reference.
+   */
+  const clipTitle = useCallback((clip: TimelineClip) => {
+    const base = `${clip.name} · ${clip.start.toFixed(2)}s–${clip.end.toFixed(2)}s`;
+    const grade = clip.look?.oklabGrade;
+    if (!grade) return base;
+    const exposure = Number(grade.exposure ?? 0);
+    const contrast = Number(grade.contrast ?? 1);
+    const ev = `${exposure >= 0 ? '+' : ''}${exposure.toFixed(2)} EV`;
+    const con = `${contrast.toFixed(2)}×`;
+    return `${base} · ${ev} · ${con}`;
+  }, []);
 
   // ── Playback loop (rAF) ───────────────────────────────────────────────────
   const rafRef = useRef(0);
@@ -2680,7 +2779,7 @@ export function App() {
                           <div
                             key={c.id}
                             className={`clip ${selectedClips.has(c.id) ? 'clip--active' : selectedClip === c.id ? 'clip--active' : ''}`}
-                            title={`${c.name} · ${c.start.toFixed(2)}s–${c.end.toFixed(2)}s`}
+                            title={clipTitle(c)}
                             onPointerDown={(e) => {
                               if (st.locked) return;
                               if (e.shiftKey || e.ctrlKey || e.metaKey) {

@@ -71,6 +71,10 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | **A brief compiles into an editable, composited production** | ✅ `buildProductionPlan()` → `compilePlan()` → the editor's graph and timeline |
 | A shared, versioned graph IR both the engines and the editor target | ✅ `packages/creative-graph` |
 | Connections type-checked before they are made | ✅ the port rules, in the shared package |
+| A perceptual grade (Oklab) and a filmic tone map (ACES) as graph nodes | ✅ `oklabGrade`, `toneMap` — the maths is shared by the shader and the editor |
+| Automatic shot matching: every shot graded to a reference | ✅ the frame is measured (midtone, spread, chroma) and the difference becomes the shot's grade |
+| A scene-referred working space: the graph in linear, the tone map once at the output | ⬜ the grade is display-referred today |
+| HDR delivery: Rec.2020 / PQ, 10-bit export | ⬜ |
 | Media bin: drag-to-timeline | ⬜ (the **+** button does it today) |
 | Source in-point trimming and slip; retime; multi-clip compositing | ⬜ |
 | Per-clip transform/effects/grade driving the composition | ⬜ |

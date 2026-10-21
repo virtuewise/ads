@@ -150,6 +150,20 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
     previous = id;
   }
 
+  // The grade stage. Every shot gets one, and the film's shots are matched
+  // against a reference by setting these parameters per shot.
+  nodes.push({
+    id: 'grade',
+    kind: 'oklabGrade',
+    position: { x: 120 + nodes.length * 40, y: 120 },
+    params: { exposure: 0, contrast: 1, saturation: 1, hue: 0 },
+  });
+  connections.push({
+    from: { node: previous, port: 'output' },
+    to: { node: 'grade', port: 'input' },
+  });
+  previous = 'grade';
+
   // The output.
   nodes.push({
     id: 'output',
@@ -179,6 +193,8 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
       if (look[mapping.kind]) continue;
       look[mapping.kind] = on ? { ...mapping.params } : { ...mapping.off };
     }
+    // The grade stage starts neutral; the renderer matches the shots.
+    look.oklabGrade = { exposure: 0, contrast: 1, saturation: 1, hue: 0 };
     return {
       id: `shot-${shot.id}`,
       trackId: 'video',
