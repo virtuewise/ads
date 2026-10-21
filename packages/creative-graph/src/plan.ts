@@ -65,6 +65,12 @@ export interface PlanCompilation {
  * the planned effects, to the output. The timeline is the *edit*: one item
  * per shot. The two are separate on purpose — the same look applies to every
  * shot, and the plan's effects are a property of the film, not of one cut.
+ *
+ * **Known limitation:** a shot's own `vfx` is not compiled into a per-shot
+ * look. The graph is one chain, so every shot is rendered with the same
+ * processing, and a per-shot effect is reported as a warning instead. Making
+ * the graph vary by shot needs a per-shot graph, which is a larger change
+ * than this mapping.
  */
 export function compilePlan(plan: ProductionPlan): PlanCompilation {
   const warnings: string[] = [];

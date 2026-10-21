@@ -92,6 +92,11 @@ quietly loses half its effects is worse than one that says which effects it coul
 See [38-NODE-EDITOR-AND-VISUAL-PROGRAMMING](38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md) for the
 IR itself.
 
+> **Known limitation.** The compiled graph is *one* chain, so every shot in the plan is rendered
+> with the same look. A shot's own effect is reported as a warning rather than compiled into a
+> per-shot graph. Making the look vary by shot needs a per-shot graph, which is a larger change
+> than the mapping.
+
 ---
 
 ## The three processes
