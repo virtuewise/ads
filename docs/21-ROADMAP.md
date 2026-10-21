@@ -65,10 +65,11 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | Decode real footage through WebCodecs into a frame ring buffer | ✅ `engine/media.ts` |
 | Media bin: import (dialog + drag-and-drop) with a poster frame | ✅ `components/MediaThumb.tsx` |
 | Upload decoded frames as the compositor's input texture (`importExternalTexture`) | ✅ zero-copy external texture in the viewport |
-| Composite an imported clip through the DAG (media source node) | ✅ the **Media** tab's "composite" button wires a `mediaSource` into the graph |
-| Extend `COMPOSITE_SHADER` + both bind groups to sample an input texture | ⬜ (the media path does it; arbitrary node-to-node textures still need multi-pass) |
+| Composite an imported clip through the DAG (media source node) | ✅ the graph samples the media texture |
+| Media bin: add a clip to the timeline (`mediaId` + `sourceStart`) | ✅ the **+** button; scrubbing the timeline scrubs the footage |
 | Media bin: drag-to-timeline, and persist imported assets in the project document | ⬜ |
-| Clip → media reference in `TimelineClip` (+ document version bump) | ⬜ |
+| Source in-point trimming and slip; retime; multi-clip compositing | ⬜ |
+| Per-clip transform/effects/grade driving the composition | ⬜ |
 | Per-clip keyframes driving the composition transform for the active clip | ⬜ |
 | Audio decode + WebAudio graph + J/L crossfades | ⬜ |
 | Audio/video muxing in the FFmpeg export (remove `-an`) | ⬜ |

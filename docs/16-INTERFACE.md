@@ -75,8 +75,8 @@ Icon names include: `pointer`, `move`, `text`, `square`, `pen`, `hand`, `zoom`, 
 - **Media** — the media bin: an **Import Media…** button (native dialog via the preload bridge) and
   a **drop zone** that accepts a dropped video file. Each imported clip shows a poster frame drawn
   from its first decoded `VideoFrame` (`MediaThumb.tsx`) plus its dimensions, fps, duration, and
-  decoded frame count. The **composite** button on a row adds a `mediaSource` node to the DAG and
-  points the render node at it, so the clip renders in the viewport
+  decoded frame count. The **+** button puts the clip on the timeline at the playhead, where it
+  renders its own poster and drives the viewport
   ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)).
 - **Effects** — VFX catalogue from `getVFXEffects()` (`cardgrid`/`card`), with a search field.
 - **Text** — typography presets and variable font axes.

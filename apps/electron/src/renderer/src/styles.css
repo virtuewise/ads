@@ -1158,6 +1158,14 @@ select.field__input {
   text-overflow: ellipsis;
 }
 
+/* Poster frame on a media clip in the timeline. */
+.clip .media__thumb {
+  width: auto;
+  height: 18px;
+  border-radius: 2px;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
 .clip__handle {
   position: absolute;
   top: 0;

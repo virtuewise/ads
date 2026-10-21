@@ -31,6 +31,7 @@ import { decodeVideoBuffer, getFrameAtTime, type MediaSource } from './engine/me
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
 import {
   addKeyframe,
+  addMediaClip,
   clipsFor,
   defaultTimeline,
   moveKeyframe,
@@ -46,6 +47,7 @@ import type {
   KeyframeEasing,
   ProjectFormat,
   SafeZoneRatio,
+  TimelineClip,
   TimelineDoc,
   TransformState,
 } from './engine/types';
@@ -275,8 +277,6 @@ export function App() {
   const [mediaBin, setMediaBin] = useState<MediaSource[]>([]);
   const [importing, setImporting] = useState(false);
   const [dropActive, setDropActive] = useState(false);
-  /** The clip the compositor's media source samples. */
-  const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
 
   // ── History (undo/redo) ───────────────────────────────────────────────────
   const [historyStore, setHistoryStore] = useState<DocumentStore>(() =>
@@ -362,15 +362,21 @@ export function App() {
   const bridgeResult = useMemo(() => bridgeDAGToComposite(dag.dag), [dag.dag]);
   const bridgedShader = bridgeResult.ok ? bridgeResult.wgsl : undefined;
 
-  // The decoded frame the graph's media source samples, chosen by the playhead.
-  const activeMedia = useMemo(
-    () => mediaBin.find((m) => m.id === activeMediaId) ?? null,
-    [mediaBin, activeMediaId],
-  );
+  // The decoded frame the graph's media source samples. It comes from the
+  // topmost media clip under the playhead, so scrubbing the timeline scrubs
+  // the footage.
   const mediaFrame = useMemo(() => {
-    if (!activeMedia) return null;
-    return getFrameAtTime(activeMedia, playhead)?.frame ?? null;
-  }, [activeMedia, playhead]);
+    let clip: TimelineClip | undefined;
+    for (const c of timelineDoc.clips) {
+      if (!c.mediaId) continue;
+      if (playhead >= c.start && playhead < c.end) clip = c;
+    }
+    if (!clip?.mediaId) return null;
+    const source = mediaBin.find((m) => m.id === clip.mediaId);
+    if (!source) return null;
+    const sourceTime = playhead - clip.start + (clip.sourceStart ?? 0);
+    return getFrameAtTime(source, sourceTime)?.frame ?? null;
+  }, [timelineDoc.clips, mediaBin, playhead]);
 
   const territories = useMemo(
     () => Array.from(new Set(modes.flatMap((m) => m.territories))),
@@ -381,6 +387,13 @@ export function App() {
     () =>
       effects.filter((e) => fxQuery === '' || e.name.toLowerCase().includes(fxQuery.toLowerCase())),
     [effects, fxQuery],
+  );
+
+  /** The imported media a timeline clip shows, if any. */
+  const mediaFor = useCallback(
+    (clip: TimelineClip) =>
+      clip.mediaId ? mediaBin.find((m) => m.id === clip.mediaId) : undefined,
+    [mediaBin],
   );
 
   // ── Seed the default timeline once engine data is available ──────────────
@@ -698,14 +711,26 @@ export function App() {
   };
 
   /**
-   * Point the compositor at a clip: add a media source to the DAG, rewire the
-   * render node to read it, and make the clip the active one.
+   * Put an imported clip on the timeline at the playhead, and make sure the
+   * graph has a media source for the compositor to sample.
    */
-  const sendMediaToViewport = (source: MediaSource) => {
+  const addMediaToTimeline = (source: MediaSource) => {
+    const room = Math.max(0, composition.duration - playhead);
+    const duration = Math.min(source.duration, room);
+    if (duration <= 0) {
+      notify('No room left on the timeline');
+      return;
+    }
+    dispatchTimeline('Add Media Clip', (doc) =>
+      addMediaClip(doc, {
+        mediaId: source.id,
+        name: source.name,
+        start: playhead,
+        duration,
+      }),
+    );
     dag.ensureMediaSource();
-    setActiveMediaId(source.id);
-    setActiveStage('comp');
-    notify(`Compositing ${source.name}`);
+    notify(`Added ${source.name} at ${fmtTC(playhead, composition.fps)}`);
   };
 
   const updateTransform = (patch: Partial<TransformState>) => {
@@ -1377,11 +1402,11 @@ export function App() {
                       <button
                         type="button"
                         className="iconbtn"
-                        title="Composite this clip in the viewport"
-                        aria-label={`Composite ${m.name} in the viewport`}
-                        onClick={() => sendMediaToViewport(m)}
+                        title="Add to the timeline at the playhead"
+                        aria-label={`Add ${m.name} to the timeline`}
+                        onClick={() => addMediaToTimeline(m)}
                       >
-                        <Icon name="monitor" size={12} />
+                        <Icon name="plus" size={12} />
                       </button>
                     </div>
                   ))}
@@ -2406,6 +2431,12 @@ export function App() {
                               }}
                             />
                             <Icon name={t.icon} size={11} />
+                            {c.mediaId && (
+                              <MediaThumb
+                                frame={mediaFor(c)?.frames[0]?.frame ?? null}
+                                width={40}
+                              />
+                            )}
                             <span className="clip__name">{c.name}</span>
                             <span
                               className="clip__handle clip__handle--end"

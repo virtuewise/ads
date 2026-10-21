@@ -3,6 +3,7 @@
 // from live state and the main process serializes it as deterministic JSON
 // (git-friendly) or a compact checksummed binary blob.
 
+import { EASING_ORDER } from './easing';
 import type {
   CompositionState,
   DAG,
@@ -91,7 +92,9 @@ function sanitizeKeyframes(raw: unknown): TimelineDoc['clips'][number]['keyframe
       time: num(k.time, 0),
       property: str(k.property, 'opacity'),
       value: num(k.value, 1),
-      easing: (['linear', 'easeIn', 'easeOut', 'easeInOut'] as const).includes(k.easing as never)
+      // The full easing library, not just the original four — a saved project
+      // must not silently downgrade a bounceOut to easeInOut.
+      easing: (EASING_ORDER as string[]).includes(k.easing as string)
         ? (k.easing as TimelineDoc['clips'][number]['keyframes'][number]['easing'])
         : 'easeInOut',
     }))
@@ -103,14 +106,20 @@ function sanitizeTimeline(raw: unknown, duration: number): TimelineDoc {
   const clips = Array.isArray(doc.clips)
     ? doc.clips
         .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
-        .map((c, i) => ({
-          id: str(c.id, `clip-${i}`),
-          trackId: str(c.trackId, 'video'),
-          start: num(c.start, 0),
-          end: num(c.end, 1),
-          name: str(c.name, 'Clip'),
-          keyframes: sanitizeKeyframes(c.keyframes),
-        }))
+        .map((c, i) => {
+          const mediaId = str(c.mediaId, '');
+          return {
+            id: str(c.id, `clip-${i}`),
+            trackId: str(c.trackId, 'video'),
+            start: num(c.start, 0),
+            end: num(c.end, 1),
+            name: str(c.name, 'Clip'),
+            keyframes: sanitizeKeyframes(c.keyframes),
+            // A media binding survives a save/load round-trip.
+            ...(mediaId ? { mediaId } : {}),
+            ...(mediaId ? { sourceStart: num(c.sourceStart, 0) } : {}),
+          };
+        })
     : [];
   return { duration: num(doc.duration, duration), clips };
 }

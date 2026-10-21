@@ -192,6 +192,38 @@ export function splitClip(doc: TimelineDoc, id: string, time: number): TimelineD
   };
 }
 
+/**
+ * Append a clip that shows imported media.
+ *
+ * The clip is bounded by the composition's duration, and its in-point starts
+ * at the beginning of the source.
+ */
+export function addMediaClip(
+  doc: TimelineDoc,
+  opts: {
+    mediaId: string;
+    name: string;
+    start: number;
+    duration: number;
+    trackId?: string;
+  },
+): TimelineDoc {
+  const start = clamp(opts.start, 0, Math.max(0, doc.duration - 0.05));
+  const end = Math.min(doc.duration, start + Math.max(0.05, opts.duration));
+  if (end <= start) return doc;
+  const clip: TimelineClip = {
+    id: nextId('clip'),
+    trackId: opts.trackId ?? 'video',
+    start,
+    end,
+    name: opts.name,
+    keyframes: [],
+    mediaId: opts.mediaId,
+    sourceStart: 0,
+  };
+  return { ...doc, clips: [...doc.clips, clip] };
+}
+
 export function addKeyframe(
   doc: TimelineDoc,
   clipId: string,

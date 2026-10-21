@@ -324,6 +324,10 @@ export interface TimelineClip {
   end: number;
   name: string;
   keyframes: Keyframe[];
+  /** The media source this clip shows, if any. */
+  mediaId?: string;
+  /** In-point within the source, in seconds. */
+  sourceStart?: number;
 }
 
 export interface TimelineDoc {

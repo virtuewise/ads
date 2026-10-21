@@ -20,15 +20,16 @@
 | Poster frame | ✅ `components/MediaThumb.tsx` draws the first decoded frame into a canvas |
 | Frame → GPU texture | ✅ `device.importExternalTexture()` — the decoded frame reaches the GPU **without a copy** |
 | Compositing a clip | ✅ a **media source** node in the DAG samples that texture; the bridge runs it in the single pass |
-| Clip → media reference | ⬡ `TimelineClip` still has no `mediaId`; the media bin holds live sources in React state |
+| Clip → media reference | ✅ `TimelineClip.mediaId` + `sourceStart`; the media bin's **+** button puts a clip on the timeline, and scrubbing the timeline scrubs the footage |
 | Audio | ⬜ none behind the track ([25](25-AUDIO.md)) |
 | Metadata / indexing | 🟡 duration, dimensions, fps and codec come from the container; rotation and colour metadata are not read |
 | Proxies | ⬜ none |
 | Disposal | 🟡 `disposeMediaSource()` closes every cached `VideoFrame` |
 
 The honest one-line summary: **a real container goes in and real decoded pixels come out the other
-end of the compositor.** What is still missing is the *editor* half: clips are not bound to timeline
-positions, so there is no trimming, no slip, and no multi-clip compositing yet.
+end of the compositor, and the timeline drives them.** What is still missing is the *editor* half:
+one clip at a time, no trimming of the source in-point, no slip, no multi-clip compositing, and the
+imported assets are not persisted with the project.
 
 ---
 
@@ -38,7 +39,10 @@ positions, so there is no trimming, no slip, and no multi-clip compositing yet.
 File → main/media.ts (dialog + fs.readFile)
      → renderer: engine/demux.ts   (mp4box → samples + avcC/hvcC/vpcC/av1C config)
      → renderer: engine/media.ts   (EncodedVideoChunk → VideoDecoder → VideoFrame ring buffer)
-     → components/MediaThumb.tsx   (poster frame in the media bin)
+     → components/MediaThumb.tsx   (poster frame in the media bin and on the timeline clip)
+     → TimelineClip.mediaId        (the media bin's + button puts it on the timeline)
+     → engine/compiler.ts          (a mediaSource node reserves bindings 1 and 2)
+     → components/WebGPUCanvas.tsx (importExternalTexture → the viewport)
 ```
 
 `engine/demux.ts` is deliberately **pure** — no DOM, no WebCodecs, no Electron — so it is unit
@@ -242,8 +246,10 @@ an engine demo into an editor.
 `ProjectDocument.version` bumps; `normalizeProject` tolerates clips without `mediaId` (old projects keep
 loading — [05](05-PROJECT-FORMAT.md#versioning--migration-policy)).
 
-> **Not built yet.** `TimelineClip` still has no `mediaId`; the media bin holds decoded sources in
-> React state and the timeline keeps its seeded placeholder clips.
+> **Partly built.** `mediaId` and `sourceStart` exist and survive a save/load round-trip
+> (`engine/project.ts`). The compositor samples the topmost media clip under the playhead, so
+> scrubbing the timeline scrubs the footage. Still ⬜: source in-point trimming and slip, per-clip
+> transform/effects/grade, retime, and compositing more than one media clip at a time.
 
 ---
 
@@ -289,6 +295,8 @@ All cached to disk keyed by asset hash, so reopening a project is instant.
 | Bridge | a media graph bridges successfully; a blur graph is still refused | ✅ `engine/compiler.test.ts` |
 | End-to-end decode | an imported MP4 produces N decoded frames and a non-black poster frame | ✅ verified in the running app |
 | End-to-end composite | the imported clip renders in the viewport through the DAG | ✅ verified in the running app (the ffmpeg test pattern appears) |
+| Timeline binding | a clip added to the timeline shows a poster, and scrubbing scrubs the footage | ✅ verified in the running app |
+| Save/load | `mediaId`, `sourceStart` and every easing survive a round-trip | ✅ `engine/project.test.ts` |
 | Frame accuracy | decoded frame at `t` matches an FFmpeg-extracted reference frame at `t` | ⬜ |
 | Rotation handling | a rotated source renders upright | ⬜ |
 | Multi-clip compositing | two clips composite with the right z-order and opacity | ⬜ |

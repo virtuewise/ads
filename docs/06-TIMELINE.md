@@ -1,6 +1,6 @@
 # 06 — Timeline: Tracks, Clips, Keyframes & Snapping
 
-**Status: ✅ (model + interactions real; footage-backed clips ⬜) · Code: `engine/timeline.ts`, `App.tsx`**
+**Status: ✅ (model + interactions real; clips can show imported footage) · Code: `engine/timeline.ts`, `App.tsx`**
 
 > The timeline is a **pure data model** (`TimelineDoc`) plus a set of immutable transforms. Every
 > editing gesture — drag, trim, add a keyframe diamond, move one, remove one — is a function that
@@ -24,6 +24,8 @@ interface TimelineClip {
   end: number;              // seconds
   name: string;
   keyframes: Keyframe[];
+  mediaId?: string;         // the imported source this clip shows
+  sourceStart?: number;     // in-point within that source, in seconds
 }
 
 interface Keyframe {
@@ -31,9 +33,22 @@ interface Keyframe {
   time: number;             // seconds, within the clip
   property: string;         // e.g. 'opacity' | 'scale'
   value: number;
-  easing: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+  easing: KeyframeEasing;   // the 25-easing library (engine/easing.ts)
 }
 ```
+
+### Footage-backed clips
+
+A clip with a `mediaId` shows imported footage. Adding one is `addMediaClip()`; the media bin's
+**+** button puts the selected clip on the timeline at the playhead, and the clip renders a poster
+frame taken from its source.
+
+The compositor picks the frame by time, not by clip: for the topmost media clip under the playhead,
+the source time is `playhead − clip.start + clip.sourceStart`
+([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)). Scrubbing the timeline therefore scrubs the footage.
+
+Both fields survive a save/load round-trip — `normalizeProject` keeps them, and does not invent a
+`mediaId` for clips that never had one.
 
 ---
 

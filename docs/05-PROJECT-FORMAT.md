@@ -76,8 +76,10 @@ Any JSON that arrives by *any* door (disk, agent, hand-edit, older version) is p
   guards.
 - **Clamps** `width`/`height`/`fps` to ≥ 1 and `duration` to ≥ 0.1.
 - **Validates enums**: `genre` must be one of the six; `safeZones.ratio` one of four; keyframe `easing`
-  one of four. Invalid values become defaults (`corporate`, `16:9`, `easeInOut`).
-- **Sanitizes the timeline**: drops non-object clips, coerces each, and sorts keyframes by time.
+  one of the **25** in the easing library (`engine/easing.ts`). Invalid values become defaults
+  (`corporate`, `16:9`, `easeInOut`).
+- **Sanitizes the timeline**: drops non-object clips, coerces each, and sorts keyframes by time. A
+  clip's `mediaId`/`sourceStart` survive the round-trip, and a clip without them does not gain one.
 - **Guards the graph**: requires `nodes` and `edges` arrays or substitutes an empty DAG.
 
 This is what makes the system robust to agent-authored documents — the agent can be sloppy; the loader
