@@ -71,7 +71,7 @@ interface StudioExportApi {
   }) => Promise<{ canceled: boolean; path?: string }>;
   startExport: (req: unknown) => Promise<{ started: boolean; encoder: string }>;
   writeExportFrame: (bytes: Uint8Array) => Promise<{ queued: number }>;
-  finishExport: () => Promise<{ finished: boolean }>;
+  finishExport: () => Promise<{ finished: boolean; ok?: boolean; framesWritten?: number }>;
   cancelExport: () => Promise<{ canceled: boolean }>;
   onExportProgress: (cb: (p: ExportProgressEvent) => void) => () => void;
 }
@@ -120,12 +120,26 @@ export async function runExport(options: RunExportOptions): Promise<RunExportRes
   const { target, outputPath, duration, lut, transform } = options;
   const totalFrames = Math.max(1, Math.round(target.fps * duration));
 
+  // Subscribe to the encoder's own progress. Without this, a failure inside
+  // ffmpeg is invisible: the renderer would report success for a file that
+  // was never written.
+  let encoderStage: ExportProgressEvent['stage'] | null = null;
+  let encoderMessage: string | undefined;
+  const unsubscribe = api.onExportProgress?.((p) => {
+    encoderStage = p.stage;
+    encoderMessage = p.message;
+    options.onProgress?.(p);
+  });
+
   const renderer = await createFrameRenderer({
     width: target.width,
     height: target.height,
     lut: lut ?? null,
   });
-  if (!renderer) throw new Error('WebGPU is unavailable, cannot render frames');
+  if (!renderer) {
+    unsubscribe?.();
+    throw new Error('WebGPU is unavailable, cannot render frames');
+  }
 
   const report: ExportProgressEvent = {
     stage: 'starting',
@@ -136,18 +150,18 @@ export async function runExport(options: RunExportOptions): Promise<RunExportRes
   };
   options.onProgress?.(report);
 
-  const { encoder } = await api.startExport({
-    outputPath,
-    width: target.width,
-    height: target.height,
-    fps: target.fps,
-    totalFrames,
-    preset: target.id,
-    encoder: options.encoder,
-  });
-
   let framesWritten = 0;
   try {
+    const { encoder } = await api.startExport({
+      outputPath,
+      width: target.width,
+      height: target.height,
+      fps: target.fps,
+      totalFrames,
+      preset: target.id,
+      encoder: options.encoder,
+    });
+
     for (let i = 0; i < totalFrames; i += 1) {
       if (options.shouldCancel?.()) {
         await api.cancelExport();
@@ -172,9 +186,19 @@ export async function runExport(options: RunExportOptions): Promise<RunExportRes
       percent: 99,
       message: 'Finalizing file…',
     });
-    await api.finishExport();
+    const fin = await api.finishExport();
+    if (!fin.ok) {
+      return {
+        ok: false,
+        stage: encoderStage === 'canceled' ? 'canceled' : 'error',
+        outputPath,
+        message: encoderMessage ?? 'The encoder failed before the file was written.',
+        framesWritten,
+      };
+    }
     return { ok: true, stage: 'done', outputPath, framesWritten };
   } finally {
     renderer.dispose();
+    unsubscribe?.();
   }
 }

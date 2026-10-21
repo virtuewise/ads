@@ -25,6 +25,7 @@ import {
   dispatchMerged,
   makeTimelineDragCommand,
   redo,
+  replaceDoc,
   undo,
 } from './engine/history';
 import { decodeVideoBuffer, getFrameAtTime, type MediaSource } from './engine/media';
@@ -417,7 +418,9 @@ export function App() {
     if (!playing) return;
     let last = performance.now();
     const tick = (t: number) => {
-      const dt = (t - last) / 1000;
+      // Clamp the frame delta: a stalled frame (a backgrounded window, a long
+      // GPU wait) would otherwise jump the playhead forward by the whole gap.
+      const dt = Math.min(Math.max((t - last) / 1000, 0), 0.1);
       last = t;
       setPlayhead((p) => (p + dt) % DURATION);
       rafRef.current = requestAnimationFrame(tick);
@@ -432,6 +435,18 @@ export function App() {
       const el = e.target as HTMLElement | null;
       const tag = el?.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON';
+
+      if (e.key === 'Escape') {
+        setShowQuickApply(false);
+        setOpenMenu(null);
+        setSaveAsOpen(false);
+        return;
+      }
+
+      // While a field has focus the browser owns the keyboard: Ctrl+Z must
+      // undo the text, not the timeline, and Ctrl+I must not open a file
+      // dialog mid-sentence.
+      if (typing) return;
 
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -478,13 +493,6 @@ export function App() {
         applyHistory(redo(historyStore));
         return;
       }
-      if (e.key === 'Escape') {
-        setShowQuickApply(false);
-        setOpenMenu(null);
-        setSaveAsOpen(false);
-        return;
-      }
-      if (typing) return;
       if (e.code === 'Space') {
         e.preventDefault();
         setPlaying((p) => !p);
@@ -779,6 +787,9 @@ export function App() {
     dag.loadDAG(doc.graph);
     seededRef.current = true;
     setPlayhead(0);
+    // A new document starts a new history. Without this, Ctrl+Z after opening
+    // a project would restore the *previous* project's timeline.
+    setHistoryStore((s) => replaceDoc(s, doc));
     // Re-import the project's footage from disk. The ids must match the ones
     // the timeline's clips reference, so they are restored verbatim rather
     // than regenerated.
@@ -820,8 +831,9 @@ export function App() {
 
   const newProject = () => {
     const comp = createDefaultComposition();
+    const timeline = defaultTimeline([], [], comp.duration);
     setComposition(comp);
-    setTimelineDoc(defaultTimeline([], [], comp.duration));
+    setTimelineDoc(timeline);
     setGenre('corporate');
     setSafeZonesActive(false);
     setSafeZoneRatio('16:9');
@@ -832,6 +844,22 @@ export function App() {
     setDocFormat('json');
     setPlayhead(0);
     setDirty(false);
+    // A new project starts a new history, so Ctrl+Z cannot bring back the
+    // previous project's edits.
+    setHistoryStore((s) =>
+      replaceDoc(
+        s,
+        buildProject({
+          composition: comp,
+          genre: 'corporate',
+          safeZones: { active: false, ratio: '16:9' },
+          brandLUT: 'none',
+          timeline,
+          graph: dag.dag,
+          effectsStack: [],
+        }),
+      ),
+    );
     notify('New project created');
   };
 

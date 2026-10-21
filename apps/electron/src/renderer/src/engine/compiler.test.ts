@@ -5,7 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import { bridgeDAGToComposite } from './bridge';
 import { compileDAG } from './compiler';
-import type { DAG } from './types';
+import { NODE_REGISTRY } from './nodes';
+import type { DAG, NodeInstance } from './types';
 
 function mediaDAG(): DAG {
   return {
@@ -41,6 +42,57 @@ function blurDAG(): DAG {
   };
 }
 
+const node = (id: string, type: string, inputs: Record<string, unknown> = {}): NodeInstance => ({
+  id,
+  type,
+  position: { x: 0, y: 0 },
+  inputs,
+  outputs: {},
+});
+
+/** The id of a node type's first output port. */
+function outputPortOf(type: string): string {
+  const Ctor = NODE_REGISTRY[type];
+  if (!Ctor) return 'output';
+  const inst = new Ctor();
+  return inst.ports.find((p) => p.direction === 'output')?.id ?? 'output';
+}
+
+/** Split a WGSL argument list, respecting nested parentheses. */
+function splitArgs(argList: string): string[] {
+  const trimmed = argList.trim();
+  if (!trimmed) return [];
+  const args: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of trimmed) {
+    if (ch === '(') depth += 1;
+    if (ch === ')') depth -= 1;
+    if (ch === ',' && depth === 0) {
+      args.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  args.push(current.trim());
+  return args;
+}
+
+/** A graph with one node of the given type feeding the render node. */
+function singleNodeDAG(type: string, inputs: Record<string, unknown> = {}): DAG {
+  return {
+    nodes: [node('a', type, inputs), node('r', 'render')],
+    edges: [
+      {
+        id: 'e1',
+        from: { node: 'a', port: outputPortOf(type) },
+        to: { node: 'r', port: 'input' },
+      },
+    ],
+  };
+}
+
 describe('compileDAG — media source', () => {
   it('reserves the media texture and sampler bindings', () => {
     const compiled = compileDAG(mediaDAG());
@@ -52,8 +104,9 @@ describe('compileDAG — media source', () => {
 
   it('calls the media node with the fragment uv', () => {
     const compiled = compileDAG(mediaDAG());
+    // The function name is scoped per node instance.
     expect(compiled.wgsl).toContain('media_source(uv)');
-    expect(compiled.wgsl).toContain('fn media_source(uv: vec2<f32>) -> vec4<f32>');
+    expect(compiled.wgsl).toContain('fn n0_media_source(uv: vec2<f32>) -> vec4<f32>');
   });
 
   it('reports no media bindings for a graph without one', () => {
@@ -88,5 +141,85 @@ describe('bridgeDAGToComposite', () => {
     const result = bridgeDAGToComposite(blurDAG());
     expect(result.ok).toBe(false);
     expect(result.errors[0]).toMatch(/texture-sampling nodes/);
+  });
+});
+
+describe('compileDAG — every node type', () => {
+  // The compiler builds each call from the node's own WGSL signature. These
+  // checks are the contract between a node and the compiler: if a node's
+  // signature and its call disagree, the shader will not compile.
+  const types = Object.keys(NODE_REGISTRY).filter((t) => t !== 'render');
+
+  for (const type of types) {
+    it(`compiles a graph containing a ${type} node`, () => {
+      const out = compileDAG(singleNodeDAG(type));
+      // Compute nodes are reported rather than emitted.
+      if (/compute pass/.test(out.errors.join(' '))) return;
+
+      // Collect the module's function signatures.
+      const signatures = new Map<string, { arity: number; returns: string }>();
+      for (const m of out.wgsl.matchAll(/fn\s+(\w+)\s*\(([^)]*)\)\s*->\s*([\w<>]+)/g)) {
+        signatures.set(m[1], {
+          arity: m[2].split(',').filter((s) => s.trim()).length,
+          returns: m[3],
+        });
+      }
+
+      // Every call must name a function that exists, with the right number of
+      // arguments and a result of the declared type.
+      const calls = [...out.wgsl.matchAll(/let\s+(\w+):\s*([\w<>]+)\s*=\s*(\w+)\((.*)\);/gm)];
+      expect(calls.length).toBeGreaterThan(0);
+      for (const [, varName, declared, fn, argList] of calls) {
+        const sig = signatures.get(fn);
+        expect(sig, `${type}: call to undefined ${fn}`).toBeDefined();
+        expect(splitArgs(argList).length, `${type}: ${fn} argument count`).toBe(sig?.arity);
+        expect(declared, `${type}: ${varName} type`).toBe(sig?.returns);
+      }
+    });
+  }
+
+  it('gives two nodes of the same type distinct functions', () => {
+    // WGSL forbids two module-scope declarations with the same name, so two
+    // nodes of one type used to produce an uncompilable shader.
+    for (const type of types) {
+      const port = outputPortOf(type);
+      const out = compileDAG({
+        nodes: [node('a', type), node('b', type), node('r', 'render')],
+        edges: [
+          { id: 'e1', from: { node: 'a', port }, to: { node: 'r', port: 'input' } },
+          { id: 'e2', from: { node: 'b', port }, to: { node: 'r', port: 'input' } },
+        ],
+      });
+      const names = [...out.wgsl.matchAll(/fn\s+(\w+)\s*\(/g)].map((m) => m[1]);
+      const counts = new Map<string, number>();
+      for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1);
+      for (const [name, count] of counts) {
+        expect(count, `${type}: ${name} defined ${count} times`).toBe(1);
+      }
+    }
+  });
+
+  it("uses a port's declared default when it is not set", () => {
+    // A transform with a default scale of 1 must not compile as a scale of 0.
+    const out = compileDAG(singleNodeDAG('transform'));
+    expect(out.wgsl).toMatch(/n0_transform\([^)]*,\s*1(\.0)?,\s*0(\.0)?\)/);
+  });
+
+  it('renders a colour port as a vec3 literal', () => {
+    const out = compileDAG(singleNodeDAG('solidSource', { color: '#ff5a2c' }));
+    expect(out.wgsl).toMatch(/solid_source\(vec3<f32>\(1\.0\d*, 0\.35\d*, 0\.17\d*\)\)/);
+  });
+
+  it('reports an edge that matches no output port', () => {
+    const out = compileDAG({
+      nodes: [node('a', 'proceduralScene'), node('r', 'render')],
+      edges: [{ id: 'e1', from: { node: 'a', port: 'nope' }, to: { node: 'r', port: 'input' } }],
+    });
+    expect(out.errors.join(' ')).toMatch(/does not match any output port/);
+  });
+
+  it('survives a malformed document', () => {
+    expect(() => compileDAG({} as DAG)).not.toThrow();
+    expect(() => compileDAG({ nodes: [], edges: [] } as DAG)).not.toThrow();
   });
 });

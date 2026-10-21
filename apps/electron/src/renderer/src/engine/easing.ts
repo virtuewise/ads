@@ -155,17 +155,38 @@ export function easeKindIndex(kind: KeyframeEasing): number {
 
 /**
  * WGSL implementation of the full easing library, driven by an integer kind.
- * Used by the Ease node's compiled shader output.
+ *
+ * The `kind` argument is the index of the easing in `EASING_ORDER` (see
+ * `easeKindIndex`). Every entry in that list has a branch here: the indices
+ * are a wire format, so a gap would silently turn an easing into a linear
+ * ramp on the GPU while the CPU produced the real curve.
+ *
+ * The formulas mirror `easeValue` exactly.
  */
 export const EASE_WGSL = /* wgsl */ `
+fn ease_bounce_out(t: f32) -> f32 {
+  let n1 = 7.5625;
+  let d1 = 2.75;
+  if (t < 1.0 / d1) { return n1 * t * t; }
+  if (t < 2.0 / d1) { return n1 * (t - 1.5 / d1) * (t - 1.5 / d1) + 0.75; }
+  if (t < 2.5 / d1) { return n1 * (t - 2.25 / d1) * (t - 2.25 / d1) + 0.9375; }
+  return n1 * (t - 2.625 / d1) * (t - 2.625 / d1) + 0.984375;
+}
+
 fn ease_val(t: f32, kind: i32) -> f32 {
+  let c1 = 1.70158;
+  let c2 = c1 * 1.525;
+  let c3 = c1 + 1.0;
+  let c4 = ${((2 * Math.PI) / 3).toFixed(10)};
+  let c5 = ${((2 * Math.PI) / 4.5).toFixed(10)};
+
   if (kind == 0) { return t; }
   if (kind == 1) { return t * t; }
   if (kind == 2) { return 1.0 - (1.0 - t) * (1.0 - t); }
   if (kind == 3) { return select(1.0 - 2.0 * (1.0 - t) * (1.0 - t), 2.0 * t * t, t < 0.5); }
-  if (kind == 4) { return 1.0 - cos(t * ${Math.PI / 2}); }
-  if (kind == 5) { return sin(t * ${Math.PI / 2}); }
-  if (kind == 6) { return -(cos(${Math.PI} * t) - 1.0) * 0.5; }
+  if (kind == 4) { return 1.0 - cos(t * ${(Math.PI / 2).toFixed(10)}); }
+  if (kind == 5) { return sin(t * ${(Math.PI / 2).toFixed(10)}); }
+  if (kind == 6) { return -(cos(${Math.PI.toFixed(10)} * t) - 1.0) * 0.5; }
   if (kind == 7) { return t * t * t; }
   if (kind == 8) { return 1.0 - pow(1.0 - t, 3.0); }
   if (kind == 9) { return select(1.0 - pow(-2.0 * t + 2.0, 3.0) * 0.5, 4.0 * t * t * t, t < 0.5); }
@@ -178,6 +199,40 @@ fn ease_val(t: f32, kind: i32) -> f32 {
     if (t == 0.0) { return 0.0; }
     if (t == 1.0) { return 1.0; }
     return select((2.0 - pow(2.0, -20.0 * t + 10.0)) * 0.5, pow(2.0, 20.0 * t - 10.0) * 0.5, t < 0.5);
+  }
+  if (kind == 16) { return c3 * t * t * t - c1 * t * t; }
+  if (kind == 17) { return 1.0 + c3 * pow(t - 1.0, 3.0) + c1 * pow(t - 1.0, 2.0); }
+  if (kind == 18) {
+    if (t < 0.5) {
+      let u = 2.0 * t;
+      return u * u * ((c2 + 1.0) * u - c2) * 0.5;
+    }
+    let u = 2.0 * t - 2.0;
+    return (u * u * ((c2 + 1.0) * u + c2) + 2.0) * 0.5;
+  }
+  if (kind == 19) {
+    if (t == 0.0) { return 0.0; }
+    if (t == 1.0) { return 1.0; }
+    return -pow(2.0, 10.0 * t - 10.0) * sin((t * 10.0 - 10.75) * c4);
+  }
+  if (kind == 20) {
+    if (t == 0.0) { return 0.0; }
+    if (t == 1.0) { return 1.0; }
+    return pow(2.0, -10.0 * t) * sin((t * 10.0 - 0.75) * c4) + 1.0;
+  }
+  if (kind == 21) {
+    if (t == 0.0) { return 0.0; }
+    if (t == 1.0) { return 1.0; }
+    if (t < 0.5) {
+      return -(pow(2.0, 20.0 * t - 10.0) * sin((20.0 * t - 11.125) * c5)) * 0.5;
+    }
+    return (pow(2.0, -20.0 * t + 10.0) * sin((20.0 * t - 11.125) * c5)) * 0.5 + 1.0;
+  }
+  if (kind == 22) { return 1.0 - ease_bounce_out(1.0 - t); }
+  if (kind == 23) { return ease_bounce_out(t); }
+  if (kind == 24) {
+    if (t < 0.5) { return (1.0 - ease_bounce_out(1.0 - 2.0 * t)) * 0.5; }
+    return (1.0 + ease_bounce_out(2.0 * t - 1.0)) * 0.5;
   }
   return t;
 }

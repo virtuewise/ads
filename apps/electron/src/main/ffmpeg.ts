@@ -93,12 +93,24 @@ export async function probeEncoders(roots: string[]): Promise<EncoderReport> {
     };
   }
 
-  const { stdout: versionOut } = await runCapture(ffmpegPath, ['-hide_banner', '-version'], 10000);
-  const version =
-    versionOut
-      .split(/\r?\n/)[0]
-      ?.replace(/^ffmpeg version\s*/i, '')
-      .trim() ?? null;
+  // The version probe can hang or time out on a broken binary. A failed
+  // probe must not reject: the caller would report "ffmpeg not found",
+  // which is the wrong diagnosis, and the export would abort.
+  let version: string | null = null;
+  try {
+    const { stdout: versionOut } = await runCapture(
+      ffmpegPath,
+      ['-hide_banner', '-version'],
+      10000,
+    );
+    version =
+      versionOut
+        .split(/\r?\n/)[0]
+        ?.replace(/^ffmpeg version\s*/i, '')
+        .trim() ?? null;
+  } catch {
+    version = null;
+  }
 
   let encodersOut = '';
   try {

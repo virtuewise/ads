@@ -6,6 +6,7 @@
 //   * Heavy 4K60 ProRes - prores_ks / yuv422p10le, mezzanine quality
 
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { WebContents } from 'electron';
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
@@ -45,6 +46,12 @@ interface ActiveJob {
   startedAt: number;
   canceled: boolean;
   closed: boolean;
+  /** Resolves when the encoder process has exited. */
+  exited: Promise<number | null>;
+  /** Set when the encoder failed or was killed, so the partial file is removed. */
+  failed: boolean;
+  /** Where the encoder is writing, so a failed job can clean up after itself. */
+  outputPath: string;
 }
 
 let active: ActiveJob | null = null;
@@ -135,7 +142,10 @@ function pump(job: ActiveJob): void {
   const chunk = job.queue.shift();
   if (!chunk) return;
   job.writing = true;
-  const ok = job.child.stdin.write(chunk, () => {
+  let settled = false;
+  const done = () => {
+    if (settled) return;
+    settled = true;
     job.writing = false;
     job.framesWritten += 1;
     const percent = job.totalFrames > 0 ? (job.framesWritten / job.totalFrames) * 100 : 0;
@@ -148,9 +158,18 @@ function pump(job: ActiveJob): void {
       fps: elapsed > 0 ? job.framesWritten / elapsed : 0,
     });
     pump(job);
-  });
-  if (!ok) {
-    // stdin reported backpressure; the write callback will resume pumping.
+  };
+  try {
+    job.child.stdin.write(chunk, done);
+  } catch {
+    // The pipe is already gone (ffmpeg died). Do not throw: an unhandled
+    // error on stdin would take the whole app down.
+    done();
+    return;
+  }
+  if (!job.child.stdin.writable) {
+    // Nothing will call the write callback on a closed pipe.
+    done();
   }
 }
 
@@ -192,6 +211,11 @@ export function registerExportIpc(): void {
       windowsHide: true,
     }) as ChildProcessWithoutNullStreams;
 
+    let resolveExit: (code: number | null) => void = () => {};
+    const exited = new Promise<number | null>((resolve) => {
+      resolveExit = resolve;
+    });
+
     const job: ActiveJob = {
       id: `job-${++jobSeq}`,
       sender: event.sender,
@@ -203,6 +227,9 @@ export function registerExportIpc(): void {
       startedAt: Date.now(),
       canceled: false,
       closed: false,
+      exited,
+      failed: false,
+      outputPath: req.outputPath,
     };
     active = job;
 
@@ -211,9 +238,29 @@ export function registerExportIpc(): void {
       stderrTail = (stderrTail + String(d)).slice(-4000);
     });
 
-    child.on('error', (err) => {
+    // A broken pipe must not take the app down: ffmpeg can exit before the
+    // renderer has finished pushing frames, and every write after that would
+    // raise an unhandled 'error' event on stdin.
+    child.stdin.on('error', (err: Error) => {
+      job.failed = true;
       job.closed = true;
-      active = null;
+      if (active === job) active = null;
+      resolveExit(null);
+      emit(job, {
+        stage: 'error',
+        framesWritten: job.framesWritten,
+        totalFrames: job.totalFrames,
+        percent: 0,
+        message: `The encoder stopped: ${err.message}\n${stderrTail}`,
+      });
+      void removePartial(job.outputPath);
+    });
+
+    child.on('error', (err) => {
+      job.failed = true;
+      job.closed = true;
+      if (active === job) active = null;
+      resolveExit(null);
       emit(job, {
         stage: 'error',
         framesWritten: job.framesWritten,
@@ -225,7 +272,8 @@ export function registerExportIpc(): void {
 
     child.on('close', (code) => {
       job.closed = true;
-      active = null;
+      if (active === job) active = null;
+      resolveExit(code);
       if (job.canceled) {
         emit(job, {
           stage: 'canceled',
@@ -234,6 +282,7 @@ export function registerExportIpc(): void {
           percent: 0,
           message: 'Export canceled',
         });
+        void removePartial(job.outputPath);
         return;
       }
       if (code === 0) {
@@ -247,6 +296,7 @@ export function registerExportIpc(): void {
         });
         return;
       }
+      job.failed = true;
       emit(job, {
         stage: 'error',
         framesWritten: job.framesWritten,
@@ -254,6 +304,7 @@ export function registerExportIpc(): void {
         percent: 0,
         message: `ffmpeg exited with code ${code}\n${stderrTail}`,
       });
+      void removePartial(req.outputPath);
     });
 
     emit(job, {
@@ -287,7 +338,7 @@ export function registerExportIpc(): void {
 
   ipcMain.handle('export:finish', async () => {
     const job = active;
-    if (!job) return { finished: false };
+    if (!job) return { finished: false, ok: false };
     emit(job, {
       stage: 'finalizing',
       framesWritten: job.framesWritten,
@@ -295,8 +346,26 @@ export function registerExportIpc(): void {
       percent: 99,
       message: 'Finalizing file…',
     });
-    job.child.stdin.end();
-    return { finished: true, framesWritten: job.framesWritten };
+    // Drain the queue before closing the pipe. Frames still queued when the
+    // pipe closes are never written, which silently truncates the output.
+    await new Promise<void>((resolve) => {
+      const check = () => {
+        if (job.closed || (job.queue.length === 0 && !job.writing)) resolve();
+        else setTimeout(check, 4);
+      };
+      check();
+    });
+    if (!job.closed) {
+      job.child.stdin.end();
+    }
+    // Wait for the encoder to exit, so the caller learns whether the file was
+    // actually written rather than assuming success.
+    const code = await job.exited;
+    return {
+      finished: true,
+      ok: code === 0 && !job.failed,
+      framesWritten: job.framesWritten,
+    };
   });
 
   ipcMain.handle('export:cancel', async () => {
@@ -304,6 +373,17 @@ export function registerExportIpc(): void {
     if (!job) return { canceled: false };
     job.canceled = true;
     job.child.kill('SIGKILL');
+    // The 'close' handler removes the half-written file.
+    await job.exited;
     return { canceled: true };
   });
+}
+
+/** Remove a partially written output file, ignoring any failure. */
+async function removePartial(outputPath: string): Promise<void> {
+  try {
+    await fs.unlink(outputPath);
+  } catch {
+    // Nothing to remove, or it is already gone.
+  }
 }

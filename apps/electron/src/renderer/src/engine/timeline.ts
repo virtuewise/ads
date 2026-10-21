@@ -192,6 +192,25 @@ export function splitClip(doc: TimelineDoc, id: string, time: number): TimelineD
   };
 }
 
+/** Set a clip's name and range in one go. */
+export function setClipFields(
+  doc: TimelineDoc,
+  id: string,
+  name: string,
+  start: number,
+  end: number,
+): TimelineDoc {
+  return {
+    ...doc,
+    clips: doc.clips.map((c) => (c.id === id ? { ...c, name, start, end } : c)),
+  };
+}
+
+/** Rename a clip. */
+export function renameClip(doc: TimelineDoc, id: string, name: string): TimelineDoc {
+  return { ...doc, clips: doc.clips.map((c) => (c.id === id ? { ...c, name } : c)) };
+}
+
 /**
  * Append a clip that shows imported media.
  *

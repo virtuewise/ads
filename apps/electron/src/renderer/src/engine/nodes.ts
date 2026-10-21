@@ -2,6 +2,7 @@
 // Every visual node is a TypeScript class. Nodes serialize to JSON and compile
 // to WGSL fragment shaders for the WebGPU pipeline.
 
+import { EASE_WGSL, EASING_ORDER, easeValue } from './easing';
 import type { ComputeNodeSpec, Port } from './types';
 
 export abstract class BaseNode {
@@ -77,7 +78,9 @@ export class NoiseSourceNode extends BaseNode {
   readonly category = 'source' as const;
   readonly ports: Port[] = [
     { id: 'scale', name: 'Scale', type: 'number', direction: 'input', default: 1 },
-    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
+    // The node produces a scalar, so the port is a number — declaring it a
+    // texture made the compiler declare the result as a vec4.
+    { id: 'output', name: 'Output', type: 'number', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
     return { output: `noise(${inputs.scale ?? 1})` };
@@ -165,24 +168,19 @@ export class EaseNode extends BaseNode {
   readonly category = 'transform' as const;
   readonly ports: Port[] = [
     { id: 'input', name: 'Input', type: 'number', direction: 'input', default: 0 },
-    { id: 'type', name: 'Type', type: 'string', direction: 'input', default: 'easeInOut' },
+    // The easing, as its index in EASING_ORDER. A number is what the shader
+    // can branch on; the string name only means anything to the CPU.
+    { id: 'kind', name: 'Easing', type: 'number', direction: 'input', default: 3 },
     { id: 'output', name: 'Output', type: 'number', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
     const t = Number(inputs.input) || 0;
-    const type = String(inputs.type ?? 'easeInOut');
-    if (type === 'linear') return { output: t };
-    if (type === 'easeIn') return { output: t * t };
-    if (type === 'easeOut') return { output: 1 - (1 - t) * (1 - t) };
-    return { output: t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2 };
+    const kind = Number(inputs.kind) || 0;
+    const name = EASING_ORDER[kind] ?? 'linear';
+    return { output: easeValue(t, name) };
   }
   toWGSL() {
-    return `fn ease(t: f32, type: f32) -> f32 {
-      if (type == 0.0) { return t; }
-      if (type == 1.0) { return t * t; }
-      if (type == 2.0) { return 1.0 - (1.0 - t) * (1.0 - t); }
-      return select(1.0 - pow(2.0 * t + 2.0, 2.0) / 2.0, 2.0 * t * t, t < 0.5);
-    }`;
+    return EASE_WGSL;
   }
 }
 
@@ -258,7 +256,9 @@ export class OscillatorNode extends BaseNode {
   readonly category = 'transform' as const;
   readonly ports: Port[] = [
     { id: 'time', name: 'Time', type: 'number', direction: 'input', default: 0 },
-    { id: 'waveform', name: 'Waveform', type: 'string', direction: 'input', default: 'sine' },
+    // The waveform, as its index in WAVEFORMS. The shader compares against
+    // numbers, so the port has to be a number too.
+    { id: 'waveform', name: 'Waveform', type: 'number', direction: 'input', default: 0 },
     { id: 'frequency', name: 'Frequency', type: 'number', direction: 'input', default: 1 },
     { id: 'amplitude', name: 'Amplitude', type: 'number', direction: 'input', default: 1 },
     { id: 'output', name: 'Output', type: 'number', direction: 'output' },
@@ -268,16 +268,16 @@ export class OscillatorNode extends BaseNode {
     const freq = Number(inputs.frequency) || 1;
     const amp = Number(inputs.amplitude) || 1;
     const phase = t * freq;
-    const w = String(inputs.waveform ?? 'sine');
+    const w = Number(inputs.waveform) || 0;
     let v: number;
     switch (w) {
-      case 'square':
+      case 1:
         v = Math.sin(phase) >= 0 ? 1 : -1;
         break;
-      case 'triangle':
+      case 2:
         v = (2 / Math.PI) * Math.asin(Math.sin(phase));
         break;
-      case 'sawtooth':
+      case 3:
         v = 2 * (phase / (2 * Math.PI) - Math.floor(phase / (2 * Math.PI) + 0.5));
         break;
       default:
@@ -318,9 +318,10 @@ export class SpringNode extends BaseNode {
     return { output: v };
   }
   toWGSL() {
-    return `fn spring(time: f32, target: f32, stiffness: f32, damping: f32) -> f32 {
+    // 'target' is a WGSL reserved word, so the parameter is named 'goal'.
+    return `fn spring(time: f32, goal: f32, stiffness: f32, damping: f32) -> f32 {
       let w = sqrt(max(stiffness, 0.0001));
-      return target * (1.0 - exp(-damping * time) * cos(w * time));
+      return goal * (1.0 - exp(-damping * time) * cos(w * time));
     }`;
   }
 }
@@ -332,7 +333,6 @@ export class GlowNode extends BaseNode {
   readonly ports: Port[] = [
     { id: 'input', name: 'Input', type: 'texture', direction: 'input' },
     { id: 'intensity', name: 'Intensity', type: 'number', direction: 'input', default: 0.5 },
-    { id: 'radius', name: 'Radius', type: 'number', direction: 'input', default: 10 },
     { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
@@ -430,25 +430,28 @@ export class BlendNode extends BaseNode {
   readonly ports: Port[] = [
     { id: 'inputA', name: 'A', type: 'texture', direction: 'input' },
     { id: 'inputB', name: 'B', type: 'texture', direction: 'input' },
-    { id: 'mode', name: 'Mode', type: 'string', direction: 'input', default: 'normal' },
+    // The blend mode, as its index in BLEND_MODES. The shader compares against
+    // numbers, so the port has to be a number too.
+    { id: 'mode', name: 'Mode', type: 'number', direction: 'input', default: 0 },
     { id: 'opacity', name: 'Opacity', type: 'number', direction: 'input', default: 0.5 },
     { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {
     return {
-      output: `blend(${inputs.inputA}, ${inputs.inputB}, '${inputs.mode ?? 'normal'}', ${inputs.opacity ?? 0.5})`,
+      output: `blend(${inputs.inputA}, ${inputs.inputB}, ${inputs.mode ?? 0}, ${inputs.opacity ?? 0.5})`,
     };
   }
   toWGSL() {
     return `fn blend_mode(a: vec3<f32>, b: vec3<f32>, mode: f32) -> vec3<f32> {
+      if (mode == 0.0) { return mix(a, b, 0.5); }
       if (mode == 1.0) { return min(a, b); }
       if (mode == 2.0) { return 1.0 - (1.0 - a) * (1.0 - b); }
-      if (mode == 3.0) { return mix(a, b, step(0.5, a)); }
-      if (mode == 4.0) { return mix(2.0 * a * b, 1.0 - 2.0 * (1.0 - a) * (1.0 - b), step(0.5, a)); }
+      if (mode == 3.0) { return mix(a, b, step(vec3<f32>(0.5), a)); }
+      if (mode == 4.0) { return mix(2.0 * a * b, 1.0 - 2.0 * (1.0 - a) * (1.0 - b), step(vec3<f32>(0.5), a)); }
       if (mode == 5.0) { return a * (1.0 - b); }
       if (mode == 6.0) { return a / max(b, vec3<f32>(0.001)); }
       if (mode == 7.0) { return abs(a - b); }
-      return b;
+      return mix(a, b, 0.5);
     }
     fn blend(a: vec4<f32>, b: vec4<f32>, mode: f32, opacity: f32) -> vec4<f32> {
       let blended = blend_mode(a.rgb, b.rgb, mode);
@@ -1265,8 +1268,8 @@ export class EmbossNode extends BaseNode {
       let step = 1.0 / texSize;
       let tl = textureSample(src, samp, uv + vec2(-step.x, -step.y));
       let br = textureSample(src, samp, uv + vec2(step.x, step.y));
-      let diff = (tl.rgb - br.rgb) * strength + 0.5;
-      return vec4(clamp(diff, 0.0, 1.0), 1.0);
+      let diff = (tl.rgb - br.rgb) * strength + vec3<f32>(0.5);
+      return vec4(clamp(diff, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
     }`;
   }
 }
@@ -1513,7 +1516,14 @@ export class ScriptNode extends BaseNode {
     }
   }
   toWGSL() {
-    return `// Custom script node\n${this.code}`;
+    // The node's code is a small expression over `input`. It is evaluated on
+    // the CPU by `execute`, and — so the node can also live in a compiled
+    // graph — emitted here as a WGSL function of the same shape. `lerp` is
+    // the one name the two languages spell differently.
+    const body = this.code.replace(/\blerp\s*\(/g, 'mix(').trim();
+    return `fn script(input: f32) -> f32 {
+  return ${body};
+}`;
   }
 }
 
@@ -1628,9 +1638,11 @@ export const NODE_REGISTRY: Record<string, new () => BaseNode> = {
   script: ScriptNode,
 };
 
-export function createNode(type: string): BaseNode {
+export function createNode(type: string, code?: string): BaseNode {
   const Ctor = NODE_REGISTRY[type];
   if (!Ctor) throw new Error(`Unknown node type: ${type}`);
+  // The script node carries its code as constructor state.
+  if (code !== undefined && Ctor === ScriptNode) return new ScriptNode(code);
   return new Ctor();
 }
 
