@@ -50,6 +50,18 @@ pnpm --filter @printsync/electron build
 When `ELECTRON_RENDERER_URL` is set the window loads the dev server; otherwise it loads the built
 `apps/electron/src/renderer/index.html`.
 
+### Opening a project directly
+
+A project path on the command line is opened straight away — the desktop-app behaviour of
+double-clicking a `.vfxproj`:
+
+```bash
+pnpm --filter @printsync/electron start -- C:/work/my-cut.vfxproj
+```
+
+The path is handed to the renderer through the preload bridge, and the project's `assets[]` are
+re-imported from disk ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)).
+
 ---
 
 ## The Electron launch gotcha

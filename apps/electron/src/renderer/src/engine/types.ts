@@ -344,6 +344,27 @@ export interface SafeZoneState {
 
 export type ProjectFormat = 'json' | 'binary';
 
+/**
+ * A media asset referenced by a project.
+ *
+ * The bytes live on disk; the project stores where to find them, so a saved
+ * project can re-import its footage. `path` is empty for files that arrived
+ * by drag-and-drop — the browser does not reveal a dropped file's location —
+ * and such assets come back as missing rather than silently failing.
+ */
+export interface MediaAsset {
+  id: string;
+  /** Absolute path on disk, or '' when the source is not re-importable. */
+  path: string;
+  name: string;
+  duration: number;
+  width: number;
+  height: number;
+  fps: number;
+  /** RFC 6381 codec string, e.g. 'avc1.42c01e'. */
+  codec: string;
+}
+
 export interface ProjectDocument {
   format: 'vfxproj';
   version: number;
@@ -356,4 +377,6 @@ export interface ProjectDocument {
   timeline: TimelineDoc;
   graph: DAG;
   effectsStack: string[];
+  /** Imported media the timeline references. */
+  assets?: MediaAsset[];
 }

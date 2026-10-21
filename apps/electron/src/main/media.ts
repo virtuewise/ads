@@ -25,6 +25,31 @@ export interface MediaPickResult {
   }>;
 }
 
+/**
+ * Read a media file the project already knows about.
+ *
+ * A saved project stores where its footage lives, so reopening it re-imports
+ * the files by path instead of asking the user to find them again.
+ */
+export async function readMediaFile(
+  _event: Electron.IpcMainInvokeEvent,
+  filePath: string,
+): Promise<{ ok: boolean; name?: string; data?: ArrayBuffer; error?: string }> {
+  if (typeof filePath !== 'string' || filePath.length === 0) {
+    return { ok: false, error: 'No path given' };
+  }
+  try {
+    const buf = await fs.readFile(filePath);
+    return {
+      ok: true,
+      name: path.basename(filePath),
+      data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 function parentWindow(event: Electron.IpcMainInvokeEvent): BrowserWindow | null {
   return BrowserWindow.fromWebContents(event.sender);
 }
@@ -71,4 +96,5 @@ export async function pickMediaFiles(event: Electron.IpcMainInvokeEvent): Promis
 
 export function registerMediaIpc(): void {
   ipcMain.handle('media:pick', pickMediaFiles);
+  ipcMain.handle('media:read', readMediaFile);
 }

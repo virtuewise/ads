@@ -1,5 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+/**
+ * The project the app was launched with (`electron .vfxproj`). The main
+ * process passes it through `additionalArguments`, which land in this
+ * process's argv.
+ */
+function initialProjectPath(): string | null {
+  for (const arg of process.argv) {
+    if (arg.startsWith('--virtue-project=')) {
+      const value = arg.slice('--virtue-project='.length);
+      return value.length > 0 ? value : null;
+    }
+  }
+  return null;
+}
+
 contextBridge.exposeInMainWorld('studio', {
   getModes: () => ipcRenderer.invoke('engine:getModes'),
   getConcepts: () => ipcRenderer.invoke('engine:getConcepts'),
@@ -22,6 +37,10 @@ contextBridge.exposeInMainWorld('studio', {
 
   // ── Media import ───────────────────────────────────────────────────────────
   pickMedia: () => ipcRenderer.invoke('media:pick'),
+  readMedia: (filePath: string) => ipcRenderer.invoke('media:read', filePath),
+
+  /** The project the app was launched with, if any. */
+  initialProjectPath: () => initialProjectPath(),
 
   // ── Export pipeline ────────────────────────────────────────────────────────
   probeEncoders: () => ipcRenderer.invoke('export:probe'),

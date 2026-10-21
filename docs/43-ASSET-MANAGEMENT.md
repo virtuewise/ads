@@ -23,8 +23,8 @@
 | Asset organization (bins, folders) | ⬜ none |
 | Proxy management | ⬜ none |
 | Media metadata display | 🟡 dimensions, fps, duration, frame count, codec (in the row tooltip) |
-| Asset registration in the project document | ⬜ none — the bin lives in React state and is lost on reload |
-| Offline/relink missing media | ⬜ none |
+| Asset registration in the project document | ✅ `assets[]` records where each clip's footage lives; a saved project re-imports it on open |
+| Offline/relink missing media | 🟡 a file that has moved comes back as missing rather than failing the load; relinking is ⬜ |
 
 ---
 
@@ -219,6 +219,8 @@ Clicking an asset shows a details panel:
 | Composite | the clip renders in the viewport through the DAG | ✅ verified in the running app |
 | Timeline placement | the **+** button adds a clip with a poster at the playhead | ✅ verified in the running app |
 | Scrub | moving the playhead over the clip scrubs the footage | ✅ verified in the running app |
+| Persistence | a saved project re-imports its footage on open | ✅ verified in the running app |
+| Dedup | importing the same file twice does not duplicate | ⬜ |
 | Bulk import | the file dialog accepts multiple files | ✅ |
 | Dedup | importing the same file twice does not duplicate | ⬜ |
 | Registration | imported assets survive a project save/reload | ⬜ |

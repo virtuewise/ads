@@ -45,6 +45,7 @@ import type {
   CompositionState,
   GenreId,
   KeyframeEasing,
+  MediaAsset,
   ProjectFormat,
   SafeZoneRatio,
   TimelineClip,
@@ -645,13 +646,13 @@ export function App() {
    * Decode a set of containers and append them to the media bin.
    * Shared by the file dialog and the drag-and-drop target.
    */
-  const ingestMedia = async (items: Array<{ name: string; data: ArrayBuffer }>) => {
+  const ingestMedia = async (items: Array<{ name: string; data: ArrayBuffer; path?: string }>) => {
     setImporting(true);
     try {
       const decoded: MediaSource[] = [];
       for (const item of items) {
         try {
-          const src = await decodeVideoBuffer(item.data, item.name);
+          const src = await decodeVideoBuffer(item.data, item.name, { path: item.path ?? '' });
           decoded.push(src);
         } catch (e) {
           notify(`${item.name}: ${e instanceof Error ? e.message : String(e)}`);
@@ -683,7 +684,9 @@ export function App() {
     try {
       const res = await api.pickMedia();
       if (res.canceled || res.items.length === 0) return;
-      await ingestMedia(res.items);
+      await ingestMedia(
+        res.items.map((item) => ({ name: item.name, data: item.data, path: item.path })),
+      );
     } catch (e) {
       notify(`Import failed: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -752,6 +755,16 @@ export function App() {
       timeline: timelineDoc,
       graph: dag.dag,
       effectsStack,
+      assets: mediaBin.map((m) => ({
+        id: m.id,
+        path: m.path,
+        name: m.name,
+        duration: m.duration,
+        width: m.width,
+        height: m.height,
+        fps: m.fps,
+        codec: m.codec,
+      })),
     });
 
   const applyDoc = (raw: unknown) => {
@@ -766,6 +779,43 @@ export function App() {
     dag.loadDAG(doc.graph);
     seededRef.current = true;
     setPlayhead(0);
+    // Re-import the project's footage from disk. The ids must match the ones
+    // the timeline's clips reference, so they are restored verbatim rather
+    // than regenerated.
+    void restoreAssets(doc.assets ?? []);
+  };
+
+  /**
+   * Re-import the media a project references.
+   *
+   * The bytes live on disk; the project only records where they are. An asset
+   * whose file has moved or been deleted comes back as missing rather than
+   * failing the whole load.
+   */
+  const restoreAssets = async (assets: MediaAsset[]) => {
+    const api = studioApi();
+    if (!api?.readMedia || assets.length === 0) return;
+    const restored: MediaSource[] = [];
+    for (const asset of assets) {
+      if (!asset.path) {
+        // Dropped files have no path; they cannot be re-imported.
+        continue;
+      }
+      try {
+        const res = await api.readMedia(asset.path);
+        if (!res.ok || !res.data) continue;
+        const src = await decodeVideoBuffer(res.data, asset.name, { path: asset.path });
+        // Keep the id the project's clips reference.
+        restored.push({ ...src, id: asset.id });
+      } catch {
+        // A missing or unreadable file must not break the load.
+      }
+    }
+    if (restored.length > 0) {
+      setMediaBin(restored);
+      const missing = assets.length - restored.length;
+      if (missing > 0) notify(`${missing} media file(s) could not be re-imported`);
+    }
   };
 
   const newProject = () => {
@@ -826,6 +876,38 @@ export function App() {
       notify(`Open failed: ${String(e)}`);
     }
   };
+
+  /**
+   * Open the project the app was launched with (`electron .vfxproj`).
+   * Runs once, after the engine data has seeded the timeline.
+   */
+  const launchProjectRef = useRef(false);
+  // The effect below runs once; these handlers only touch stable setters, so
+  // a ref keeps the dependency list honest without re-running it.
+  const applyDocRef = useRef(applyDoc);
+  applyDocRef.current = applyDoc;
+  const notifyRef = useRef(notify);
+  notifyRef.current = notify;
+  useEffect(() => {
+    if (launchProjectRef.current) return;
+    const api = studioApi();
+    const path = api?.initialProjectPath?.();
+    if (!api?.readProject || !path) return;
+    launchProjectRef.current = true;
+    (async () => {
+      try {
+        const res = await api.readProject(path);
+        if (res.canceled || !res.doc) return;
+        applyDocRef.current(res.doc);
+        setDocPath(path);
+        setDocFormat(res.format ?? 'json');
+        setDirty(false);
+        notifyRef.current(`Opened ${path.split(/[\\/]/).pop() ?? path}`);
+      } catch (e) {
+        notifyRef.current(`Open failed: ${String(e)}`);
+      }
+    })();
+  }, []);
 
   // ── Effects stack ─────────────────────────────────────────────────────────
   const pushEffect = (id: string) => {

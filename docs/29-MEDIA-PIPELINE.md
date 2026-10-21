@@ -21,15 +21,16 @@
 | Frame → GPU texture | ✅ `device.importExternalTexture()` — the decoded frame reaches the GPU **without a copy** |
 | Compositing a clip | ✅ a **media source** node in the DAG samples that texture; the bridge runs it in the single pass |
 | Clip → media reference | ✅ `TimelineClip.mediaId` + `sourceStart`; the media bin's **+** button puts a clip on the timeline, and scrubbing the timeline scrubs the footage |
+| Media survives a save/load | ✅ the project stores `assets[]` (where the footage is) and re-imports it on open |
 | Audio | ⬜ none behind the track ([25](25-AUDIO.md)) |
 | Metadata / indexing | 🟡 duration, dimensions, fps and codec come from the container; rotation and colour metadata are not read |
 | Proxies | ⬜ none |
 | Disposal | 🟡 `disposeMediaSource()` closes every cached `VideoFrame` |
 
 The honest one-line summary: **a real container goes in and real decoded pixels come out the other
-end of the compositor, and the timeline drives them.** What is still missing is the *editor* half:
-one clip at a time, no trimming of the source in-point, no slip, no multi-clip compositing, and the
-imported assets are not persisted with the project.
+end of the compositor, the timeline drives them, and a saved project brings its footage back.** What is
+still missing is the *editor* half: one clip at a time, no trimming of the source in-point, no slip,
+and no multi-clip compositing.
 
 ---
 
@@ -248,8 +249,10 @@ loading — [05](05-PROJECT-FORMAT.md#versioning--migration-policy)).
 
 > **Partly built.** `mediaId` and `sourceStart` exist and survive a save/load round-trip
 > (`engine/project.ts`). The compositor samples the topmost media clip under the playhead, so
-> scrubbing the timeline scrubs the footage. Still ⬜: source in-point trimming and slip, per-clip
-> transform/effects/grade, retime, and compositing more than one media clip at a time.
+> scrubbing the timeline scrubs the footage. The project also stores `assets[]` — where each clip's
+> footage lives on disk — so reopening a project re-imports it. Still ⬜: source in-point trimming
+> and slip, per-clip transform/effects/grade, retime, and compositing more than one media clip at a
+> time.
 
 ---
 
@@ -297,6 +300,7 @@ All cached to disk keyed by asset hash, so reopening a project is instant.
 | End-to-end composite | the imported clip renders in the viewport through the DAG | ✅ verified in the running app (the ffmpeg test pattern appears) |
 | Timeline binding | a clip added to the timeline shows a poster, and scrubbing scrubs the footage | ✅ verified in the running app |
 | Save/load | `mediaId`, `sourceStart` and every easing survive a round-trip | ✅ `engine/project.test.ts` |
+| Project round-trip | a saved project re-imports its footage and renders it in the viewport | ✅ verified in the running app |
 | Frame accuracy | decoded frame at `t` matches an FFmpeg-extracted reference frame at `t` | ⬜ |
 | Rotation handling | a rotated source renders upright | ⬜ |
 | Multi-clip compositing | two clips composite with the right z-order and opacity | ⬜ |

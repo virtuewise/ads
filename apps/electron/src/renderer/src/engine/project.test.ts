@@ -84,6 +84,44 @@ describe('normalizeProject — timeline sanitising', () => {
     expect(doc.timeline.clips).toHaveLength(1);
     expect(doc.timeline.clips[0].name).toBe('ok');
   });
+
+  it('keeps media assets through a round-trip', () => {
+    const doc = normalizeProject({
+      composition: createDefaultComposition(),
+      assets: [
+        {
+          id: 'media-1',
+          path: 'C:/footage/hero.mp4',
+          name: 'hero.mp4',
+          duration: 12.5,
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          codec: 'avc1.42c01e',
+        },
+      ],
+    });
+    expect(doc.assets).toHaveLength(1);
+    expect(doc.assets?.[0].path).toBe('C:/footage/hero.mp4');
+    expect(doc.assets?.[0].codec).toBe('avc1.42c01e');
+  });
+
+  it('drops a malformed asset rather than the whole document', () => {
+    const doc = normalizeProject({
+      composition: createDefaultComposition(),
+      assets: [null, 7, { id: 'a', path: 'p', name: 'n' }],
+    });
+    expect(doc.assets).toHaveLength(1);
+    expect(doc.assets?.[0].id).toBe('a');
+    // Defaults fill in the rest.
+    expect(doc.assets?.[0].duration).toBe(0);
+    expect(doc.assets?.[0].fps).toBe(30);
+  });
+
+  it('has no assets when the document has none', () => {
+    const doc = normalizeProject({ composition: createDefaultComposition() });
+    expect(doc.assets).toEqual([]);
+  });
 });
 
 describe('buildProject', () => {
@@ -111,9 +149,22 @@ describe('buildProject', () => {
       },
       graph: { nodes: [], edges: [] },
       effectsStack: [],
+      assets: [
+        {
+          id: 'media-1',
+          path: 'C:/footage/clip.mp4',
+          name: 'clip.mp4',
+          duration: 2,
+          width: 320,
+          height: 180,
+          fps: 30,
+          codec: 'avc1.42c01e',
+        },
+      ],
     });
     const round = normalizeProject(built);
     expect(round.timeline.clips[0].mediaId).toBe('media-1');
     expect(round.timeline.clips[0].name).toBe('clip.mp4');
+    expect(round.assets?.[0].path).toBe('C:/footage/clip.mp4');
   });
 });

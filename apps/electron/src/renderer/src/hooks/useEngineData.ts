@@ -122,6 +122,11 @@ interface StudioApi {
   writeProject: (filePath: string, doc: unknown, format: ProjectFormat) => Promise<SaveResult>;
   readProject: (filePath: string) => Promise<OpenResult>;
   pickMedia: () => Promise<MediaPickResult>;
+  readMedia: (
+    filePath: string,
+  ) => Promise<{ ok: boolean; name?: string; data?: ArrayBuffer; error?: string }>;
+  /** The project the app was launched with, if any. */
+  initialProjectPath: () => string | null;
 }
 
 /** Shape returned by the main process after a media file dialog. */

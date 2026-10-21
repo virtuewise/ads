@@ -23,6 +23,11 @@ export interface MediaSource {
   id: string;
   /** File name. */
   name: string;
+  /**
+   * Where the file lives on disk, so a saved project can re-import it.
+   * Empty for files that arrived by drag-and-drop.
+   */
+  path: string;
   /** Duration in seconds. */
   duration: number;
   /** Frame rate. */
@@ -46,6 +51,8 @@ export interface MediaDecoderConfig {
   maxFrames: number;
   /** Target frame rate for decoding. */
   targetFps: number;
+  /** Where the file lives on disk, so a saved project can re-import it. */
+  path?: string;
 }
 
 const DEFAULT_MAX_FRAMES = 120;
@@ -75,6 +82,7 @@ export async function decodeVideoBuffer(
   const source: MediaSource = {
     id: `media-${Date.now().toString(36)}`,
     name,
+    path: config.path ?? '',
     duration: demuxed.duration,
     fps: demuxed.fps,
     width: demuxed.width,
@@ -175,6 +183,7 @@ export function probeVideo(input: ArrayBuffer, name: string): Omit<MediaSource, 
   const d = demuxVideoFile(input, name);
   return {
     name,
+    path: '',
     duration: d.duration,
     fps: d.fps,
     width: d.width,

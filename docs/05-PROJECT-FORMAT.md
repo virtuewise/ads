@@ -33,7 +33,7 @@ Both encode **the same document**. Moving between them is lossless (modulo JSON'
 ```typescript
 interface ProjectDocument {
   format: 'vfxproj';
-  version: number;              // PROJECT_VERSION = 1
+  version: number;              // PROJECT_VERSION = 2
   savedAt: string;              // ISO timestamp
   app: { name: string; version: string };   // 'Virtue Studio', '0.1.0'
   composition: CompositionState; // name, width, height, fps, duration, background, transform
@@ -43,6 +43,22 @@ interface ProjectDocument {
   timeline: TimelineDoc;        // { duration, clips[] }
   graph: DAG;                   // { nodes, edges }
   effectsStack: string[];
+  assets?: MediaAsset[];        // imported media the timeline's clips reference
+}
+```
+
+`MediaAsset` records **where** the footage is, not the footage itself:
+
+```typescript
+interface MediaAsset {
+  id: string;        // the id a clip's mediaId points at
+  path: string;      // absolute path on disk; '' for files that cannot be re-imported
+  name: string;
+  duration: number;
+  width: number;
+  height: number;
+  fps: number;
+  codec: string;     // RFC 6381, e.g. 'avc1.42c01e'
 }
 ```
 
@@ -174,6 +190,17 @@ Registers the four project IPC handlers used by `window.studio.project.*`:
   1. Additive field → bump `PROJECT_VERSION`, extend `normalizeProject` defaults, document here.
   2. Breaking change → bump `PROJECT_VERSION` **and** write a migration in `normalizeProject`.
   3. Container change (compression, header) → bump `BIN_VERSION`, keep old readers working or fail loudly.
+
+### The version history
+
+| Version | Change | Migration |
+|---|---|---|
+| 1 | The original document: composition, genre, safe zones, LUT, timeline, graph, effects stack | — |
+| 2 | `assets[]` — the imported media a timeline's clips reference. Clips also gained the optional `mediaId` and `sourceStart` fields. | None needed: a v1 document has no `assets`, and `normalizeProject` fills in an empty list. A v1 document's clips have no `mediaId`, and none is invented for them. |
+
+`normalizeProject` keeps a clip's `mediaId`/`sourceStart` and its keyframes' easings, so a v2
+document survives a save/load round-trip unchanged
+([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md#6-clip--media-wiring)).
 
 ---
 

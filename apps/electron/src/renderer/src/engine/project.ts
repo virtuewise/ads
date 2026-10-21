@@ -8,6 +8,7 @@ import type {
   CompositionState,
   DAG,
   GenreId,
+  MediaAsset,
   ProjectDocument,
   ProjectFormat,
   SafeZoneRatio,
@@ -16,7 +17,7 @@ import type {
   TransformState,
 } from './types';
 
-export const PROJECT_VERSION = 1;
+export const PROJECT_VERSION = 2;
 export const APP_NAME = 'Virtue Studio';
 export const APP_VERSION = '0.1.0';
 
@@ -47,6 +48,8 @@ export interface BuildProjectInput {
   timeline: TimelineDoc;
   graph: DAG;
   effectsStack?: string[];
+  /** Imported media the timeline references. */
+  assets?: MediaAsset[];
 }
 
 export function buildProject(input: BuildProjectInput): ProjectDocument {
@@ -62,6 +65,7 @@ export function buildProject(input: BuildProjectInput): ProjectDocument {
     timeline: input.timeline,
     graph: input.graph,
     effectsStack: input.effectsStack ?? [],
+    ...(input.assets && input.assets.length > 0 ? { assets: input.assets } : {}),
   };
 }
 
@@ -99,6 +103,22 @@ function sanitizeKeyframes(raw: unknown): TimelineDoc['clips'][number]['keyframe
         : 'easeInOut',
     }))
     .sort((a, b) => a.time - b.time);
+}
+
+function sanitizeAssets(raw: unknown): MediaAsset[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a): a is Record<string, unknown> => !!a && typeof a === 'object')
+    .map((a, i) => ({
+      id: str(a.id, `asset-${i}`),
+      path: str(a.path, ''),
+      name: str(a.name, 'Media'),
+      duration: num(a.duration, 0),
+      width: num(a.width, 0),
+      height: num(a.height, 0),
+      fps: num(a.fps, 30),
+      codec: str(a.codec, ''),
+    }));
 }
 
 function sanitizeTimeline(raw: unknown, duration: number): TimelineDoc {
@@ -167,6 +187,7 @@ export function normalizeProject(raw: unknown): ProjectDocument {
     effectsStack: Array.isArray(doc.effectsStack)
       ? doc.effectsStack.filter((x): x is string => typeof x === 'string')
       : [],
+    assets: sanitizeAssets(doc.assets),
   };
 }
 

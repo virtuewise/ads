@@ -67,7 +67,8 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | Upload decoded frames as the compositor's input texture (`importExternalTexture`) | ✅ zero-copy external texture in the viewport |
 | Composite an imported clip through the DAG (media source node) | ✅ the graph samples the media texture |
 | Media bin: add a clip to the timeline (`mediaId` + `sourceStart`) | ✅ the **+** button; scrubbing the timeline scrubs the footage |
-| Media bin: drag-to-timeline, and persist imported assets in the project document | ⬜ |
+| Media survives a save/load (`assets[]` in the project document) | ✅ the project records where the footage is and re-imports it on open |
+| Media bin: drag-to-timeline | ⬜ (the **+** button does it today) |
 | Source in-point trimming and slip; retime; multi-clip compositing | ⬜ |
 | Per-clip transform/effects/grade driving the composition | ⬜ |
 | Per-clip keyframes driving the composition transform for the active clip | ⬜ |
