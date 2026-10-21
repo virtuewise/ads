@@ -63,8 +63,34 @@
 │  production-orchestrator + planning engines (subject/story/script/storyboard/   │
 │  shot/scene-graph/visual-grammar) · motion-engine · render-farm                  │
 │  typography-engine · vfx-engine · audio-engine · asset-engine · qa-engine · …    │
+│  creative-graph — the shared IR a plan, a script and a hand-built graph          │
+│                    all compile into                                                 │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
+
+### The seam between the two worlds
+
+The monorepo produces **plans**; the editor **renders** them. `packages/creative-graph` is the
+join: it holds the versioned graph document both sides speak, and the rules that decide
+whether a graph is valid.
+
+```
+brief ──▶ buildProductionPlan()  (packages/production-orchestrator)
+              │  a ProductionPlan: script, storyboard, shots, plans
+              ▼
+         compilePlan()           (packages/creative-graph)
+              │  { graph, timeline, warnings }
+              ▼
+         graphToDAG()            (apps/electron/…/engine/plan.ts)
+              │  the editor's graph and timeline
+              ▼
+         the viewport renders it
+```
+
+A plan the renderer cannot express is reported as a **warning**, not dropped: a plan that
+quietly loses half its effects is worse than one that says which effects it could not render.
+See [38-NODE-EDITOR-AND-VISUAL-PROGRAMMING](38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md) for the
+IR itself.
 
 ---
 
@@ -78,7 +104,7 @@ processes. It is the **only** place with `node:` imports and `fs` access.
 | File | Responsibility |
 |---|---|
 | `index.ts` | `BrowserWindow` lifecycle; loads the Vite dev URL or the built `index.html`. Preload points at the compiled `preload/index.ts` output with `contextIsolation: true`, `nodeIntegration: false`. |
-| `ipc.ts` | Registers all `engine:*` handlers. This is where **World A engines are imported into World B** — `@printsync/creative-engine`, `@printsync/typography-engine`, `@printsync/vfx-engine`, `@printsync/visual-grammar-engine`. Then calls `registerProjectIpc()` and `registerExportIpc()`. |
+| `ipc.ts` | Registers all `engine:*` handlers. This is where **World A engines are imported into World B** — `@printsync/creative-engine`, `@printsync/typography-engine`, `@printsync/vfx-engine`, `@printsync/visual-grammar-engine`. Then calls `registerProjectIpc()` and `registerExportIpc()`. It also registers `production:buildPlan`, which turns a brief into a full production plan. |
 | `project.ts` | `project:save`, `:open`, `:write`, `:read`. Owns dialogs and fs; delegates all serialization to the codec. |
 | `projectCodec.ts` | **Pure** (no Electron import) — testable in isolation. Deterministic JSON + `VFXP` binary encode/decode + format detection. |
 | `ffmpeg.ts` | Resolves the system FFmpeg binary and probes available encoders. |
@@ -95,8 +121,14 @@ window.studio = {
   getModes, getConcepts, generateConcepts, getMetaphors, getMetaphorsForService,
   getStats, getTypographyPresets, getVFXEffects, getVisualGrammars,
 
+  // Production planning (main/ipc.ts)
+  buildPlan,
+
   // Project documents (main/project.ts)
   saveProject, openProject, writeProject, readProject,
+
+  // Media (main/media.ts)
+  pickMedia, readMedia,
 
   // Export pipeline (main/export.ts)
   probeEncoders, chooseExportPath, startExport, writeExportFrame,

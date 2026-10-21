@@ -1,8 +1,9 @@
 // ── DAG Store Hook ───────────────────────────────────────────────────────────
 // Zustand-style store for the node graph with bidirectional code sync.
 
+import { canConnect, connectionError, createsCycle } from '@printsync/creative-graph';
 import { useCallback, useMemo, useState } from 'react';
-import { codeToDAG, compileDAG, dagToCode } from './compiler';
+import { codeToDAG, compileDAG, dagToCode, nodeCatalog } from './compiler';
 import { createNode, getNodeTypes } from './nodes';
 import type { DAG, Edge, NodeInstance } from './types';
 
@@ -52,6 +53,8 @@ export function useDAG() {
   const compiled = useMemo(() => compileDAG(dag), [dag]);
   const generatedCode = useMemo(() => dagToCode(dag), [dag]);
   const code = codeOverride ?? generatedCode;
+  /** What each node kind is, so a connection can be checked before it is made. */
+  const catalog = useMemo(() => nodeCatalog(), []);
 
   const addNode = useCallback((type: string, position: { x: number; y: number }) => {
     const node: NodeInstance = {
@@ -86,13 +89,33 @@ export function useDAG() {
 
   const addEdge = useCallback(
     (from: { node: string; port: string }, to: { node: string; port: string }) => {
+      // A connection is checked before it is made: the types have to be
+      // compatible, and the edge must not close a loop. The error is returned
+      // so the editor can show it.
+      const fromNode = dag.nodes.find((n) => n.id === from.node);
+      const toNode = dag.nodes.find((n) => n.id === to.node);
+      if (!fromNode || !toNode) return 'That node is no longer in the graph.';
+      const fromKind = catalog[fromNode.type];
+      const toKind = catalog[toNode.type];
+      if (!fromKind || !toKind) return `"${fromNode.type}" is not a node kind this editor can run.`;
+      const toType = toKind.inputs[to.port];
+      if (!toType) return `"${toNode.type}" has no input port "${to.port}".`;
+      const fromType = fromKind.output;
+      if (!canConnect(fromType, toType)) {
+        return connectionError(fromType, toType) ?? 'Those ports cannot be connected.';
+      }
+      if (createsCycle(dag.edges, from, to)) {
+        return 'That connection would create a loop.';
+      }
+
       setCodeOverride(null);
       setDAG((prev) => {
         const edge: Edge = { id: createId('edge'), from, to };
         return { ...prev, edges: [...prev.edges, edge] };
       });
+      return null;
     },
-    [],
+    [dag.nodes, dag.edges, catalog],
   );
 
   const removeEdge = useCallback((id: string) => {

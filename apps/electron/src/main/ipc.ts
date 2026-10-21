@@ -1,3 +1,4 @@
+import type { CreativeBrief as ProductionBrief } from '@printsync/common';
 import {
   CreativeDirector,
   CreativeJudge,
@@ -6,6 +7,7 @@ import {
   getMetaphorsForTerritory,
   VISUAL_METAPHORS,
 } from '@printsync/creative-engine';
+import { buildProductionPlan } from '@printsync/production-orchestrator';
 import type { CreativeBrief } from '@printsync/shared';
 import { TypographyEngine } from '@printsync/typography-engine';
 import { VFXEngine } from '@printsync/vfx-engine';
@@ -20,6 +22,18 @@ import { ipcMain } from 'electron';
 import { registerExportIpc } from './export';
 import { registerMediaIpc } from './media';
 import { registerProjectIpc } from './project';
+
+/**
+ * Turn a brief into a full production plan.
+ *
+ * The plan is the monorepo's output: a script, a storyboard, shots, and plans
+ * for motion, effects, typography and sound. The renderer compiles it into the
+ * graph it can render — see @printsync/creative-graph.
+ */
+ipcMain.handle('production:buildPlan', async (_event, brief: ProductionBrief) => {
+  const plan = await buildProductionPlan(brief);
+  return plan;
+});
 
 ipcMain.handle('engine:getModes', async () => {
   const modes = getAllCreativeModes();

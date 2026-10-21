@@ -114,6 +114,8 @@ interface StudioApi {
   getTypographyPresets: () => Promise<TypographyPreset[]>;
   getVFXEffects: () => Promise<VFXEffect[]>;
   getVisualGrammars: () => Promise<VisualGrammar[]>;
+  /** Turn a brief into a full production plan. */
+  buildPlan: (brief: unknown) => Promise<unknown>;
   saveProject: (
     doc: unknown,
     opts?: { path?: string; format?: ProjectFormat },

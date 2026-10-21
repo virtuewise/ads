@@ -1,7 +1,8 @@
 // ── WGSL Compiler ────────────────────────────────────────────────────────────
 // Compiles a DAG of nodes into a WGSL fragment shader for WebGPU execution.
 
-import { createNode } from './nodes';
+import type { NodeCatalog, NodeKindInfo, ValueType } from '@printsync/creative-graph';
+import { createNode, NODE_REGISTRY } from './nodes';
 import type { DAG, Edge, NodeInstance } from './types';
 
 export interface CompiledShader {
@@ -180,6 +181,85 @@ interface WgslParam {
 interface WgslSignature {
   params: WgslParam[];
   returns: string;
+}
+
+/** The value type a WGSL type carries. */
+function valueTypeForWgsl(wgslType: string): ValueType {
+  if (wgslType.includes('texture')) return 'image';
+  if (wgslType.startsWith('vec4') || wgslType.startsWith('vec3')) return 'color';
+  if (wgslType === 'bool') return 'boolean';
+  if (wgslType.startsWith('f32') || wgslType.startsWith('i32') || wgslType.startsWith('u32')) {
+    return 'number';
+  }
+  return 'number';
+}
+
+/**
+ * Describe a node kind: the precise type of each of its ports.
+ *
+ * The types come from the node's own WGSL signature, so they cannot drift
+ * from what the shader actually does. A port that takes a sampled texture is
+ * an image; a port that takes a colour is a colour.
+ */
+export function describeNodeKind(type: string): NodeKindInfo | null {
+  // The render node is the graph's output: it takes a colour and produces
+  // nothing. It has no shader function of its own.
+  if (type === 'render') {
+    return {
+      kind: 'render',
+      inputs: { input: 'color' },
+      output: 'color',
+      outputPort: 'output',
+      gpu: true,
+    };
+  }
+
+  let instance: ReturnType<typeof createNode>;
+  try {
+    instance = createNode(type);
+  } catch {
+    return null;
+  }
+  const wgslFn = WGSL_FN_NAME[type] ?? type;
+  const signature = parseWgslSignature(instance.toWGSL(), wgslFn);
+  if (!signature) return null;
+
+  const inputPorts = instance.ports.filter((p) => p.direction === 'input');
+  const outputPorts = instance.ports.filter((p) => p.direction === 'output');
+  const inputs: Record<string, ValueType> = {};
+
+  // Walk the signature the same way the call builder does, so a port's type
+  // is the type of the argument it actually receives.
+  let portIndex = 0;
+  for (const param of signature.params) {
+    if (param.type === 'sampler') continue;
+    if (param.type.includes('texture')) {
+      const port = inputPorts[portIndex++];
+      if (port) inputs[port.id] = 'image';
+      continue;
+    }
+    if (param.name === 'uv' && param.type.includes('vec2')) continue;
+    const port = inputPorts[portIndex++];
+    if (port) inputs[port.id] = valueTypeForWgsl(param.type);
+  }
+
+  return {
+    kind: type,
+    inputs,
+    output: valueTypeForWgsl(signature.returns),
+    outputPort: outputPorts[0]?.id ?? 'output',
+    gpu: true,
+  };
+}
+
+/** Describe every node kind the editor can run. */
+export function nodeCatalog(): NodeCatalog {
+  const catalog: NodeCatalog = {};
+  for (const type of Object.keys(NODE_REGISTRY)) {
+    const info = describeNodeKind(type);
+    if (info) catalog[type] = info;
+  }
+  return catalog;
 }
 
 /**

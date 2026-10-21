@@ -17,6 +17,7 @@
     "@printsync/brand-engine": "workspace:*",
     "@printsync/common": "workspace:*",
     "@printsync/creative-engine": "workspace:*",
+    "@printsync/creative-graph": "workspace:*",
     "@printsync/production-orchestrator": "workspace:*",
     "@printsync/qa-engine": "workspace:*",
     "@printsync/shared": "workspace:*",

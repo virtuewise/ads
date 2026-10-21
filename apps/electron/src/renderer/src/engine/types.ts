@@ -1,6 +1,10 @@
 // ── Core DAG Types ────────────────────────────────────────────────────────────
 
-export type PortType = 'texture' | 'number' | 'color' | 'boolean' | 'audio' | 'string';
+// The port vocabulary has one owner: the shared creative-graph package, so
+// the editor and the engines agree on what a port carries.
+import type { PortType } from '@printsync/creative-graph';
+
+export type { PortType };
 
 export interface Port {
   id: string;

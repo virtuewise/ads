@@ -1,0 +1,19 @@
+{
+  "name": "@printsync/creative-graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "vitest run --root ../.. creative-graph"
+  },
+  "dependencies": {
+    "@printsync/common": "workspace:*",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

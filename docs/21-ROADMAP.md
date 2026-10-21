@@ -68,10 +68,15 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | Composite an imported clip through the DAG (media source node) | ✅ the graph samples the media texture |
 | Media bin: add a clip to the timeline (`mediaId` + `sourceStart`) | ✅ the **+** button; scrubbing the timeline scrubs the footage |
 | Media survives a save/load (`assets[]` in the project document) | ✅ the project records where the footage is and re-imports it on open |
+| **A brief compiles into an editable, composited production** | ✅ `buildProductionPlan()` → `compilePlan()` → the editor's graph and timeline |
+| A shared, versioned graph IR both the engines and the editor target | ✅ `packages/creative-graph` |
+| Connections type-checked before they are made | ✅ the port rules, in the shared package |
 | Media bin: drag-to-timeline | ⬜ (the **+** button does it today) |
 | Source in-point trimming and slip; retime; multi-clip compositing | ⬜ |
 | Per-clip transform/effects/grade driving the composition | ⬜ |
 | Per-clip keyframes driving the composition transform for the active clip | ⬜ |
+| Compute passes (the four compute nodes) inside a graph | ⬜ reported as an error; no compute runtime |
+| A plan's typography, audio and transitions rendered | ⬜ the plan compiles the effects and the edit only |
 | Audio decode + WebAudio graph + J/L crossfades | ⬜ |
 | Audio/video muxing in the FFmpeg export (remove `-an`) | ⬜ |
 

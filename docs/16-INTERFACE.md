@@ -81,7 +81,16 @@ Icon names include: `pointer`, `move`, `text`, `square`, `pen`, `hand`, `zoom`, 
 - **Effects** — VFX catalogue from `getVFXEffects()` (`cardgrid`/`card`), with a search field.
 - **Text** — typography presets and variable font axes.
 - **Modes** — creative modes from `window.studio.getModes()` (`modecard` / `modecard--active`).
-- **AI** — the concept generator and brief form.
+- **AI** — the brief form, with two actions:
+  - **Generate Concepts** — the engine's concepts for the brief.
+  - **Build Production** — turns the brief into a full production plan and loads it into the
+    editor: the plan's shots become timeline clips and its effects become graph nodes, so the
+    viewport shows the result. Anything the plan asked for that the renderer cannot express is
+    reported as a note, not dropped silently
+    ([38-NODE-EDITOR](38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md)).
+
+  Loading a production replaces the timeline and the graph, so it goes through the history:
+  one Ctrl+Z puts the previous production back.
 
 While the bridge resolves, panels show **"Loading engine data…"** (`useEngineData().loading`).
 

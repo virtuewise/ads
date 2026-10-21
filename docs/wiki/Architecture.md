@@ -86,6 +86,32 @@ ProductionPlan  (validated with ProductionPlanSchema, status "PLANNING")
 The orchestrator accepts a `seed` for determinism and a `validate` flag (default `true`). See
 [Production Pipeline](Production-Pipeline) for details and current limitations.
 
+## From a plan to something you can see
+
+A plan was data that nothing rendered. The seam that closes it is
+`packages/creative-graph`:
+
+```
+CreativeBrief (validated)
+      ↓  buildProductionPlan()          packages/production-orchestrator
+ProductionPlan  (script, storyboard, shots, plans)
+      ↓  compilePlan()                  packages/creative-graph
+{ graph, timeline, warnings }
+      ↓  graphToDAG()                   apps/electron/…/engine/plan.ts
+the editor's graph and timeline
+      ↓
+the viewport renders it
+```
+
+`compilePlan()` turns the plan's effects into node kinds and its shots into timeline clips, and
+reports what it could not express as **warnings** — a plan that quietly loses half its effects is
+worse than one that says which effects it could not render.
+
+`packages/creative-graph` also holds the shared IR itself: the versioned `CreativeGraph` document,
+the port vocabulary, the rules for connecting ports, and the analysis that finds cycles and type
+mistakes before anything is rendered. See
+[Node Editor & Visual Programming](../38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md).
+
 ## Design principles
 
 1. **Separation of concerns** — each engine has a single responsibility.

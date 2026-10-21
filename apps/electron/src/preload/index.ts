@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld('studio', {
   getVFXEffects: () => ipcRenderer.invoke('engine:getVFXEffects'),
   getVisualGrammars: () => ipcRenderer.invoke('engine:getVisualGrammars'),
 
+  // ── Production planning ───────────────────────────────────────────────────
+  // A brief becomes a full production plan: script, storyboard, shots, and
+  // plans for motion, effects, typography and sound.
+  buildPlan: (brief: unknown) => ipcRenderer.invoke('production:buildPlan', brief),
+
   // ── Project documents ──────────────────────────────────────────────────────
   saveProject: (doc: unknown, opts?: { path?: string; format?: 'json' | 'binary' }) =>
     ipcRenderer.invoke('project:save', doc, opts),

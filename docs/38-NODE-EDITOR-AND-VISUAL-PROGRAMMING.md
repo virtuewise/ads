@@ -1,10 +1,11 @@
 # 38 — Node Editor & Visual Programming
 
-**Status: 🟡 (custom SVG node editor works; macros, debugging, compute nodes are ⬜) · Code: `components/NodeEditor.tsx`, `engine/compiler.ts`, `engine/nodes.ts`**
+**Status: 🟡 (a real node editor over a shared IR; macros, debugging and compute passes are ⬜) · Code: `components/NodeEditor.tsx`, `engine/compiler.ts`, `engine/nodes.ts`, `packages/creative-graph`**
 
 > The node editor is a custom SVG-based visual programming surface — not Monaco, not React Flow. It
 > supports node palette drag, node dragging, port-to-port bezier connections, node selection, and
-> deletion. Edge removal is stubbed. This document specifies the complete node editing experience.
+> deletion. Connections are type-checked before they are made, and the graph round-trips through
+> code. Edge removal is stubbed. This document specifies the complete node editing experience.
 
 ---
 
@@ -12,7 +13,7 @@
 
 ### 1.1 The editor surface
 
-`components/NodeEditor.tsx` (321 lines) — a custom SVG editor:
+`components/NodeEditor.tsx` — a custom SVG editor:
 
 - **Node palette** (left): drag a node type onto the canvas.
 - **Node dragging**: move nodes on the canvas.
@@ -20,31 +21,80 @@
 - **Node selection**: click to select, showing the node's parameters.
 - **Node deletion**: delete button on the selected node.
 - **Edge removal**: `onRemoveEdge` prop is accepted but **ignored** — edges cannot be removed.
+- **Connection checking**: a connection that would not type-check, or that would close a loop, is
+  **refused before it is made** and the reason is shown under the canvas.
 
 ### 1.2 The node registry
 
-14 node types in `engine/nodes.ts`:
+**53 node types** in `engine/nodes.ts`, every one of them emitting real WGSL:
 
-| Category | Nodes |
-|---|---|
-| Source | `dataSource`, `colorSource`, `noiseSource` |
-| Transform | `transform`, `ease`, `stagger` |
-| Effect | `glow`, `blur`, `colorGrade`, `vignette` |
-| Composite | `blend`, `alphaMerge` |
-| Output | `render` |
-| Script | `script` |
+| Category | Count | Examples |
+|---|---|---|
+| Source | 8 | `proceduralScene`, `mediaSource`, `solidSource`, `gradientSource`, `checkerSource` |
+| Transform | 6 | `transform`, `spatialTransform`, `oscillator`, `spring`, `ease`, `stagger` |
+| Effect | 4 | `glow`, `blur`, `colorGrade`, `vignette` |
+| Colour | 9 | `temperature`, `levels`, `exposure`, `saturation`, `hueShift`, `invert`, `threshold`, `channelMixer`, `solarize` |
+| Stylize | 10 | `sharpen`, `filmGrain`, `bloom`, `posterize`, `halftone`, `scanlines`, `edgeDetect`, `dither`, `pixelate`, `emboss` |
+| Distort | 5 | `chromaticAberration`, `lensDistortion`, `displacementMap`, `twirl`, `rgbSplit` |
+| Composite | 2 | `blend`, `alphaMerge` |
+| Other | 9 | `lensBlur`, `motionBlur`, `chromaKey`, `render`, `script`, and four compute nodes |
+
+The four **compute nodes** (`histogram`, `blurPyramid`, `opticalFlow`, `particleSystem`) run in
+their own `@compute` pass. The compositor runs a single fragment pass, so the compiler reports
+them as an error rather than emitting a call to a function that does not exist.
 
 ### 1.3 The compiler
 
 `engine/compiler.ts` — `compileDAG(dag)`:
 
 1. Kahn's topological sort (cycle detection).
-2. For each node in order: emit a call line.
+2. For each node in order: emit a call line, built from the node's **own WGSL signature**.
 3. Find the `render` node; emit `return <srcVar>;`.
-4. Wrap in a fragment shader with `{time, resolution, mouse}` uniforms.
+4. Wrap in a fragment shader with the transform and LUT uniforms.
 
-**Known issues:** the compiler's uniform struct differs from `visual.ts`'s (no transform/LUT fields);
-three node types have function-name mismatches that break WGSL; `uniforms: string[]` is always empty.
+Building the call from the signature rather than from the port list is what makes the node
+system self-consistent: a node can take a colour, a sampled image, a uv or a number in any
+order, and the call still matches the function it is passed to. Every node's port types are
+derived the same way, so the editor's connection check and the compiler cannot disagree.
+
+### 1.4 The shared IR — `packages/creative-graph`
+
+The editor's graph is the working shape its compiler understands. The **shared IR** is the
+versioned, validated document both the editor and the engines target:
+
+| Piece | What it is |
+|---|---|
+| `CreativeGraph` | `{ schemaVersion, nodes[], connections[] }`, validated by Zod |
+| `PortType` / `ValueType` | the port vocabulary, and the rules for connecting ports |
+| `analyzeGraph()` | dependency order, cycle detection, and the issues a graph has |
+| `createsCycle()` | whether an edge would close a loop, checked before it is made |
+| `compilePlan()` | a production plan → `{ graph, timeline, warnings }` |
+
+The port rules are the reason a bad connection is caught in the editor rather than as an opaque
+WGSL type error an hour later:
+
+| From | May feed |
+|---|---|
+| `image` (a sampled texture) | `image` |
+| `color` | `color`, `image` — a colour is a 1×1 image, and a node's output is a rendered image |
+| `number` | `number`, `boolean` |
+| `boolean` | `boolean`, `number` |
+| `string`, `audio` | themselves |
+
+A number cannot be wired into a colour, and an image cannot be used as a value.
+
+### 1.5 Code ⇄ graph
+
+The Script tab shows the graph as code, and the code is the graph:
+
+- `dagToCode()` emits a **JSON-compatible** object literal — quoted keys, no trailing commas —
+  so the same text parses back.
+- `codeToDAG()` finds the object by scanning for the matching brace (a regex cannot survive
+  nested braces and user edits) and parses it.
+- The node ids are kept, so the edges still point at the right nodes; an edge to a node that is
+  not in the graph is dropped.
+
+The round trip is covered by `engine/compiler.test.ts`.
 
 ---
 
@@ -53,14 +103,18 @@ three node types have function-name mismatches that break WGSL; `uniforms: strin
 | Capability | Today |
 |---|---|
 | Node palette + drag | ✅ |
-| Node connections | ✅ bezier edges |
+| Node connections | ✅ bezier edges, type-checked |
 | Node selection | ✅ |
 | Node deletion | ✅ |
+| Connection type checking | ✅ refused before the edge is made |
+| Cycle prevention | ✅ refused before the edge is made |
+| Code ⇄ graph round trip | ✅ |
+| A plan compiling into the graph | ✅ `compilePlan()` |
 | Edge deletion | ⬜ stubbed |
 | Macros / sub-graphs | ⬜ none |
 | Live per-node preview | ⬜ none |
 | Node debugging | ⬜ none |
-| Compute nodes | ⬜ none |
+| Compute nodes in a graph | ⬜ reported as an error; no compute pass exists |
 | Node groups / folders | ⬜ none |
 | Minimap | ⬜ none |
 | Auto-layout | ⬜ none |

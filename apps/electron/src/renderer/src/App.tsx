@@ -1,5 +1,8 @@
 // biome-ignore-all lint/a11y/noStaticElementInteractions: timeline clips, trim handles and drop targets are pointer-driven editing surfaces.
 // biome-ignore-all lint/a11y/useKeyWithClickEvents: pointer-driven timeline affordances mirror keyboard shortcuts handled globally.
+
+import type { ProductionPlan } from '@printsync/common';
+import { compilePlan } from '@printsync/creative-graph';
 import { AnimatePresence, motion } from 'motion/react';
 import type { DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -29,6 +32,7 @@ import {
   undo,
 } from './engine/history';
 import { decodeFrameAt, decodeVideoBuffer, type MediaSource } from './engine/media';
+import { graphToDAG, timelineToDoc } from './engine/plan';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
 import {
   addKeyframe,
@@ -46,6 +50,7 @@ import {
 } from './engine/timeline';
 import type {
   CompositionState,
+  DAG,
   GenreId,
   KeyframeEasing,
   MediaAsset,
@@ -298,13 +303,23 @@ export function App() {
   );
 
   /**
-   * Apply a history transition and mirror its timeline back into the state the
-   * UI renders. Without this, undo/redo would move an invisible store while the
+   * The graph loader, held in a ref so the history can restore the graph
+   * without the history itself depending on the graph store.
+   */
+  const loadDAGRef = useRef<((graph: DAG) => void) | null>(null);
+
+  /**
+   * Apply a history transition and mirror it back into the state the UI
+   * renders. Without this, undo/redo would move an invisible store while the
    * timeline kept showing the pre-undo document.
+   *
+   * The graph is restored too: a command that replaces the whole production —
+   * a loaded plan, say — has to be undone as a whole.
    */
   const applyHistory = useCallback((next: DocumentStore) => {
     setHistoryStore(next);
     setTimelineDoc(next.doc.timeline);
+    loadDAGRef.current?.(next.doc.graph);
   }, []);
 
   // ── Playback ──────────────────────────────────────────────────────────────
@@ -360,6 +375,19 @@ export function App() {
 
   // ── DAG engine ────────────────────────────────────────────────────────────
   const dag = useDAG();
+  loadDAGRef.current = dag.loadDAG;
+
+  /**
+   * Keep the document's graph current as the user edits it.
+   *
+   * The graph is not in the undo stack yet, but the document that gets saved
+   * has to be the graph on screen.
+   */
+  useEffect(() => {
+    setHistoryStore((s) =>
+      s.doc.graph === dag.dag ? s : { ...s, doc: { ...s.doc, graph: dag.dag } },
+    );
+  }, [dag.dag]);
   const viewportRef = useRef<WebGPUCanvasHandle>(null);
 
   // Bridge the DAG output into the composite shader pipeline.
@@ -584,6 +612,66 @@ export function App() {
       ).studio;
       const result = await api?.generateConcepts?.(brief);
       setGenerated(result ?? []);
+    } catch (e) {
+      setGenError(String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  /**
+   * Build a production from the brief and load it into the editor.
+   *
+   * This is the seam: the engines turn a brief into a plan, the plan compiles
+   * into the shared graph IR, and the IR becomes the graph and the timeline the
+   * viewport renders. Before this, a plan was data that nothing drew.
+   */
+  const handleBuildProduction = async () => {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const api = (
+        window as unknown as {
+          studio?: { buildPlan: (b: unknown) => Promise<ProductionPlan> };
+        }
+      ).studio;
+      const plan = await api?.buildPlan?.({
+        title: brief.objective,
+        duration: composition.duration,
+        mode: 'CORPORATE',
+        service: brief.service,
+        objective: brief.objective,
+        voice: 'confident',
+        scenes: [brief.objective],
+      });
+      if (!plan) {
+        setGenError('The production planner is unavailable.');
+        return;
+      }
+      const compiled = compilePlan(plan);
+      const nextGraph = graphToDAG(compiled.graph);
+      const nextTimeline = timelineToDoc(compiled.timeline, composition.duration);
+
+      // Loading a plan replaces the production, so it goes through the
+      // history: one Ctrl+Z puts the previous timeline and graph back.
+      const fromTimeline = timelineDoc;
+      const fromGraph = dag.dag;
+      const cmd: Command = {
+        id: `cmd-${Date.now().toString(36)}`,
+        label: 'Load Production',
+        do: (doc) => ({ ...doc, timeline: nextTimeline, graph: nextGraph }),
+        undo: (doc) => ({ ...doc, timeline: fromTimeline, graph: fromGraph }),
+      };
+      setHistoryStore((s) => dispatch(s, cmd));
+      setTimelineDoc(nextTimeline);
+      dag.loadDAG(nextGraph);
+      seededRef.current = true;
+      setActiveStage('comp');
+      notify(
+        compiled.warnings.length > 0
+          ? `Plan loaded with ${compiled.warnings.length} note(s): ${compiled.warnings[0]}`
+          : `Plan loaded: ${compiled.timeline.length} shots, ${compiled.graph.nodes.length} nodes`,
+      );
     } catch (e) {
       setGenError(String(e));
     } finally {
@@ -1786,6 +1874,15 @@ export function App() {
                   >
                     <Icon name="sparkle" size={13} />
                     {generating ? 'Generating…' : 'Generate Concepts'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--block"
+                    onClick={handleBuildProduction}
+                    disabled={generating}
+                  >
+                    <Icon name="nodes" size={13} />
+                    Build Production
                   </button>
                   {genError && (
                     <div className="err" role="alert">
