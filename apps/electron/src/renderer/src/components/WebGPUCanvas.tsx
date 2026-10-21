@@ -10,6 +10,12 @@ interface WebGPUCanvasProps {
   lut?: BrandLUT | null;
   /** Optional DAG-compiled WGSL shader. Falls back to COMPOSITE_SHADER when absent. */
   shaderCode?: string;
+  /** One unified shader per pass for graphs that sample an earlier pass. */
+  shaderSegments?: string[];
+  /** The pass whose result is presented. */
+  outputSegment?: number;
+  /** Graph-level errors that prevented the requested shader from compiling. */
+  compileError?: string;
   /**
    * The decoded video frame the graph's media source samples. It is handed to
    * the GPU as an external texture on every rendered frame; null falls back to
@@ -42,10 +48,13 @@ interface RenderState {
   format: GPUTextureFormat;
   uniformBuffer: GPUBuffer;
   data: Float32Array;
-  pipeline: GPURenderPipeline | null;
-  bindGroup: GPUBindGroup | null;
-  /** True when the shader samples a media texture. */
-  needsMedia: boolean;
+  passes: RenderPass[];
+  targets: GPUTexture[];
+  targetWidth: number;
+  targetHeight: number;
+  outputSegment: number;
+  inputSampler: GPUSampler;
+  inputFallback: GPUTexture;
   /** Non-filtering sampler: external textures only support nearest sampling. */
   mediaSampler: GPUSampler;
   /** Filtering sampler for the textures the editor paints into. */
@@ -56,12 +65,92 @@ interface RenderState {
   appTextures: Map<number, GPUTexture>;
 }
 
+interface RenderPass {
+  pipeline: GPURenderPipeline;
+  needsMedia: boolean;
+  inputBinding: number | null;
+  appBindings: number[];
+  bindGroup: GPUBindGroup | null;
+}
+
 /** The size of a texture the editor paints into. */
 const APP_TEXTURE_SIZE = 1024;
 
 /** Binding numbers the compiler reserves for the media texture and its sampler. */
 const MEDIA_TEXTURE_BINDING = 1;
 const MEDIA_SAMPLER_BINDING = 2;
+
+function ensureAppTexture(state: RenderState, slot: number): GPUTexture {
+  const existing = state.appTextures.get(slot);
+  if (existing) return existing;
+  const texture = state.device.createTexture({
+    size: [APP_TEXTURE_SIZE, APP_TEXTURE_SIZE],
+    format: 'rgba8unorm',
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  state.appTextures.set(slot, texture);
+  return texture;
+}
+
+function ensurePassTargets(
+  state: RenderState,
+  outputSegment: number,
+  width: number,
+  height: number,
+) {
+  const count = Math.max(0, outputSegment);
+  if (
+    state.targetWidth !== width ||
+    state.targetHeight !== height ||
+    state.targets.length !== count
+  ) {
+    for (const texture of state.targets) texture.destroy();
+    state.targets = Array.from({ length: count }, (_, i) =>
+      state.device.createTexture({
+        label: `composite-pass-${i}`,
+        size: [width, height],
+        format: state.format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      }),
+    );
+    state.targetWidth = width;
+    state.targetHeight = height;
+    for (const pass of state.passes) pass.bindGroup = null;
+  }
+}
+
+function createPassBindGroup(
+  state: RenderState,
+  pass: RenderPass,
+  index: number,
+  external?: GPUExternalTexture,
+): GPUBindGroup {
+  const entries: GPUBindGroupEntry[] = [{ binding: 0, resource: { buffer: state.uniformBuffer } }];
+  if (pass.needsMedia) {
+    if (!external) throw new Error('The media texture is not available for this pass');
+    entries.push(
+      { binding: MEDIA_TEXTURE_BINDING, resource: external },
+      { binding: MEDIA_SAMPLER_BINDING, resource: state.mediaSampler },
+    );
+  }
+  if (pass.inputBinding !== null) {
+    const input = index > 0 ? state.targets[index - 1] : state.inputFallback;
+    entries.push(
+      { binding: pass.inputBinding, resource: input.createView() },
+      { binding: pass.inputBinding + 1, resource: state.inputSampler },
+    );
+  }
+  for (const slot of pass.appBindings) {
+    entries.push(
+      { binding: slot, resource: ensureAppTexture(state, slot).createView() },
+      { binding: slot + 1, resource: state.appSampler },
+    );
+  }
+  return state.device.createBindGroup({ layout: pass.pipeline.getBindGroupLayout(0), entries });
+}
 
 interface CaptureRequest {
   resolve: (image: ImageData | null) => void;
@@ -70,7 +159,17 @@ interface CaptureRequest {
 }
 
 export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(function WebGPUCanvas(
-  { time = 0, transform, lut, shaderCode, mediaFrame = null, appTextureSlots = [] },
+  {
+    time = 0,
+    transform,
+    lut,
+    shaderCode,
+    shaderSegments,
+    outputSegment = 0,
+    compileError,
+    mediaFrame = null,
+    appTextureSlots = [],
+  },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -81,15 +180,33 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
   const [errorMsg, setErrorMsg] = useState('');
 
   // Latest props, read by the persistent render loop without re-initialising.
-  const propsRef = useRef({ time, transform, lut, shaderCode, mediaFrame, appTextureSlots });
-  propsRef.current = { time, transform, lut, shaderCode, mediaFrame, appTextureSlots };
+  const propsRef = useRef({
+    time,
+    transform,
+    lut,
+    shaderCode,
+    shaderSegments,
+    outputSegment,
+    mediaFrame,
+    appTextureSlots,
+  });
+  propsRef.current = {
+    time,
+    transform,
+    lut,
+    shaderCode,
+    shaderSegments,
+    outputSegment,
+    mediaFrame,
+    appTextureSlots,
+  };
 
   useImperativeHandle(
     ref,
     () => ({
       readPixels: () => {
         const state = stateRef.current;
-        if (!state?.pipeline || captureRef.current) return Promise.resolve(null);
+        if (!state || state.passes.length === 0 || captureRef.current) return Promise.resolve(null);
 
         return new Promise<ImageData | null>((resolve) => {
           const request: CaptureRequest = {
@@ -133,18 +250,7 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
     const state = stateRef.current;
     if (!state) return;
     for (const slot of appTextureSlots) {
-      if (state.appTextures.has(slot)) continue;
-      state.appTextures.set(
-        slot,
-        state.device.createTexture({
-          size: [APP_TEXTURE_SIZE, APP_TEXTURE_SIZE],
-          format: 'rgba8unorm',
-          usage:
-            GPUTextureUsage.TEXTURE_BINDING |
-            GPUTextureUsage.COPY_DST |
-            GPUTextureUsage.RENDER_ATTACHMENT,
-        }),
-      );
+      ensureAppTexture(state, slot);
     }
   }, [appTextureSlots, deviceReady]);
 
@@ -221,6 +327,23 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           addressModeU: 'clamp-to-edge',
           addressModeV: 'clamp-to-edge',
         });
+        const inputSampler = gpu.createSampler({
+          magFilter: 'linear',
+          minFilter: 'linear',
+          addressModeU: 'clamp-to-edge',
+          addressModeV: 'clamp-to-edge',
+        });
+        const inputFallback = gpu.createTexture({
+          size: [1, 1],
+          format: 'rgba8unorm',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+        gpu.queue.writeTexture(
+          { texture: inputFallback },
+          new Uint8Array([0, 0, 0, 255]),
+          { bytesPerRow: 4 },
+          { width: 1, height: 1 },
+        );
         const fallbackFrame = new VideoFrame(new Uint8Array([0, 0, 0, 255]), {
           format: 'RGBA',
           codedWidth: 1,
@@ -234,9 +357,13 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           format,
           uniformBuffer,
           data: new Float32Array(UNIFORM_FLOATS),
-          pipeline: null,
-          bindGroup: null,
-          needsMedia: false,
+          passes: [],
+          targets: [],
+          targetWidth: 0,
+          targetHeight: 0,
+          outputSegment: 0,
+          inputSampler,
+          inputFallback,
           mediaSampler,
           appSampler,
           fallbackFrame,
@@ -319,7 +446,6 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           if (destroyed) return;
           const width = canvas.width || 1;
           const height = canvas.height || 1;
-
           packUniforms(state.data, {
             time: propsRef.current.time,
             width,
@@ -328,60 +454,53 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
             lut: propsRef.current.lut,
           });
           gpu.queue.writeBuffer(uniformBuffer, 0, state.data);
-
-          // Bind the current media frame. The decoded VideoFrame is imported as
-          // an external texture, so the pixels reach the GPU without a copy —
-          // but an external texture expires at the end of the task, so the
-          // bind group is rebuilt for every frame.
-          let bindGroup = state.bindGroup;
-          if (state.needsMedia && state.pipeline) {
-            const frame = propsRef.current.mediaFrame ?? state.fallbackFrame;
-            if (frame) {
-              try {
-                const external = gpu.importExternalTexture({ source: frame });
-                bindGroup = gpu.createBindGroup({
-                  layout: state.pipeline.getBindGroupLayout(0),
-                  entries: [
-                    { binding: 0, resource: { buffer: state.uniformBuffer } },
-                    { binding: MEDIA_TEXTURE_BINDING, resource: external },
-                    { binding: MEDIA_SAMPLER_BINDING, resource: state.mediaSampler },
-                  ],
-                });
-              } catch (e) {
-                // A closed frame (the ring buffer evicted it) is not fatal.
-                if (!destroyed) console.warn('media import failed:', e);
-              }
-            }
-          }
-
+          const outputSegment = Math.min(
+            Math.max(0, propsRef.current.outputSegment),
+            Math.max(0, state.passes.length - 1),
+          );
+          ensurePassTargets(state, outputSegment, width, height);
+          state.outputSegment = outputSegment;
           const texture = context.getCurrentTexture();
           const encoder = gpu.createCommandEncoder({ label: 'viewport' });
-          const pass = encoder.beginRenderPass({
-            colorAttachments: [
-              {
-                view: texture.createView(),
-                clearValue: { r: 0.04, g: 0.05, b: 0.08, a: 1 },
-                loadOp: 'clear',
-                storeOp: 'store',
-              },
-            ],
-          });
-          if (state.pipeline && bindGroup) {
-            pass.setPipeline(state.pipeline);
+          for (let i = 0; i <= outputSegment && i < state.passes.length; i += 1) {
+            const renderPass = state.passes[i];
+            const target = i === outputSegment ? texture : state.targets[i];
+            const frame = propsRef.current.mediaFrame ?? state.fallbackFrame;
+            let bindGroup = renderPass.bindGroup;
+            try {
+              if (renderPass.needsMedia) {
+                if (!frame) continue;
+                const external = gpu.importExternalTexture({ source: frame });
+                bindGroup = createPassBindGroup(state, renderPass, i, external);
+              } else if (!bindGroup) {
+                bindGroup = createPassBindGroup(state, renderPass, i);
+                renderPass.bindGroup = bindGroup;
+              }
+            } catch (e) {
+              if (!destroyed) console.warn('render pass bind failed:', e);
+              continue;
+            }
+            const pass = encoder.beginRenderPass({
+              colorAttachments: [
+                {
+                  view: target.createView(),
+                  clearValue: { r: 0.04, g: 0.05, b: 0.08, a: 1 },
+                  loadOp: 'clear',
+                  storeOp: 'store',
+                },
+              ],
+            });
+            pass.setPipeline(renderPass.pipeline);
             pass.setBindGroup(0, bindGroup);
             pass.draw(6);
+            pass.end();
           }
-          pass.end();
           gpu.queue.submit([encoder.finish()]);
-
-          // Scope readback is demand-driven: no GPU-to-CPU copy happens
-          // while the scopes panel is closed.
           const request = captureRef.current;
           if (request && !request.inFlight) {
             request.inFlight = true;
             void readCapture(texture);
           }
-
           frameId = requestAnimationFrame(render);
         };
 
@@ -400,118 +519,111 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
       cancelAnimationFrame(frameId);
       observer?.disconnect();
       settleCapture(null);
+      const state = stateRef.current;
+      if (state) {
+        for (const target of state.targets) target.destroy();
+        for (const appTexture of state.appTextures.values()) appTexture.destroy();
+        state.inputFallback.destroy();
+        state.fallbackFrame?.close();
+        state.uniformBuffer.destroy();
+      }
       stateRef.current = null;
       device?.destroy();
     };
   }, []);
 
-  // Compile each shader revision into a fresh pipeline. The old pipeline
-  // stays active while compilation runs, so editing the graph does not blank
-  // the viewport. This effect is what makes DAG changes visible at all.
+  // Compile every shader in the graph and keep the prior usable pipelines until all
+  // passes validate successfully.
   useEffect(() => {
     const state = stateRef.current;
     if (!deviceReady || !state) return;
-
     let cancelled = false;
-    const source = shaderCode ?? COMPOSITE_SHADER;
+    const sources = shaderSegments?.length ? shaderSegments : [shaderCode ?? COMPOSITE_SHADER];
     setStatus('compiling');
 
     (async () => {
       try {
-        const module = state.device.createShaderModule({ code: source, label: 'viewport-shader' });
-        const info = await module.getCompilationInfo();
-        if (cancelled) return;
-
-        const messages = info.messages.filter((m) => m.type === 'error');
-        if (messages.length > 0) {
-          setStatus('error');
-          setErrorMsg(
-            messages
-              .slice(0, 6)
-              .map((m) => `line ${m.lineNum}:${m.linePos} — ${m.message}`)
-              .join('\n'),
-          );
-          return;
-        }
-
-        state.device.pushErrorScope('validation');
-        let pipeline: GPURenderPipeline;
-        try {
-          pipeline = state.device.createRenderPipeline({
-            layout: 'auto',
-            vertex: { module, entryPoint: 'vs' },
-            fragment: {
-              module,
-              entryPoint: 'fs',
-              targets: [{ format: state.format }],
-            },
-            primitive: { topology: 'triangle-list' },
+        const passes: RenderPass[] = [];
+        for (let index = 0; index < sources.length; index += 1) {
+          const source = sources[index];
+          const module = state.device.createShaderModule({
+            code: source,
+            label: `viewport-pass-${index}`,
           });
-        } catch (e) {
-          await state.device.popErrorScope();
-          if (!cancelled) {
+          const info = await module.getCompilationInfo();
+          if (cancelled) return;
+          const messages = info.messages.filter((message) => message.type === 'error');
+          if (messages.length > 0) {
             setStatus('error');
-            setErrorMsg(String(e));
+            setErrorMsg(
+              messages
+                .slice(0, 6)
+                .map(
+                  (message) =>
+                    'pass ' +
+                    (index + 1) +
+                    ', line ' +
+                    message.lineNum +
+                    ':' +
+                    message.linePos +
+                    ' — ' +
+                    message.message,
+                )
+                .join('\n'),
+            );
+            return;
           }
-          return;
-        }
 
-        const validation = await state.device.popErrorScope();
-        if (cancelled) return;
-        if (validation) {
-          setStatus('error');
-          setErrorMsg(validation.message);
-          return;
-        }
-
-        let bindGroup: GPUBindGroup;
-        try {
-          // A graph with a media source declares `media_tex`/`media_samp`; the
-          // shader itself is the source of truth for whether they are needed.
-          const needsMedia = source.includes('var media_tex');
-          const entries: GPUBindGroupEntry[] = [
-            { binding: 0, resource: { buffer: state.uniformBuffer } },
-          ];
-          if (needsMedia) {
-            // The external texture itself is bound per frame, because an
-            // imported external texture only lives for the current task.
-            const external = state.device.importExternalTexture({
-              source: state.fallbackFrame as VideoFrame,
+          state.device.pushErrorScope('validation');
+          let pipeline: GPURenderPipeline;
+          try {
+            pipeline = state.device.createRenderPipeline({
+              layout: 'auto',
+              vertex: { module, entryPoint: 'vs' },
+              fragment: { module, entryPoint: 'fs', targets: [{ format: state.format }] },
+              primitive: { topology: 'triangle-list' },
             });
-            entries.push({ binding: MEDIA_TEXTURE_BINDING, resource: external });
-            entries.push({ binding: MEDIA_SAMPLER_BINDING, resource: state.mediaSampler });
+          } catch (error) {
+            await state.device.popErrorScope();
+            if (!cancelled) {
+              setStatus('error');
+              setErrorMsg(`pass ${index + 1}: ${String(error)}`);
+            }
+            return;
           }
-          // The textures the editor paints into. They live across pipeline
-          // rebuilds, so a title is not lost when the graph changes.
-          for (const slot of propsRef.current.appTextureSlots) {
-            const texture = state.appTextures.get(slot);
-            if (!texture) continue;
-            entries.push({ binding: slot, resource: texture.createView() });
-            // The sampler that goes with it: the compiler gives the pair
-            // consecutive numbers, and the sampler is the one after.
-            entries.push({ binding: slot + 1, resource: state.appSampler });
-          }
-          bindGroup = state.device.createBindGroup({
-            layout: pipeline.getBindGroupLayout(0),
-            entries,
-          });
-          state.needsMedia = needsMedia;
-        } catch (e) {
-          if (!cancelled) {
+          const validation = await state.device.popErrorScope();
+          if (cancelled) return;
+          if (validation) {
             setStatus('error');
-            setErrorMsg(String(e));
+            setErrorMsg(`pass ${index + 1}: ${validation.message}`);
+            return;
           }
-          return;
-        }
 
-        state.pipeline = pipeline;
-        state.bindGroup = bindGroup;
+          const input = source.match(/@binding\((\d+)\)\s+var\s+seg_in\s*:/);
+          const appBindings = [
+            ...source.matchAll(/@binding\((\d+)\)\s+var\s+\w+_tex\d+\s*:\s*texture_2d<f32>/g),
+          ].map((match) => Number(match[1]));
+          for (const slot of appBindings) ensureAppTexture(state, slot);
+          passes.push({
+            pipeline,
+            needsMedia: /var\s+media_tex\s*:\s*texture_external/.test(source),
+            inputBinding: input ? Number(input[1]) : null,
+            appBindings,
+            bindGroup: null,
+          });
+        }
+        for (const target of state.targets) target.destroy();
+        state.targets = [];
+        state.targetWidth = 0;
+        state.targetHeight = 0;
+        state.passes = passes;
+        state.outputSegment = Math.min(Math.max(0, outputSegment), Math.max(0, passes.length - 1));
         setStatus('ready');
         setErrorMsg('');
-      } catch (e) {
+      } catch (error) {
         if (!cancelled) {
           setStatus('error');
-          setErrorMsg(String(e));
+          setErrorMsg(String(error));
         }
       }
     })();
@@ -519,7 +631,7 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
     return () => {
       cancelled = true;
     };
-  }, [deviceReady, shaderCode]);
+  }, [deviceReady, shaderCode, shaderSegments, outputSegment]);
 
   return (
     <div className="relative w-full h-full bg-ink">
@@ -534,12 +646,20 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           Compiling graph…
         </div>
       )}
-      {status === 'error' && (
+      {compileError ? (
+        <div
+          className="absolute inset-x-3 bottom-3 max-h-36 overflow-auto rounded-md border border-warning/40 bg-ink/95 p-3 font-mono text-[10px] leading-relaxed text-warning shadow-xl"
+          role="alert"
+        >
+          <div className="mb-1 font-sans text-[11px] font-medium">Graph compile error</div>
+          <pre className="whitespace-pre-wrap">{compileError}</pre>
+        </div>
+      ) : status === 'error' ? (
         <div className="absolute inset-x-3 bottom-3 max-h-36 overflow-auto rounded-md border border-warning/40 bg-ink/95 p-3 font-mono text-[10px] leading-relaxed text-warning shadow-xl">
           <div className="mb-1 font-sans text-[11px] font-medium">GPU shader error</div>
           <pre className="whitespace-pre-wrap">{errorMsg}</pre>
         </div>
-      )}
+      ) : null}
     </div>
   );
 });

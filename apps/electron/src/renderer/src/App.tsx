@@ -474,6 +474,76 @@ export function App() {
     };
   }, [timelineDoc.clips, mediaBin, playhead]);
 
+  const exportPrograms = useMemo(
+    () => ({
+      graph: dag.dag,
+      variants: new Map<string, ReturnType<typeof bridgeDAGToComposite>>(),
+    }),
+    [dag.dag],
+  );
+  const exportMediaSourcesRef = useRef(new Map<MediaSource, MediaSource>());
+  const programAtTime = useCallback(
+    (time: number) => {
+      const clip = timelineDoc.clips.find((item) => time >= item.start && time < item.end);
+      const look = clip?.look;
+      const key = JSON.stringify(look ?? null);
+      let program = exportPrograms.variants.get(key);
+      if (!program) {
+        program = bridgeDAGToComposite(exportPrograms.graph, look);
+        exportPrograms.variants.set(key, program);
+      }
+      return program;
+    },
+    [exportPrograms, timelineDoc.clips],
+  );
+  const mediaFrameAtTime = useCallback(
+    async (time: number) => {
+      let clip: TimelineClip | undefined;
+      for (const item of timelineDoc.clips) {
+        if (item.mediaId && time >= item.start && time < item.end) clip = item;
+      }
+      if (!clip?.mediaId) return null;
+      const source = mediaBin.find((item) => item.id === clip.mediaId);
+      if (!source) return null;
+      let exportSource = exportMediaSourcesRef.current.get(source);
+      if (!exportSource) {
+        // Export owns its decoded window so seeking cannot close a frame the
+        // live viewport is currently presenting.
+        exportSource = { ...source, frames: [], decodePosition: 0, complete: false };
+        exportMediaSourcesRef.current.set(source, exportSource);
+      }
+      const sourceTime = time - clip.start + (clip.sourceStart ?? 0);
+      const decoded = await decodeFrameAt(exportSource, sourceTime);
+      return decoded?.frame ?? null;
+    },
+    [timelineDoc.clips, mediaBin],
+  );
+  const disposeExportMedia = useCallback(() => {
+    for (const source of exportMediaSourcesRef.current.values()) {
+      for (const decoded of source.frames) decoded.frame.close();
+      source.frames = [];
+      source.samples = [];
+    }
+    exportMediaSourcesRef.current.clear();
+  }, []);
+  const appTexturesAtTime = useCallback(
+    (time: number) => {
+      const images: Record<number, ImageData> = {};
+      for (const [nodeId, binding] of Object.entries(appTextures)) {
+        const node = dag.dag.nodes.find((item) => item.id === nodeId);
+        if (!node) continue;
+        const style = textStyleFrom(node.inputs ?? {});
+        const step = plan?.script?.steps?.find(
+          (item) => item.text && time >= item.start && time < item.end,
+        );
+        const image = rasteriseText(step?.text ? { ...style, text: step.text } : style);
+        if (image) images[binding.texture] = image;
+      }
+      return images;
+    },
+    [appTextures, dag.dag.nodes, plan],
+  );
+
   /**
    * Match each shot to the first one, so a film reads as one film.
    *
@@ -2131,6 +2201,9 @@ export function App() {
                     transform={composition.transform}
                     lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
                     shaderCode={bridgedShader}
+                    shaderSegments={bridgeResult.ok ? bridgeResult.segments : undefined}
+                    outputSegment={bridgeResult.outputSegment}
+                    compileError={bridgeResult.ok ? undefined : bridgeResult.errors.join('\n')}
                     mediaFrame={mediaFrame}
                     appTextureSlots={appTextureSlots}
                   />
@@ -2677,6 +2750,10 @@ export function App() {
               <ExportPanel
                 composition={composition}
                 lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
+                programAtTime={programAtTime}
+                mediaFrameAtTime={mediaFrameAtTime}
+                appTexturesAtTime={appTexturesAtTime}
+                disposeExportMedia={disposeExportMedia}
               />
             )}
           </div>

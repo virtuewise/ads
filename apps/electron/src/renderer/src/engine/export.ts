@@ -4,6 +4,7 @@
 //   fast-1080p  -> H.264, hardware encoder when present, quick to produce
 //   prores-4k   -> 4K60 ProRes 422 HQ mezzanine, heavy but edit-grade
 
+import type { BridgeResult } from './bridge';
 import { createFrameRenderer } from './renderFrame';
 import type { BrandLUT, TransformState } from './types';
 
@@ -98,6 +99,14 @@ export interface RunExportOptions {
   lut?: BrandLUT | null;
   transform?: TransformState;
   encoder?: string;
+  /** Compile or retrieve the graph variant active at a frame's timeline time. */
+  programAtTime?: (time: number) => BridgeResult;
+  /** Decode the active timeline clip at the requested composition time. */
+  mediaFrameAtTime?: (time: number) => Promise<VideoFrame | null>;
+  /** Rasterized title/matte textures for the requested frame. */
+  appTexturesAtTime?: (time: number) => Record<number, ImageData>;
+  /** Release decoded export-only frames after success, failure, or cancellation. */
+  disposeExportMedia?: () => void;
   onProgress?: (p: ExportProgressEvent) => void;
   shouldCancel?: () => boolean;
 }
@@ -138,6 +147,7 @@ export async function runExport(options: RunExportOptions): Promise<RunExportRes
   });
   if (!renderer) {
     unsubscribe?.();
+    options.disposeExportMedia?.();
     throw new Error('WebGPU is unavailable, cannot render frames');
   }
 
@@ -168,7 +178,11 @@ export async function runExport(options: RunExportOptions): Promise<RunExportRes
         return { ok: false, stage: 'canceled', framesWritten, message: 'Canceled' };
       }
       const time = i / target.fps;
-      const bytes = await renderer.render(time, transform);
+      const program = options.programAtTime?.(time);
+      if (program && !program.ok) throw new Error(program.errors.join('\n'));
+      const mediaFrame = await options.mediaFrameAtTime?.(time);
+      const appTextures = options.appTexturesAtTime?.(time);
+      const bytes = await renderer.render(time, transform, { program, mediaFrame, appTextures });
       await api.writeExportFrame(bytes);
       framesWritten += 1;
       options.onProgress?.({
@@ -200,5 +214,6 @@ export async function runExport(options: RunExportOptions): Promise<RunExportRes
   } finally {
     renderer.dispose();
     unsubscribe?.();
+    options.disposeExportMedia?.();
   }
 }

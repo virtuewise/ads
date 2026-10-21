@@ -103,11 +103,13 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 
 | Task | Status |
 |---|---|
-| Feed the DAG's compiled output into the composite (join the two shaders) | ✅ (single-pass bridge; texture-sampling nodes still need multi-pass) |
+| Feed the DAG's compiled output into the composite | ✅ (single- and multi-pass viewport/export bridge; per-frame media and title inputs) |
 | Multi-output-port nodes in the compiler | ⬜ |
-| Real `BlurNode` / `VignetteNode` WGSL (currently placeholders) | ⬜ |
+| Multi-input texture nodes (for example, displacement maps) | ⬜ |
+| Branched image graphs across multipass boundaries | ⬜ |
+| `BlurNode` / `VignetteNode` WGSL | ✅ |
 | Monaco editor replacing the textarea in `ScriptEditor` | ✅ |
-| Surface compile errors (cycles, unknown nodes) in the UI | 🟡 (GPU validation errors are visible; graph-level errors are not) |
+| Surface compile errors (cycles, unknown nodes) in the UI | ✅ (graph-level and GPU validation errors are visible in the viewport) |
 | Colour management (linear round-trip, FFmpeg colour flags, `.cube` ingestion) | ⬜ |
 | Headless CLI (import → genre → render → export, no window) | ⬜ |
 | Pre-export brand-QA gate | ⬜ |
@@ -143,8 +145,9 @@ Media import (M1)
         Brand-QA gate ──► Export is trustworthy
 ```
 
-**Nothing after media import matters until media import lands** — the editor is currently a complete
-*compositing and delivery* system operating on a procedural placeholder scene.
+**Media import and graph-aware rendering are implemented in both the viewport and exporter.** The next
+critical gaps are audio, per-clip transforms/keyframes, scene detection, and transcript indexing; these
+remain prerequisites for genre-complete production.
 
 ---
 

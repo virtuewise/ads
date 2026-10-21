@@ -1,6 +1,6 @@
 # 02 — System Architecture
 
-**Status: ✅ (edit + render + export + genres real; media import ⬜) · Code: `apps/electron`, `packages/*`**
+**Status: 🟡 (media import and graph-aware multi-pass preview/export work; genre automation remains partial) · Code: `apps/electron`, `packages/*`**
 
 > Virtue Studio is a **three-process Electron application** (main / preload / renderer) whose renderer
 > hosts a **WebGPU engine core** — a DAG compiled to WGSL — and whose main process owns **file

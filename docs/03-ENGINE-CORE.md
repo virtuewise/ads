@@ -1,10 +1,11 @@
 # 03 — Engine Core: DAG, Nodes & the WGSL Compiler
 
-**Status: 🟡 (single-pass bridge real; texture-sampling nodes need a multi-pass runtime) · Code: `apps/electron/src/renderer/src/engine/{nodes,compiler,bridge,useDAG}.ts`**
+**Status: 🟡 (multi-pass viewport/export bridge implemented; multi-output ports, branched image passes, multi-input image effects, and compute runtime remain pending) · Code: `apps/electron/src/renderer/src/engine/{nodes,compiler,bridge,useDAG}.ts`**
 
 > The heart of Virtue Studio is a **Directed Acyclic Graph** whose nodes are TypeScript classes. Each
 > node knows how to *execute* (CPU semantics) and how to *emit WGSL* (GPU semantics). The compiler
-> sorts the graph and assembles the emitted WGSL into one fragment shader. The graph, the generated
+> sorts the graph and assembles colour-only sections into fragment passes. Texture-sampling nodes split
+> those passes, and the viewport renders the intermediate textures in order. The graph, the generated
 > code, and the rendered pixels are three views of the same object.
 
 ---
@@ -75,7 +76,7 @@ abstract class BaseNode {
 | `ease` | `EaseNode` | transform | Easing curve | `ease(t)` |
 | `stagger` | `StaggerNode` | transform | Staggered delay | `stagger(t,index,delay)` |
 | `glow` | `GlowNode` | effect | Additive glow | `glow(color,intensity)` |
-| `blur` | `BlurNode` | effect | Blur *(placeholder)* | `blur(color,radius)` |
+| `blur` | `BlurNode` | effect | 3×3 Gaussian blur | `blur(color,radius)` |
 | `colorGrade` | `ColorGradeNode` | effect | Lift/gamma/gain | `color_grade(color,lift,gamma,gain)` |
 | `vignette` | `VignetteNode` | effect | Vignette darkening | `vignette(color,intensity)` |
 | `blend` | `BlendNode` | composite | `mix(a,b,opacity)` | `blend(a,b,opacity)` |
@@ -85,10 +86,9 @@ abstract class BaseNode {
 
 Nodes are looked up by string type through `NODE_REGISTRY`; `createNode(type)` instantiates one.
 
-> **Note on stubs:** `BlurNode.toWGSL()` currently returns `color * 0.8` and `VignetteNode` computes a
-> constant distance — these are placeholders, flagged in [21-ROADMAP](21-ROADMAP.md). `GlowNode`,
-> `TransformNode`, `EaseNode`, `StaggerNode`, `ColorGradeNode`, `BlendNode`, and `AlphaMergeNode` are
-> real.
+> **Implementation note:** `BlurNode` uses a 3×3 binomial Gaussian kernel with a zero-radius
+> identity guard. `VignetteNode` computes radial falloff from the fragment coordinates. A number of
+> other advanced nodes remain planned or have placeholder behavior; see [21-ROADMAP](21-ROADMAP.md).
 
 ---
 
@@ -143,23 +143,19 @@ fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
 }
 ```
 
-> **Two shaders, one join:** `compileDAG` produces the **node-graph** fragment. The **viewport** uses a
-> fixed composite shader from `engine/visual.ts` (transform + LUT). `bridgeDAGToComposite` in
-> `engine/bridge.ts` joins them:
+> **Graph passes plus a composite wrapper:** `compileDAG` produces one fragment shader per pass.
+> `bridgeDAGToComposite` in `engine/bridge.ts` wraps each pass with the shared vertex and uniform
+> contract:
 >
 > 1. compile the graph;
-> 2. **refuse** any graph whose nodes chain textures into each other (a blur reading a colour
->    source's output) — those need their own render passes and the runtime does not execute them
->    yet, so the bridge returns `COMPOSITE_SHADER` plus an error instead of presenting an invalid
->    frame;
-> 3. extract the graph fragment body, strip its `uv` declaration and `return` statement, and inject the
->    value into the composite fragment after the inverse transform;
-> 4. apply opacity and the three-point LUT on top of the graph's colour.
+> 2. split at texture-sampling nodes and connect each pass to the texture rendered by its predecessor;
+> 3. apply the inverse transform in the first pass and opacity plus the three-point LUT in the
+>    presented pass;
+> 4. compile the same pass program for the viewport and offline exporter.
 >
-> The bridge also injects the shared vertex shader, so a compiled DAG module is a complete renderable
-> shader. The **exporter** still renders the fixed composite path, so WYSIWYG currently holds only for
-> graphs that compile through the bridge (see [04-RENDERING](04-RENDERING.md)). Multi-pass execution of
-> texture-sampling nodes is the next step of the [A3 effects phase](21-ROADMAP.md).
+> The exporter resolves the active shot look, media frame, and painted title textures at each composition
+> time. GPU byte-for-byte parity still needs manual verification on supported hardware (see
+> [04-RENDERING](04-RENDERING.md)).
 >
 > ### Bindings
 >
@@ -168,9 +164,17 @@ fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
 > | Binding | Resource | Present when |
 > |---|---|---|
 > | 0 | the uniform block | always |
-> | 1 | `media_tex` — a `texture_external` holding the current decoded frame | the graph has a `mediaSource` |
-> | 2 | `media_samp` — a non-filtering sampler for it | the graph has a `mediaSource` |
-> | 3+ | texture/sampler pairs for neighbourhood-effect nodes | the graph has them (and then the bridge refuses the graph) |
+> | 1–2 | `media_tex` / `media_samp` for the active frame | a pass contains a `mediaSource` |
+> | 1–4 | `seg_in` / `seg_in_samp` for the preceding pass | a pass samples an earlier pass (uses 3–4 when media occupies 1–2) |
+> | 9+ | app-painted texture/sampler pairs, such as titles | a pass contains a text or matte node |
+>
+> Effects that need two independent image inputs (for example `displacementMap`) report a compiler
+> error until the compositor supports multiple upstream images in one pass.
+>
+> The current multipass renderer also preserves only the final colour produced by each pass. Graphs
+> that connect an effect or composite to an earlier branch across a pass boundary report a compiler
+> error instead of sampling a different branch by accident. Full branched image graphs require
+> multiple retained pass outputs and are still pending.
 >
 > A **media source is a leaf**: it samples a texture the compositor supplies and returns a colour at
 > a given `uv`. That fits the single pass exactly — nothing upstream produces a texture — so a

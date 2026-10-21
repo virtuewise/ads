@@ -121,6 +121,202 @@ describe('compileDAG — media source', () => {
   });
 });
 
+describe('compileDAG — passes', () => {
+  it('splits a graph at its neighbourhood effects', () => {
+    const compiled = compileDAG(blurDAG());
+    expect(compiled.segments).toHaveLength(2);
+    // The first pass renders the scene; the second samples it.
+    expect(compiled.segments[0]).toContain('n0_procedural_scene');
+    expect(compiled.segments[0]).toContain('return n0_output;');
+    expect(compiled.segments[1]).toContain('var seg_in: texture_2d<f32>;');
+    // The blur samples the pass input inside its own function: the call hands
+    // it the pair, and the sampling happens in `fn blur(src, samp, ...)`.
+    expect(compiled.segments[1]).toContain('n1_blur(seg_in, seg_in_samp');
+    expect(compiled.segments[1]).toContain('n1_blur');
+    expect(compiled.wgsl).toContain('@binding(1) var seg_in: texture_2d<f32>;');
+    // The pass whose texture is presented is the one the blur rendered.
+    expect(compiled.outputSegment).toBe(1);
+  });
+
+  it('uses a two-dimensional blur kernel and treats zero radius as identity', () => {
+    const shader = compileDAG(blurDAG()).segments[1];
+    expect(shader).toContain('if (r <= 0.001) { return center; }');
+    expect(shader).toContain('textureSample(src, samp, uv + dy)');
+    expect(shader).toContain('textureSample(src, samp, uv + dx + dy)');
+    expect(shader).toContain('return sum / 16.0;');
+  });
+
+  it('keeps a colour-only chain in one pass', () => {
+    const dag: DAG = {
+      nodes: [
+        { id: 'p1', type: 'proceduralScene', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        {
+          id: 'g1',
+          type: 'toneMap',
+          position: { x: 100, y: 0 },
+          inputs: {},
+          outputs: {},
+        },
+        { id: 'r1', type: 'render', position: { x: 200, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'p1', port: 'output' }, to: { node: 'g1', port: 'input' } },
+        { id: 'e2', from: { node: 'g1', port: 'output' }, to: { node: 'r1', port: 'input' } },
+      ],
+    };
+    const compiled = compileDAG(dag);
+    expect(compiled.segments).toHaveLength(1);
+    expect(compiled.segments[0]).not.toContain('seg_in');
+    expect(compiled.outputSegment).toBe(0);
+  });
+
+  it('keeps media bindings in the source pass and reuses slots in the sampling pass', () => {
+    const dag: DAG = {
+      nodes: [
+        { id: 'm1', type: 'mediaSource', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'b1', type: 'blur', position: { x: 100, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'r1', type: 'render', position: { x: 200, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'm1', port: 'output' }, to: { node: 'b1', port: 'input' } },
+        { id: 'e2', from: { node: 'b1', port: 'output' }, to: { node: 'r1', port: 'input' } },
+      ],
+    };
+    const compiled = compileDAG(dag);
+    expect(compiled.segments).toHaveLength(2);
+    expect(compiled.segments[0]).toContain('@binding(1) var media_tex: texture_external;');
+    expect(compiled.segments[1]).toContain('@binding(1) var seg_in: texture_2d<f32>;');
+    expect(compiled.segments[1]).toContain('@binding(2) var seg_in_samp: sampler;');
+  });
+
+  it('keeps chained effects in consecutive passes', () => {
+    const dag: DAG = {
+      nodes: [
+        { id: 'p', type: 'proceduralScene', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'b1', type: 'blur', position: { x: 100, y: 0 }, inputs: {}, outputs: {} },
+        {
+          id: 'g',
+          type: 'toneMap',
+          position: { x: 200, y: 0 },
+          inputs: {},
+          outputs: {},
+        },
+        { id: 'b2', type: 'blur', position: { x: 300, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'r', type: 'render', position: { x: 400, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'p', port: 'output' }, to: { node: 'b1', port: 'input' } },
+        { id: 'e2', from: { node: 'b1', port: 'output' }, to: { node: 'g', port: 'input' } },
+        { id: 'e3', from: { node: 'g', port: 'output' }, to: { node: 'b2', port: 'input' } },
+        { id: 'e4', from: { node: 'b2', port: 'output' }, to: { node: 'r', port: 'input' } },
+      ],
+    };
+    const compiled = compileDAG(dag);
+    expect(compiled.errors).toEqual([]);
+    expect(compiled.segments).toHaveLength(3);
+    expect(compiled.outputSegment).toBe(2);
+  });
+
+  it('rejects an effect connected to an earlier branch the pass would lose', () => {
+    const dag: DAG = {
+      nodes: [
+        { id: 'p', type: 'proceduralScene', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        {
+          id: 'g',
+          type: 'toneMap',
+          position: { x: 100, y: 0 },
+          inputs: {},
+          outputs: {},
+        },
+        { id: 'b', type: 'blur', position: { x: 200, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'r', type: 'render', position: { x: 300, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'p', port: 'output' }, to: { node: 'g', port: 'input' } },
+        { id: 'e2', from: { node: 'p', port: 'output' }, to: { node: 'b', port: 'input' } },
+        { id: 'e3', from: { node: 'b', port: 'output' }, to: { node: 'r', port: 'input' } },
+      ],
+    };
+    expect(compileDAG(dag).errors.join('\n')).toMatch(/earlier image branch/);
+  });
+
+  it('rejects a color composite that reads from more than one rendered pass', () => {
+    const dag: DAG = {
+      nodes: [
+        { id: 'p', type: 'proceduralScene', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'b1', type: 'blur', position: { x: 100, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'b2', type: 'blur', position: { x: 200, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'a', type: 'alphaMerge', position: { x: 300, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'r', type: 'render', position: { x: 400, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'p', port: 'output' }, to: { node: 'b1', port: 'input' } },
+        { id: 'e2', from: { node: 'b1', port: 'output' }, to: { node: 'b2', port: 'input' } },
+        { id: 'e3', from: { node: 'p', port: 'output' }, to: { node: 'a', port: 'foreground' } },
+        { id: 'e4', from: { node: 'b2', port: 'output' }, to: { node: 'a', port: 'background' } },
+        { id: 'e5', from: { node: 'a', port: 'output' }, to: { node: 'r', port: 'input' } },
+      ],
+    };
+    expect(compileDAG(dag).errors.join('\n')).toMatch(/can only sample pass 2/);
+  });
+
+  it('reports multi-image effects the compositor cannot bind yet', () => {
+    const dag: DAG = {
+      nodes: [
+        { id: 'p1', type: 'proceduralScene', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'd1', type: 'displacementMap', position: { x: 100, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'r1', type: 'render', position: { x: 200, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'p1', port: 'output' }, to: { node: 'd1', port: 'input' } },
+        { id: 'e2', from: { node: 'd1', port: 'output' }, to: { node: 'r1', port: 'input' } },
+      ],
+    };
+    expect(compileDAG(dag).errors.join('\n')).toMatch(/needs multiple image inputs/);
+  });
+
+  it('presents the owned pass when the render reads across a boundary', () => {
+    // The render node reads the scene, not the blur; the blur still compiles
+    // into its own pass, but the scene's texture is what gets presented.
+    const dag: DAG = {
+      nodes: [
+        { id: 'p1', type: 'proceduralScene', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'b1', type: 'blur', position: { x: 100, y: 40 }, inputs: {}, outputs: {} },
+        { id: 'r1', type: 'render', position: { x: 200, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'p1', port: 'output' }, to: { node: 'b1', port: 'input' } },
+        { id: 'e2', from: { node: 'p1', port: 'output' }, to: { node: 'r1', port: 'input' } },
+      ],
+    };
+    const compiled = compileDAG(dag);
+    expect(compiled.segments).toHaveLength(2);
+    expect(compiled.outputSegment).toBe(0);
+    expect(compiled.segments[1]).toContain('return textureSample(seg_in, seg_in_samp, uv);');
+  });
+
+  it('numbers app textures uniquely across passes', () => {
+    const dag: DAG = {
+      nodes: [
+        { id: 'p1', type: 'proceduralScene', position: { x: 0, y: 0 }, inputs: {}, outputs: {} },
+        { id: 'b1', type: 'blur', position: { x: 100, y: 0 }, inputs: {}, outputs: {} },
+        { id: 't1', type: 'text', position: { x: 200, y: 40 }, inputs: {}, outputs: {} },
+        { id: 'r1', type: 'render', position: { x: 300, y: 0 }, inputs: {}, outputs: {} },
+      ],
+      edges: [
+        { id: 'e1', from: { node: 'p1', port: 'output' }, to: { node: 'b1', port: 'input' } },
+        { id: 'e2', from: { node: 'b1', port: 'output' }, to: { node: 't1', port: 'input' } },
+        { id: 'e3', from: { node: 't1', port: 'output' }, to: { node: 'r1', port: 'input' } },
+      ],
+    };
+    const compiled = compileDAG(dag);
+    expect(compiled.segments.length).toBeGreaterThanOrEqual(2);
+    // The title's pair lands above everything the passes reserve (0..4), so
+    // two titles in two different passes can never alias one texture.
+    expect(compiled.appTextures?.t1.texture).toBeGreaterThanOrEqual(9);
+  });
+});
+
 describe('bridgeDAGToComposite', () => {
   it('bridges a media graph and keeps the media bindings', () => {
     const result = bridgeDAGToComposite(mediaDAG());
@@ -137,10 +333,19 @@ describe('bridgeDAGToComposite', () => {
     expect(result.mediaBindings).toBeUndefined();
   });
 
-  it('refuses a graph that needs a multi-pass render', () => {
+  it('bridges a multi-pass graph pass by pass', () => {
     const result = bridgeDAGToComposite(blurDAG());
-    expect(result.ok).toBe(false);
-    expect(result.errors[0]).toMatch(/texture-sampling nodes/);
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.segments).toHaveLength(2);
+    // The compositor's transform lands on the first pass, the opacity and the
+    // LUT on the presented one.
+    expect(result.segments?.[0]).toContain('c = c / max(u.scale, 0.0001);');
+    expect(result.segments?.[0]).not.toContain('u.lutShadow');
+    expect(result.segments?.[result.outputSegment ?? 1]).toContain('u.lutShadow');
+    // The pass the compositor presents is the one the blur rendered.
+    expect(result.outputSegment).toBe(1);
+    expect(result.wgsl).toContain('n1_blur(seg_in, seg_in_samp');
   });
 });
 
@@ -154,7 +359,7 @@ describe('compileDAG — every node type', () => {
     it(`compiles a graph containing a ${type} node`, () => {
       const out = compileDAG(singleNodeDAG(type));
       // Compute nodes are reported rather than emitted.
-      if (/compute pass/.test(out.errors.join(' '))) return;
+      if (/requires a compute pipeline/.test(out.errors.join(' '))) return;
 
       // Collect the module's function signatures.
       const signatures = new Map<string, { arity: number; returns: string }>();

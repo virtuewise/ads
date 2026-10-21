@@ -371,19 +371,24 @@ export class BlurNode extends BaseNode {
     return { output: `blur(${inputs.input}, ${inputs.radius ?? 5})` };
   }
   toWGSL() {
-    // Separable Gaussian blur: 9-tap horizontal pass. The vertical pass runs
-    // as a second invocation. Weights are precomputed for sigma=2.0.
+    // A 3×3 binomial Gaussian kernel. Sampling both axes in one pass avoids
+    // presenting a horizontal streak as a full blur. A zero radius is an
+    // identity operation and must not enter a zero-width Gaussian.
     return `fn blur(src: texture_2d<f32>, samp: sampler, uv: vec2<f32>, radius: f32) -> vec4<f32> {
       let texel = 1.0 / vec2<f32>(textureDimensions(src));
       let r = clamp(radius, 0.0, 16.0);
-      var sum = vec4<f32>(0.0);
-      var wsum = 0.0;
-      for (var i = -4; i <= 4; i = i + 1) {
-        let w = exp(-f32(i * i) / (2.0 * r * r));
-        sum = sum + textureSample(src, samp, uv + vec2<f32>(f32(i), 0.0) * texel * r) * w;
-        wsum = wsum + w;
-      }
-      return sum / wsum;
+      let center = textureSample(src, samp, uv);
+      if (r <= 0.001) { return center; }
+      let dx = vec2<f32>(texel.x * r, 0.0);
+      let dy = vec2<f32>(0.0, texel.y * r);
+      var sum = center * 4.0;
+      sum += (textureSample(src, samp, uv + dx) + textureSample(src, samp, uv - dx)
+        + textureSample(src, samp, uv + dy) + textureSample(src, samp, uv - dy)) * 2.0;
+      sum += textureSample(src, samp, uv + dx + dy)
+        + textureSample(src, samp, uv + dx - dy)
+        + textureSample(src, samp, uv - dx + dy)
+        + textureSample(src, samp, uv - dx - dy);
+      return sum / 16.0;
     }`;
   }
 }

@@ -11,6 +11,13 @@ import { COMPOSITE_SHADER, UNIFORM_BYTES, UNIFORM_FLOATS, VERTEX_SHADER } from '
 export interface BridgeResult {
   /** The unified WGSL shader source. */
   wgsl: string;
+  /**
+   * One unified shader per pass, when the graph needs more than one. The
+   * compositor renders them in order and presents `outputSegment`.
+   */
+  segments?: string[];
+  /** The pass whose texture the compositor presents, when `segments` is set. */
+  outputSegment?: number;
   /** Whether the bridge succeeded. */
   ok: boolean;
   /** Error messages if compilation failed. */
@@ -22,6 +29,10 @@ export interface BridgeResult {
    * graph contains a media source.
    */
   mediaBindings?: { texture: number; sampler: number };
+  /**
+   * Bindings the editor has to paint, keyed by node id — a title's texture.
+   */
+  appTextures?: Record<string, { texture: number; sampler: number }>;
 }
 
 /**
@@ -49,19 +60,39 @@ export function bridgeDAGToComposite(
     return { wgsl: COMPOSITE_SHADER, ok: false, errors: compiled.errors, compiled };
   }
 
-  // The single-pass bridge can only supply the uniform block and the media
-  // texture. A neighbourhood-effect binding means the graph contains a node
-  // that must read a texture produced by *another* node — that needs a render
-  // pass per node, so refuse it rather than hand WebGPU an invalid bind group
-  // and silently present a black frame.
-  if (compiled.neighborhoodBindings > 0) {
+  // The bridge supplies the uniform block and any pass-local media texture.
+  // The passes come from the compiler: a graph that samples the picture is cut
+  // into one pass per sampling node, so the bridge wraps each pass and the
+  // compositor renders them in order. The compositor's pan/zoom applies where
+  // the graph first produces an image, the opacity and the LUT where its final
+  // one is produced.
+  if (compiled.segments.length > 1) {
+    const outputSegment = compiled.outputSegment;
+    const wrapped = compiled.segments.map((raw, i) => {
+      const extracted = extractFragmentBody(raw);
+      if (!extracted) return null;
+      return buildUnifiedShader(extracted, raw, {
+        transform: i === 0,
+        post: i === outputSegment,
+      });
+    });
+    if (wrapped.some((s) => s === null)) {
+      return {
+        wgsl: COMPOSITE_SHADER,
+        ok: false,
+        errors: ['Failed to extract a pass body from the DAG shader'],
+        compiled,
+      };
+    }
     return {
-      wgsl: COMPOSITE_SHADER,
-      ok: false,
-      errors: [
-        'This graph contains texture-sampling nodes. The single-pass bridge currently supports source and colour-only graphs; multi-pass execution is still on the roadmap.',
-      ],
+      wgsl: wrapped[outputSegment] ?? COMPOSITE_SHADER,
+      segments: wrapped as string[],
+      outputSegment,
+      ok: true,
+      errors: [],
       compiled,
+      ...(compiled.mediaBindings ? { mediaBindings: compiled.mediaBindings } : {}),
+      ...(compiled.appTextures ? { appTextures: compiled.appTextures } : {}),
     };
   }
 
@@ -136,8 +167,20 @@ function extractFunctions(wgsl: string): string {
   return wgsl.substring(0, idx).trim();
 }
 
-/** Build the unified shader that combines DAG output with the transform pipeline. */
-function buildUnifiedShader(dagBody: FragmentBody, fullDagWgsl: string): string {
+/** Build the unified shader that combines DAG output with the transform pipeline.
+ *
+ * `transform` and `post` split the wrapper across a multi-pass render: the
+ * compositor's pan/zoom applies where the graph first produces an image, the
+ * opacity and the LUT apply where its final one is produced, and the passes in
+ * between are pass-through.
+ */
+function buildUnifiedShader(
+  dagBody: FragmentBody,
+  fullDagWgsl: string,
+  opts: { transform?: boolean; post?: boolean } = {},
+): string {
+  const transform = opts.transform ?? true;
+  const post = opts.post ?? true;
   const functions = extractFunctions(fullDagWgsl);
 
   // The unified fragment shader:
@@ -153,7 +196,9 @@ ${functions}
 fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
   var uv = fragCoord.xy / u.resolution;
 
-  // Apply inverse transform: rotate, scale, translate
+${
+  transform
+    ? `  // Apply inverse transform: rotate, scale, translate
   var c = uv - vec2(0.5, 0.5);
   let ca = cos(u.rotation);
   let sa = sin(u.rotation);
@@ -161,13 +206,17 @@ fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
   c = c / max(u.scale, 0.0001);
   c = c - u.translation;
   uv = c + vec2(0.5, 0.5);
-
+`
+    : ''
+}
   // Evaluate the graph against the transformed coordinates. extractFragmentBody
   // has already converted the graph's return statement into this assignment.
   var color: vec4<f32> = vec4<f32>(0.0);
 ${indentLines(dagBody.statements, '  ')}
   color = ${dagBody.output};
-
+${
+  post
+    ? `
   // Apply opacity
   let a = clamp(u.opacity, 0.0, 1.0);
   color = vec4(color.rgb * a, color.a * a);
@@ -178,7 +227,9 @@ ${indentLines(dagBody.statements, '  ')}
   var lutCol = mix(u.lutShadow.rgb, u.lutMid.rgb, smoothstep(0.0, 0.5, lum));
   lutCol = mix(lutCol, u.lutHighlight.rgb, smoothstep(0.5, 1.0, lum));
   color = vec4<f32>(mix(color.rgb, lutCol, u.lutShadow.a), color.a);
-
+`
+    : ''
+}
   return color;
 }
 `;

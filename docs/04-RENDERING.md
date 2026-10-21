@@ -1,20 +1,19 @@
 # 04 — Rendering: WebGPU, the WYSIWYG Contract & Hardware
 
-**Status: 🟡 (viewport composite + DAG bridge real; exporter consumes the fixed composite only) · Code: `engine/visual.ts`, `engine/bridge.ts`, `engine/renderFrame.ts`, `components/WebGPUCanvas.tsx`**
+**Status: 🟡 (viewport and exporter run the same graph passes; hardware pixel parity still needs manual verification) · Code: `engine/visual.ts`, `engine/bridge.ts`, `engine/renderFrame.ts`, `components/WebGPUCanvas.tsx`**
 
 > Rendering is split into two paths: the interactive **viewport** and the headless **exporter**. They
-> share `engine/visual.ts` — the WGSL and the uniform packing — so the fallback scene cannot drift.
-> The viewport additionally accepts a DAG-bridged shader (`bridgeDAGToComposite`), which currently
-> covers source and colour-only graphs; the exporter still renders the fixed composite path.
+> share `engine/visual.ts` — the uniform packing and output contract — and accept the same DAG bridge
+> program. Multi-pass effects render through intermediate GPU textures in both paths; export selects
+> the active shot look, decodes its media frame, and rasterizes title textures for each frame.
 
 ---
 
 ## The WYSIWYG contract
 
-> **A frame rendered in the viewport at time `t` is byte-identical to the frame the exporter writes for
-> time `t`** (at equal resolution and LUT) — **as long as the viewport is running the composite
-> fallback.** A DAG-bridged viewport frame is not yet produced by the exporter; the graph must be
-> routed through the same path before byte-identity holds for node-graph compositions.
+> **A frame rendered in the viewport at time `t` and exported at time `t` uses the same graph, pass
+> order, uniforms, media frame, and title rasterization** at equal resolution and LUT. Byte identity
+> still needs a manual comparison on supported GPU hardware.
 
 This is guaranteed **structurally** for the composite path, not by testing discipline:
 
@@ -117,14 +116,18 @@ to drift.
 ## The headless exporter — `engine/renderFrame.ts`
 
 `createFrameRenderer({ width, height, lut })` returns a `FrameRenderer` or **`null` when WebGPU is
-unavailable** (callers fall back gracefully — see [07-EXPORT-PIPELINE](07-EXPORT-PIPELINE.md)).
+unavailable** (the export reports that failure — see [07-EXPORT-PIPELINE](07-EXPORT-PIPELINE.md)). A
+render call can supply the graph program, current `VideoFrame`, and app-painted images; compiled
+program variants are cached for the export.
 
 ### Pipeline
 
-1. Create shader module from `COMPOSITE_SHADER`, a `UNIFORM | COPY_DST` buffer, a `layout: 'auto'`
-   render pipeline (`vs` → `fs`, target `rgba8unorm`), and a bind group.
-2. Create an `rgba8unorm` texture with `RENDER_ATTACHMENT | COPY_SRC`.
-3. Create a `COPY_DST | MAP_READ` **staging buffer** sized to the padded row layout.
+1. Compile the graph variant into one `layout: 'auto'` render pipeline per pass, or use
+   `COMPOSITE_SHADER` when no program is supplied.
+2. Create an `rgba8unorm` output texture and an intermediate render texture for each preceding pass.
+3. Bind the current media frame, preceding pass input, and app-painted title textures. Media bind
+   groups are rebuilt each frame because imported external textures expire at the end of the task.
+4. Create a `COPY_DST | MAP_READ` **staging buffer** sized to the padded row layout.
 
 ### The 256-byte row alignment
 
@@ -133,15 +136,17 @@ WebGPU requires `bytesPerRow` to be a multiple of 256 when copying a texture to 
 1000px it pads to `4096`. On readback the padded rows are **repacked** into a tight `Uint8Array` of
 `width*4*height` bytes — which is exactly what FFmpeg's `rawvideo` input wants.
 
-### `render(time, transform)`
+### `render(time, transform, inputs)`
 
-1. `packUniforms` → `writeBuffer`.
-2. Record a render pass: clear to the ink background `{r:0.04,g:0.05,b:0.08,a:1}`, draw 6 vertices.
+1. Update app-painted images and `packUniforms` → `writeBuffer`.
+2. Record graph passes in order, feeding each pass the preceding intermediate texture. The final
+   active pass renders to the output texture.
 3. `copyTextureToBuffer` with the aligned `bytesPerRow`.
 4. `submit`, then `await mapAsync(READ)`.
 5. Slice (or repack) the mapped range into tightly packed RGBA bytes, `unmap`, return.
 
-`dispose()` destroys texture, staging buffer, uniform buffer, and device.
+`dispose()` destroys cached intermediate textures, app textures, the output texture, staging buffer,
+uniform buffer, and device.
 
 > **Performance note:** the export is *not* run on the main thread's UI work — it is a sequential async
 > loop in the renderer (`engine/export.ts`), with the heavy encoding in the main process and FFmpeg.
@@ -172,7 +177,7 @@ Because everything is local, the app must be explicit about the machine it runs 
 
 | Resource | How it is used | Safeguard |
 |---|---|---|
-| **GPU (VRAM)** | Viewport swapchain + export texture + staging buffer. A 4K frame is ~33 MB CPU-side, plus texture and staging on GPU. | Export uses one texture at a time; the staging buffer is freed per device. Device allocation scales with *output resolution*, not clip count today. |
+| **GPU (VRAM)** | Viewport swapchain + export output/intermediate textures + staging buffer. A 4K frame is ~33 MB CPU-side, plus one texture per active pass and the staging buffer. | Export caches shader variants for active shot looks; intermediate texture count scales with the maximum pass count. |
 | **System RAM** | Each export frame is a `Uint8Array` (`width*height*4`) at 1080p ≈ 8 MB, 4K ≈ 33 MB. | Backpressure in `export:frame` bounds the FIFO (see below); frames are not accumulated in memory. |
 | **CPU** | Node `execute()` per compile; keyframe sampling per frame; FFmpeg encoding in its own process. | The exporter is a sequential loop, so it does not spawn parallel GPU work. |
 | **Disk I/O** | FFmpeg writes encoded chunks to the SSD. | The renderer cannot outrun FFmpeg: `export:frame` awaits queue relief when the internal buffer grows past 8 frames ([07](07-EXPORT-PIPELINE.md)). |

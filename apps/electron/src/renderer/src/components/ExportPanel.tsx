@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { BridgeResult } from '../engine/bridge';
 import {
   EXPORT_TARGETS,
   type ExportProgressEvent,
@@ -13,6 +14,10 @@ import { Icon } from './Icon';
 interface ExportPanelProps {
   composition: CompositionState;
   lut?: BrandLUT | null;
+  programAtTime?: (time: number) => BridgeResult;
+  mediaFrameAtTime?: (time: number) => Promise<VideoFrame | null>;
+  appTexturesAtTime?: (time: number) => Record<number, ImageData>;
+  disposeExportMedia?: () => void;
 }
 
 interface EncoderInfo {
@@ -21,7 +26,14 @@ interface EncoderInfo {
   preferred: { h264: string | null; prores: string | null };
 }
 
-export function ExportPanel({ composition, lut }: ExportPanelProps) {
+export function ExportPanel({
+  composition,
+  lut,
+  programAtTime,
+  mediaFrameAtTime,
+  appTexturesAtTime,
+  disposeExportMedia,
+}: ExportPanelProps) {
   const [target, setTarget] = useState<ExportTarget>(EXPORT_TARGETS[0]);
   const [info, setInfo] = useState<EncoderInfo | null>(null);
   const [progress, setProgress] = useState<ExportProgressEvent | null>(null);
@@ -75,6 +87,10 @@ export function ExportPanel({ composition, lut }: ExportPanelProps) {
         duration: seconds,
         lut: lut ?? null,
         transform: composition.transform,
+        programAtTime,
+        mediaFrameAtTime,
+        appTexturesAtTime,
+        disposeExportMedia,
         onProgress: setProgress,
         shouldCancel: () => cancelRef.current,
       });

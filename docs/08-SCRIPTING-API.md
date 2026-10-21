@@ -30,10 +30,8 @@ Two tabs plus a sync action:
 | **Sync to Graph** button | Calls `onSync(localCode)` → `syncFromCode` → parse + recompile. Briefly shows "Syncing…". |
 | Status bar | `Code ↔ Node sync active · WGSL auto-compiled · WebGPU ready` |
 
-> **Implementation note:** the editor is currently a styled `<textarea>`, not a live Monaco instance.
-> The Monaco integration (`@monaco-editor/react`, `monaco-editor`) is in the dependency set; swapping the
-> textarea for Monaco is a presentation upgrade that requires **no** API change. Tracked in
-> [21-ROADMAP](21-ROADMAP.md).
+The code and WGSL tabs use Monaco via `@monaco-editor/react`; graph synchronization still goes through
+the same `dagToCode` / `codeToDAG` codec, so editor choice does not change the scripting contract.
 
 ### The `nodeGraph` module contract
 

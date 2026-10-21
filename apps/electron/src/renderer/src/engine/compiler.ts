@@ -18,11 +18,18 @@ export interface CompiledShader {
    */
   mediaBindings?: { texture: number; sampler: number };
   /**
-   * How many neighbourhood-effect texture bindings the graph needs. Each one
-   * requires its own render pass, so a single-pass compositor cannot run a
-   * graph with any of them.
+   * How many neighbourhood-effect texture inputs the graph uses. They are
+   * compiled as render passes and sample the preceding pass's output.
    */
   neighborhoodBindings: number;
+  /**
+   * One raw fragment shader per pass, in render order. A graph whose nodes all
+   * work on the colour in hand compiles to a single pass — `wgsl` is then that
+   * pass — while a blur or a bloom between two colour-only stretches splits it.
+   */
+  segments: string[];
+  /** The pass whose texture the compositor presents. */
+  outputSegment: number;
   /**
    * The texture bindings the editor has to paint, keyed by node id.
    *
@@ -76,7 +83,7 @@ const MEDIA_SOURCES = new Set(['mediaSource']);
 
 /**
  * Node types that run in their own @compute pass rather than as a fragment
- * function. The single-pass compositor cannot execute them.
+ * function. The current compositor has no compute-pipeline execution path.
  */
 const COMPUTE_NODE_TYPES = new Set(['histogram', 'blurPyramid', 'opticalFlow', 'particleSystem']);
 
@@ -159,6 +166,19 @@ function zeroFor(type: string): string {
   if (type === 'vec3<f32>') return 'vec3<f32>(0.0)';
   if (type === 'vec2<f32>') return 'vec2<f32>(0.0)';
   return '0.0';
+}
+
+/**
+ * Read a value a closed pass rendered into a texture. The pass's output is
+ * `seg_in`, so whatever the graph would have read out of a register is now
+ * sampled out of it, swizzled to the shape the consumer asked for.
+ */
+function swizzleSample(_varName: string, type: string): string {
+  const sample = 'textureSample(seg_in, seg_in_samp, uv)';
+  if (!type || type === 'vec4<f32>') return sample;
+  if (type === 'vec3<f32>') return `${sample}.rgb`;
+  if (type === 'vec2<f32>') return `${sample}.xy`;
+  return `${sample}.r`;
 }
 
 /** A WGSL literal of the right type for a port's value. */
@@ -298,9 +318,9 @@ function parseWgslSignature(wgsl: string, fnName: string): WgslSignature | null 
 /**
  * Binding numbers are reserved so the compositor knows where to put things:
  *   0 — the uniform block
- *   1 — the media texture   (only when the graph has a media source)
- *   2 — the media sampler   (only when the graph has a media source)
- *   3+ — neighbourhood-effect texture/sampler pairs
+ *   1, 2 — the media texture and sampler, when a pass contains a media source
+ *   1, 2 or 3, 4 — the prior pass's texture and sampler (3, 4 if media shares the pass)
+ *   9+ — editor-painted app textures in multipass graphs
  */
 const MEDIA_TEXTURE_BINDING = 1;
 const MEDIA_SAMPLER_BINDING = 2;
@@ -386,6 +406,54 @@ export function compileDAG(
    */
   const appTextures = new Map<string, { texture: number; sampler: number }>();
 
+  // ── Segmentation ───────────────────────────────────────────────────────────
+  // The graph is cut into render passes. A node that samples the picture — a
+  // blur, a bloom — cannot read its upstream's output out of a register, so
+  // that node runs in a pass of its own, sampling what the previous pass
+  // rendered. The colour-only nodes between two such nodes are compiled into a
+  // single pass, exactly as a graph without any of them is.
+  //
+  // An app texture (a title) is not a boundary: its content comes from the
+  // editor, not from the chain, so the node stays among the colour-only ones.
+  interface Segment {
+    functions: string[];
+    body: string[];
+    bindings: string[];
+    needsColour: boolean;
+    needsSegIn: boolean;
+    hasMedia: boolean;
+    /** The var names this pass defined; a later pass samples them as a texture. */
+    vars: string[];
+    /** The var this pass leaves in its texture, and its type. */
+    outputVar: string | null;
+    outputType: string | null;
+  }
+  const newSegment = (): Segment => ({
+    functions: [],
+    body: [],
+    bindings: [],
+    needsColour: false,
+    needsSegIn: false,
+    hasMedia: false,
+    vars: [],
+    outputVar: null,
+    outputType: null,
+  });
+  const segments: Segment[] = [newSegment()];
+  /** Vars a closed pass left behind: the later passes read them as a texture. */
+  const closedVars = new Map<string, number>(); // var name -> segment index
+  /** The pass whose texture the compositor presents. */
+  let outputSegmentIndex = 0;
+  /** App-texture bindings are numbered globally across passes, so two titles in two passes never alias. */
+  const appBindingCounter = { n: 9 };
+  let hasNeighbourhoodNode = false;
+  /** Close the open pass: what it left in a register becomes a texture. */
+  const closeSegment = () => {
+    const seg = segments[segments.length - 1];
+    const index = segments.length - 1;
+    for (const v of seg.vars) closedVars.set(v, index);
+  };
+
   // A media source samples a texture the compositor supplies, so its bindings
   // are reserved before any neighbourhood-effect bindings are numbered.
   const hasMediaSource = sorted.some((id) => {
@@ -416,7 +484,7 @@ export function compileDAG(
     // call to a function that does not exist.
     if (COMPUTE_NODE_TYPES.has(node.type)) {
       errors.push(
-        `Node ${id}: "${node.type}" is a compute pass. The compositor runs a single fragment pass, so compute nodes cannot be executed yet.`,
+        `Node ${id}: "${node.type}" requires a compute pipeline, which the compositor does not execute yet.`,
       );
       continue;
     }
@@ -463,19 +531,68 @@ export function compileDAG(
     // type would otherwise emit the same `fn` twice, and WGSL rejects a
     // redefinition — which made a second node of any type uncompilable.
     const scopedFn = `${varName}_${wgslFn}`;
+
+    const signature = parseWgslSignature(nodeWgsl, wgslFn);
+    const instanceTextures = signature?.params.some((p) => p.type.includes('texture')) ?? false;
+    const textureParamCount =
+      signature?.params.filter((p) => p.type.includes('texture')).length ?? 0;
+    const hasConnectedTextureInput = instance.ports.some(
+      (port) => port.direction === 'input' && port.type === 'texture' && varInputs.has(port.id),
+    );
+    if (textureParamCount > 1 && !instance.usesAppTexture && hasConnectedTextureInput) {
+      errors.push(
+        `Node ${id}: "${node.type}" needs multiple image inputs, but the compositor currently supports one upstream image per effect.`,
+      );
+      continue;
+    }
+    // A pass boundary: this node must sample a texture, so what precedes it
+    // has to have been rendered into one. A pass stores only its final colour;
+    // reject a branch that asks this effect to read an earlier intermediate.
+    const isBoundary = instanceTextures && !instance.usesAppTexture;
+    let segment = segments[segments.length - 1];
+    const upstreamImagePort = instance.ports.find(
+      (port) => port.direction === 'input' && port.type === 'texture',
+    );
+    const upstreamImageVar =
+      upstreamImagePort && varInputs.has(upstreamImagePort.id)
+        ? inputs[upstreamImagePort.id]
+        : undefined;
+    if (
+      isBoundary &&
+      segment.body.length > 0 &&
+      typeof upstreamImageVar === 'string' &&
+      segment.outputVar !== upstreamImageVar
+    ) {
+      errors.push(
+        `Node ${id}: "${node.type}" reads an earlier image branch that the current multipass compositor cannot preserve. Connect it to the latest output in the pass.`,
+      );
+      continue;
+    }
+    if (isBoundary && (segment.body.length > 0 || hasNeighbourhoodNode)) {
+      closeSegment();
+      segments.push(newSegment());
+      segment = segments[segments.length - 1];
+    }
+    if (MEDIA_SOURCES.has(node.type)) segment.hasMedia = true;
+
     functions.push(scopeFunctions(nodeWgsl, varName));
-    if (instance.usesColour) needsColour = true;
+    segment.functions.push(scopeFunctions(nodeWgsl, varName));
+    if (instance.usesColour) {
+      needsColour = true;
+      segment.needsColour = true;
+    }
 
     for (const [port, _value] of Object.entries(outputs)) {
-      outputVars.set(`${id}:${port}`, `${varName}_${port}`);
+      const varFullName = `${varName}_${port}`;
+      outputVars.set(`${id}:${port}`, varFullName);
       outputTypes.set(`${id}:${port}`, 'vec4<f32>');
+      segment.vars.push(varFullName);
     }
 
     // Generate the call from the node's own WGSL signature, so the arguments
     // always match the function they are passed to.
     const inputPorts = instance.ports.filter((p) => p.direction === 'input');
     const outputPorts = instance.ports.filter((p) => p.direction === 'output');
-    const signature = parseWgslSignature(nodeWgsl, wgslFn);
     if (outputPorts.length > 0) {
       if (!signature) {
         errors.push(`Node ${id}: "${node.type}" does not define the function "${wgslFn}"`);
@@ -487,36 +604,50 @@ export function compileDAG(
       let pair = 0;
       // The sampler that follows a texture belongs to that texture's pair.
       let lastTexPair = -1;
+      /** The pair index whose texture is `seg_in`, when this node samples the pass. */
+      let segPair: number | null = null;
       for (const param of signature.params) {
         if (param.type === 'sampler') {
-          args.push(`${varName}_samp${lastTexPair}`);
+          args.push(segPair === lastTexPair ? 'seg_in_samp' : `${varName}_samp${lastTexPair}`);
           continue;
         }
         if (param.type.includes('texture')) {
-          // A texture parameter. A neighbourhood effect samples the node
-          // upstream of it, which needs a render pass per node; an app
-          // texture is painted by the editor and bound directly.
           const idx = pair++;
           lastTexPair = idx;
           if (instance.usesAppTexture) {
             // The editor paints this one, so it takes no input port.
-            const texture = nextBinding++;
-            const sampler = nextBinding++;
+            let texture: number;
+            let sampler: number;
+            if (hasNeighbourhoodNode) {
+              // Across passes, numbering stays unique so two titles in two
+              // passes never alias one texture.
+              texture = appBindingCounter.n++;
+              sampler = appBindingCounter.n++;
+            } else {
+              texture = nextBinding++;
+              sampler = nextBinding++;
+            }
             nodeBindings.push(
               `  @group(0) @binding(${texture}) var ${varName}_tex${idx}: texture_2d<f32>;`,
               `  @group(0) @binding(${sampler}) var ${varName}_samp${idx}: sampler;`,
             );
+            segment.bindings.push(
+              `  @group(0) @binding(${texture}) var ${varName}_tex${idx}: texture_2d<f32>;`,
+              `  @group(0) @binding(${sampler}) var ${varName}_samp${idx}: sampler;`,
+            );
+            args.push(`${varName}_tex${idx}`);
             appTextures.set(id, { texture, sampler });
           } else {
-            // Skip the port that fed it.
+            // Skip the port that fed it. In the pass model the node samples
+            // `seg_in` — what the previous pass rendered — and the numbering
+            // is fixed, after the media pair when this pass declares one.
             portIndex += 1;
-            nodeBindings.push(
-              `  @group(0) @binding(${nextBinding++}) var ${varName}_tex${idx}: texture_2d<f32>;`,
-              `  @group(0) @binding(${nextBinding++}) var ${varName}_samp${idx}: sampler;`,
-            );
+            segPair = idx;
+            args.push('seg_in');
+            segment.needsSegIn = true;
+            hasNeighbourhoodNode = true;
             neighborhoodBindings += 1;
           }
-          args.push(`${varName}_tex${idx}`);
           continue;
         }
         if (param.name === 'uv' && param.type.includes('vec2')) {
@@ -525,14 +656,30 @@ export function compileDAG(
         }
         // Everything else takes the next input port's value.
         const port = inputPorts[portIndex++];
-        args.push(port ? portValue(port, inputs, varInputs, param.type) : zeroFor(param.type));
+        let argValue = port ? portValue(port, inputs, varInputs, param.type) : zeroFor(param.type);
+        // A var from a closed pass is a texture now, not a register.
+        if (typeof argValue === 'string' && closedVars.has(argValue)) {
+          const sourceSegment = closedVars.get(argValue);
+          if (sourceSegment !== segments.length - 2) {
+            errors.push(
+              `Node ${id}: "${node.type}" reads an image from pass ${(sourceSegment ?? 0) + 1}, but pass ${segments.length} can only sample pass ${segments.length - 1}.`,
+            );
+            argValue = zeroFor(param.type);
+          } else {
+            argValue = swizzleSample(argValue, param.type);
+            segment.needsSegIn = true;
+          }
+        }
+        args.push(argValue);
       }
       const outType = signature.returns || 'vec4<f32>';
-      bodyLines.push(
-        `  let ${varName}_${outputPorts[0].id}: ${outType} = ${scopedFn}(${args.join(', ')});`,
-      );
+      const stmt = `  let ${varName}_${outputPorts[0].id}: ${outType} = ${scopedFn}(${args.join(', ')});`;
+      bodyLines.push(stmt);
+      segment.body.push(stmt);
       outputTypes.set(`${id}:${outputPorts[0].id}`, outType);
       textureBindings.push(...nodeBindings);
+      segment.outputVar = `${varName}_${outputPorts[0].id}`;
+      segment.outputType = outType;
     }
   }
 
@@ -544,21 +691,80 @@ export function compileDAG(
     const inputEdges = edges.filter((e) => e.to.node === renderNode.id);
     const inputEdge = inputEdges[inputEdges.length - 1];
     if (inputEdge) {
-      const srcVar = outputVars.get(`${inputEdge.from.node}:${inputEdge.from.port}`);
-      if (srcVar) {
+      const rawVar = outputVars.get(`${inputEdge.from.node}:${inputEdge.from.port}`);
+      if (rawVar) {
         // The fragment must return a colour. A scalar source (a script node, a
         // number) is widened to one.
-        const srcType = outputTypes.get(`${inputEdge.from.node}:${inputEdge.from.port}`);
-        bodyLines.push(
-          srcType === 'vec4<f32>'
-            ? `  return ${srcVar};`
-            : `  return vec4<f32>(${srcVar}, ${srcVar}, ${srcVar}, 1.0);`,
-        );
+        const srcType =
+          outputTypes.get(`${inputEdge.from.node}:${inputEdge.from.port}`) ?? 'vec4<f32>';
+        const open = segments[segments.length - 1];
+        // The graph's output may belong to an already-closed pass, in which
+        // case its texture is what gets presented; the open one re-samples it
+        // only where it still has work to do.
+        const owning = closedVars.get(rawVar);
+        if (owning !== undefined) {
+          outputSegmentIndex = owning;
+        } else {
+          outputSegmentIndex = segments.length - 1;
+        }
+        const returnExpr =
+          owning !== undefined && open.body.length > 0
+            ? `  return ${swizzleSample(rawVar, srcType)};`
+            : srcType === 'vec4<f32>'
+              ? `  return ${rawVar};`
+              : `  return vec4<f32>(${rawVar}, ${rawVar}, ${rawVar}, 1.0);`;
+        bodyLines.push(returnExpr);
+        open.body.push(returnExpr);
         emittedRenderReturn = true;
       }
     }
   }
+  closeSegment();
 
+  /** One pass, as its own fragment shader. */
+  const buildSegment = (seg: Segment): string => {
+    const withMedia = seg.hasMedia;
+    const bindings = [...seg.bindings];
+    if (withMedia) {
+      bindings.push(
+        `  @group(0) @binding(${MEDIA_TEXTURE_BINDING}) var media_tex: texture_external;`,
+        `  @group(0) @binding(${MEDIA_SAMPLER_BINDING}) var media_samp: sampler;`,
+      );
+    }
+    if (seg.needsSegIn) {
+      // The pass's input is what its predecessor rendered. The numbering skips
+      // the media pair when this pass declares one.
+      const segStart = withMedia ? 3 : 1;
+      bindings.push(
+        `  @group(0) @binding(${segStart}) var seg_in: texture_2d<f32>;`,
+        `  @group(0) @binding(${segStart + 1}) var seg_in_samp: sampler;`,
+      );
+    }
+    // A pass that the render node did not end still has to return the colour
+    // it leaves in its texture; the next pass samples it there.
+    const tail = seg.body.some((l) => l.trim().startsWith('return'))
+      ? ''
+      : seg.outputVar
+        ? `  return ${seg.outputVar};`
+        : '  return vec4<f32>(uv, 0.5, 1.0);';
+    return `
+${UNIFORM_STRUCT}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+${bindings.length > 0 ? `\n${bindings.join('\n')}\n` : ''}
+${seg.needsColour ? `\n${COLOUR_WGSL}\n` : ''}
+${seg.functions.join('\n\n')}
+
+@fragment
+fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
+  let uv = fragCoord.xy / u.resolution;
+${seg.body.join('\n')}
+${tail}
+}
+`;
+  };
+
+  // A graph that never samples keeps one pass, and it is exactly the shader
+  // the single-pass path has always produced.
   const wgsl = `
 ${UNIFORM_STRUCT}
 @group(0) @binding(0) var<uniform> u: Uniforms;
@@ -573,13 +779,18 @@ ${bodyLines.join('\n')}
 ${emittedRenderReturn ? '' : '  return vec4<f32>(uv, 0.5, 1.0);'}
 }
 `;
+  const rawSegments = segments.map(buildSegment);
 
   return {
-    wgsl,
+    wgsl: neighborhoodBindings > 0 ? (rawSegments[outputSegmentIndex] ?? wgsl) : wgsl,
     entryPoint: 'fs',
     uniforms,
     errors,
     neighborhoodBindings,
+    /** One raw fragment shader per pass, in render order. */
+    segments: rawSegments,
+    /** The pass whose texture the compositor presents. */
+    outputSegment: outputSegmentIndex,
     ...(hasMediaSource
       ? { mediaBindings: { texture: MEDIA_TEXTURE_BINDING, sampler: MEDIA_SAMPLER_BINDING } }
       : {}),
