@@ -97,6 +97,9 @@ pub struct MotionPlan {
 #[serde(rename_all = "camelCase")]
 pub struct VFXPlan {
     pub effects: Vec<String>,
+    /// Which effects belong to which shot, keyed by shot id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shot_effects: Option<std::collections::BTreeMap<String, Vec<String>>>,
 }
 
 /// Audio plan

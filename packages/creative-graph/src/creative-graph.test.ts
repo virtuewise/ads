@@ -194,9 +194,52 @@ describe('compilePlan', () => {
     const analysis = analyzeGraph(result.graph, CATALOG);
     expect(analysis.issues.map((i) => i.code)).not.toContain('type-mismatch');
   });
+
+  it('gives each shot its own look', () => {
+    // The effect the shot uses is on; the others are switched off, so the
+    // shots of one film do not all look the same.
+    const plan = makePlan();
+    plan.vfx.shotEffects = { s1: ['glow_pulse'], s2: [] };
+    const result = compilePlan(plan as unknown as Plan);
+
+    const first = result.timeline[0]?.look ?? {};
+    const second = result.timeline[1]?.look ?? {};
+    expect(first.glow?.intensity).toBe(1.5);
+    expect(second.glow?.intensity).toBe(0);
+  });
+
+  it('falls back to the effect the shot names when the plan has no assignment', () => {
+    const plan = makePlan();
+    delete plan.vfx.shotEffects;
+    const shot = plan.shots[1];
+    if (shot) shot.vfx = 'glow_pulse';
+    const result = compilePlan(plan as unknown as Plan);
+    expect(result.timeline[1]?.look?.glow?.intensity).toBe(1.5);
+  });
+
+  it('warns when two effects want the same node', () => {
+    const plan = makePlan();
+    plan.vfx.effects = ['light_sweep', 'lens_flare'];
+    const result = compilePlan(plan as unknown as Plan);
+    expect(result.warnings.some((w) => w.includes('bloom'))).toBe(true);
+  });
 });
 
-function makePlan() {
+/** A plan, shaped loosely: the compiler takes a validated one. */
+interface TestPlan {
+  shots: Array<{
+    id: string;
+    start: number;
+    duration: number;
+    purpose: string;
+    camera: Record<string, unknown>;
+    vfx?: string;
+  }>;
+  vfx: { effects: string[]; shotEffects?: Record<string, string[]> };
+  assets: Array<{ type: string; url: string }>;
+}
+
+function makePlan(): TestPlan {
   return {
     brief: {},
     script: {},
@@ -216,5 +259,5 @@ function makePlan() {
     visualGrammar: {},
     sceneGraph: {},
     productionStatus: 'PLANNING',
-  };
+  } as unknown as TestPlan;
 }

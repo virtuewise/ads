@@ -92,10 +92,9 @@ quietly loses half its effects is worse than one that says which effects it coul
 See [38-NODE-EDITOR-AND-VISUAL-PROGRAMMING](38-NODE-EDITOR-AND-VISUAL-PROGRAMMING.md) for the
 IR itself.
 
-> **Known limitation.** The compiled graph is *one* chain, so every shot in the plan is rendered
-> with the same look. A shot's own effect is reported as a warning rather than compiled into a
-> per-shot graph. Making the look vary by shot needs a per-shot graph, which is a larger change
-> than the mapping.
+> **Known limitation.** A shot's own effect is compiled into the film's effect nodes, and each shot
+> switches its effects on or off through the clip's `look`. An effect with no amount cannot be
+> switched off that way, so it is not used as a per-shot effect.
 
 ---
 

@@ -189,10 +189,19 @@ export const MotionPlanSchema = z.object({
 
 export interface VFXPlan {
   effects: string[];
+  /**
+   * Which effects belong to which shot, keyed by shot id.
+   *
+   * `effects` alone is the union across the film, which loses which shot an
+   * effect was assigned to. A renderer that gives each shot its own look needs
+   * the per-shot assignment, so the plan carries it.
+   */
+  shotEffects?: Record<string, string[]>;
 }
 
 export const VFXPlanSchema = z.object({
   effects: z.array(z.string()),
+  shotEffects: z.record(z.string(), z.array(z.string())).optional(),
 });
 
 export interface AudioPlan {

@@ -308,7 +308,10 @@ const UNIFORM_STRUCT = `struct Uniforms {
   lutHighlight: vec4<f32>,
 };`;
 
-export function compileDAG(dag: DAG): CompiledShader {
+export function compileDAG(
+  dag: DAG,
+  look?: Record<string, Record<string, unknown>>,
+): CompiledShader {
   const errors: string[] = [];
   const uniforms: string[] = [];
   const functions: string[] = [];
@@ -402,7 +405,13 @@ export function compileDAG(dag: DAG): CompiledShader {
     // Collect inputs from edges. `varInputs` records which ports hold a
     // reference to another node's output — a port's *value* cannot be used to
     // tell, because a plain string like "normal" is not a variable.
-    const inputs: Record<string, unknown> = { ...node.inputs };
+    //
+    // A look overrides the node's own parameters: a film's shots share one
+    // graph and each shot switches its effects on or off.
+    const inputs: Record<string, unknown> = {
+      ...node.inputs,
+      ...(look?.[node.type] ?? {}),
+    };
     const varInputs = new Set<string>();
     for (const e of edges) {
       if (e.to.node === id) {

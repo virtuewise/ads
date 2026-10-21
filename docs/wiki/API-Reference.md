@@ -76,6 +76,10 @@ import type {
 
 > These `CreativeBrief`/`Script`/`ProductionPlan` types are **distinct** from the
 > `@printsync/shared` creative types of similar names. See [Production Pipeline](Production-Pipeline).
+>
+> `VFXPlan` carries both the film's effect list and the per-shot assignment
+> (`shotEffects`, keyed by shot id). The union alone loses which shot an effect
+> was assigned to, and a renderer that gives each shot its own look needs it.
 
 ## `@printsync/creative-engine`
 

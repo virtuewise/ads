@@ -26,6 +26,13 @@ interface TimelineClip {
   keyframes: Keyframe[];
   mediaId?: string;         // the imported source this clip shows
   sourceStart?: number;     // in-point within that source, in seconds
+  /**
+   * The look for this clip: the parameters of each node kind, keyed by kind.
+   *
+   * A film's shots share one graph and each clip switches its effects on or
+   * off, so the viewport shows a different look at every shot.
+   */
+  look?: Record<string, Record<string, unknown>>;
 }
 
 interface Keyframe {

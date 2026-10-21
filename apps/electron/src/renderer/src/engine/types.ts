@@ -332,6 +332,13 @@ export interface TimelineClip {
   mediaId?: string;
   /** In-point within the source, in seconds. */
   sourceStart?: number;
+  /**
+   * The look for this clip: the parameters of each node kind, keyed by kind.
+   *
+   * A film's shots share one graph and each clip switches its effects on or
+   * off, so the viewport shows a different look at every shot.
+   */
+  look?: Record<string, Record<string, unknown>>;
 }
 
 export interface TimelineDoc {

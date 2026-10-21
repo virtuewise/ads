@@ -96,6 +96,29 @@ The Script tab shows the graph as code, and the code is the graph:
 
 The round trip is covered by `engine/compiler.test.ts`.
 
+### 1.6 A per-shot look
+
+A film does not use one look for its whole length. The plan's effect nodes are all in the graph, and
+**each timeline clip carries the parameters that switch them on or off**:
+
+```typescript
+interface TimelineClip {
+  // …
+  /** The look for this clip: the parameters of each node kind, keyed by kind. */
+  look?: Record<string, Record<string, unknown>>;
+}
+```
+
+The compiler takes the look as an override of the node's own parameters:
+
+```typescript
+compileDAG(dag, look)   // look: { glow: { intensity: 0 }, bloom: { intensity: 2 } }
+```
+
+The viewport uses the look of the clip under the playhead, so scrubbing the timeline changes what
+is on screen. An effect that cannot be switched off — one with no amount — cannot be a per-shot
+effect; the plan's mapping only uses the ones that can.
+
 ---
 
 ## 2. The gap, precisely

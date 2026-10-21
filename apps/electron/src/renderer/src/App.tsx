@@ -390,8 +390,25 @@ export function App() {
   }, [dag.dag]);
   const viewportRef = useRef<WebGPUCanvasHandle>(null);
 
+  /**
+   * The look of the clip under the playhead.
+   *
+   * A film's shots share one graph; each clip switches its effects on or off.
+   * Scrubbing the timeline therefore changes what the viewport shows.
+   */
+  const activeLook = useMemo(() => {
+    for (const c of timelineDoc.clips) {
+      if (!c.look) continue;
+      if (playhead >= c.start && playhead < c.end) return c.look;
+    }
+    return undefined;
+  }, [timelineDoc.clips, playhead]);
+
   // Bridge the DAG output into the composite shader pipeline.
-  const bridgeResult = useMemo(() => bridgeDAGToComposite(dag.dag), [dag.dag]);
+  const bridgeResult = useMemo(
+    () => bridgeDAGToComposite(dag.dag, activeLook),
+    [dag.dag, activeLook],
+  );
   const bridgedShader = bridgeResult.ok ? bridgeResult.wgsl : undefined;
 
   // The decoded frame the graph's media source samples. It comes from the

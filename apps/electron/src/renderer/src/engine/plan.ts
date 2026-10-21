@@ -40,6 +40,7 @@ export function timelineToDoc(items: TimelineItem[], duration: number): Timeline
     keyframes: [],
     ...(item.mediaId ? { mediaId: item.mediaId } : {}),
     ...(item.sourceStart !== undefined ? { sourceStart: item.sourceStart } : {}),
+    ...(item.look ? { look: item.look } : {}),
   }));
   return { duration, clips };
 }

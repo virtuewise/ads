@@ -40,8 +40,11 @@ export interface BridgeResult {
  * The bridge wraps the DAG's fragment body inside the composite shader's
  * transform pipeline, so the DAG's output is transformed and graded.
  */
-export function bridgeDAGToComposite(dag: DAG): BridgeResult {
-  const compiled = compileDAG(dag);
+export function bridgeDAGToComposite(
+  dag: DAG,
+  look?: Record<string, Record<string, unknown>>,
+): BridgeResult {
+  const compiled = compileDAG(dag, look);
   if (compiled.errors.length > 0) {
     return { wgsl: COMPOSITE_SHADER, ok: false, errors: compiled.errors, compiled };
   }

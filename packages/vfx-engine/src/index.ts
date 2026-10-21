@@ -101,11 +101,17 @@ export class VFXEngine {
   async planVFX(shots: Shot[], options: VFXEngineOptions = {}): Promise<VFXPlan> {
     const { budget = 'MEDIUM' } = options;
     const effects = new Set<string>();
+    // Which effects belong to which shot. The union in 'effects' loses the
+    // assignment, and a renderer that gives each shot its own look needs it.
+    const shotEffects: Record<string, string[]> = {};
 
     for (const shot of shots) {
+      const assigned: string[] = [];
       // Use shot.vfx if specified
       if (shot.vfx && VFX_EFFECTS[shot.vfx]) {
         effects.add(shot.vfx);
+        assigned.push(shot.vfx);
+        shotEffects[shot.id] = assigned;
         continue;
       }
 
@@ -119,9 +125,13 @@ export class VFXEngine {
         const maxEffects = budget === 'LOW' ? 1 : budget === 'MEDIUM' ? 2 : 3;
         for (let i = 0; i < Math.min(maxEffects, candidates.length); i++) {
           const candidate = candidates[i];
-          if (candidate) effects.add(candidate[0]);
+          if (candidate) {
+            effects.add(candidate[0]);
+            assigned.push(candidate[0]);
+          }
         }
       }
+      shotEffects[shot.id] = assigned;
     }
 
     // Mode-specific additions
@@ -135,7 +145,7 @@ export class VFXEngine {
       effects.add('motion_blur');
     }
 
-    return { effects: Array.from(effects) };
+    return { effects: Array.from(effects), shotEffects };
   }
 
   getEffect(id: string): VFXEffect | undefined {

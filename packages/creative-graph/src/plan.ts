@@ -25,6 +25,14 @@ export interface TimelineItem {
   mediaId?: string;
   /** The in-point within the source, in seconds. */
   sourceStart?: number;
+  /**
+   * The look for this shot: the parameters of each node kind, keyed by kind.
+   *
+   * A film does not use one look for its whole length, so the effect nodes the
+   * plan asked for are present in the graph and each shot switches on the ones
+   * it uses.
+   */
+  look?: Record<string, Record<string, unknown>>;
 }
 
 /**
@@ -33,14 +41,41 @@ export interface TimelineItem {
  * The catalogue is deliberately explicit. An effect with no entry here is
  * reported as a warning, because a plan that quietly loses half its effects
  * is worse than one that says which effects it could not render.
+ *
+ * `params` are the node's port values when the effect is on; `off` are the
+ * values that make the node a no-op, so a shot that does not use the effect
+ * still has it in the graph, switched off.
  */
-const EFFECT_NODES: Record<string, { kind: string; params?: Record<string, unknown> }> = {
-  glow_pulse: { kind: 'glow', params: { intensity: 1.5 } },
-  light_sweep: { kind: 'bloom', params: { threshold: 0.6, intensity: 2.0 } },
-  lens_flare: { kind: 'bloom', params: { threshold: 0.8, intensity: 0.8 } },
-  chromatic_aberration: { kind: 'chromaticAberration', params: { amount: 0.4 } },
-  motion_blur: { kind: 'motionBlur', params: { amount: 0.5, samples: 8 } },
-  depth_of_field: { kind: 'lensBlur', params: { radius: 6, blades: 6 } },
+const EFFECT_NODES: Record<
+  string,
+  { kind: string; params: Record<string, unknown>; off: Record<string, unknown> }
+> = {
+  glow_pulse: { kind: 'glow', params: { intensity: 1.5 }, off: { intensity: 0 } },
+  light_sweep: {
+    kind: 'bloom',
+    params: { threshold: 0.6, intensity: 2.0 },
+    off: { intensity: 0 },
+  },
+  lens_flare: {
+    kind: 'bloom',
+    params: { threshold: 0.8, intensity: 0.8 },
+    off: { intensity: 0 },
+  },
+  chromatic_aberration: {
+    kind: 'chromaticAberration',
+    params: { amount: 0.4 },
+    off: { amount: 0 },
+  },
+  motion_blur: {
+    kind: 'motionBlur',
+    params: { amount: 0.5, samples: 8 },
+    off: { amount: 0 },
+  },
+  depth_of_field: {
+    kind: 'lensBlur',
+    params: { radius: 6, blades: 6 },
+    off: { radius: 0 },
+  },
 };
 
 /** The result of compiling a plan. */
@@ -87,6 +122,7 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
   });
 
   // The planned effects, in the order the plan lists them.
+  const usedKinds = new Set<string>();
   let previous = 'source';
   for (const effect of plan.vfx.effects) {
     const mapping = EFFECT_NODES[effect];
@@ -94,12 +130,18 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
       warnings.push(`The effect "${effect}" has no node in the renderer yet.`);
       continue;
     }
+    if (usedKinds.has(mapping.kind)) {
+      // One node per kind: two effects that want the same node cannot both
+      // have it, and the plan is warned about below.
+      continue;
+    }
+    usedKinds.add(mapping.kind);
     const id = `fx-${nodes.length}`;
     nodes.push({
       id,
       kind: mapping.kind,
       position: { x: 120 + nodes.length * 40, y: 120 },
-      params: { ...(mapping.params ?? {}) },
+      params: { ...mapping.params },
     });
     connections.push({
       from: { node: previous, port: 'output' },
@@ -121,13 +163,31 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
   });
 
   // The edit: one item per shot, laid out along the timeline.
-  const timeline: TimelineItem[] = plan.shots.map((shot) => ({
-    id: `shot-${shot.id}`,
-    trackId: 'video',
-    start: shot.start,
-    end: shot.start + shot.duration,
-    name: shot.purpose,
-  }));
+  //
+  // Each shot carries its own look: the effects it uses are on, the rest are
+  // switched off. A film does not use one look for its whole length.
+  const shotAssignment = plan.vfx.shotEffects ?? {};
+  const timeline: TimelineItem[] = plan.shots.map((shot) => {
+    const used = new Set(shotAssignment[shot.id] ?? (shot.vfx ? [shot.vfx] : []));
+    const look: Record<string, Record<string, unknown>> = {};
+    for (const effect of plan.vfx.effects) {
+      const mapping = EFFECT_NODES[effect];
+      if (!mapping) continue;
+      const on = used.has(effect);
+      // Two effects can map to one kind; the first one wins, and the plan is
+      // warned about it below.
+      if (look[mapping.kind]) continue;
+      look[mapping.kind] = on ? { ...mapping.params } : { ...mapping.off };
+    }
+    return {
+      id: `shot-${shot.id}`,
+      trackId: 'video',
+      start: shot.start,
+      end: shot.start + shot.duration,
+      name: shot.purpose,
+      look,
+    };
+  });
 
   // A shot that names an effect the plan did not list is still worth saying.
   for (const shot of plan.shots) {
@@ -136,6 +196,22 @@ export function compilePlan(plan: ProductionPlan): PlanCompilation {
         `The shot "${shot.purpose}" asks for "${shot.vfx}", which the plan does not list.`,
       );
     }
+  }
+
+  // Two effects can want the same node kind. The first one wins, and the plan
+  // is told, because the second one is silently dropped otherwise.
+  const kinds = new Map<string, string>();
+  for (const effect of plan.vfx.effects) {
+    const mapping = EFFECT_NODES[effect];
+    if (!mapping) continue;
+    const previous = kinds.get(mapping.kind);
+    if (previous) {
+      warnings.push(
+        `The effects "${previous}" and "${effect}" both use the "${mapping.kind}" node; only "${previous}" is used.`,
+      );
+      continue;
+    }
+    kinds.set(mapping.kind, effect);
   }
 
   const requiredKinds = [...new Set(nodes.map((n) => n.kind))];

@@ -222,6 +222,19 @@ describe('compileDAG — every node type', () => {
     expect(() => compileDAG({} as DAG)).not.toThrow();
     expect(() => compileDAG({ nodes: [], edges: [] } as DAG)).not.toThrow();
   });
+
+  it('applies a look to the node kind it names', () => {
+    // A film's shots share one graph; each shot switches its effects on or off.
+    const plain = compileDAG(singleNodeDAG('glow'));
+    const withLook = compileDAG(singleNodeDAG('glow'), { glow: { intensity: 0.9 } });
+    expect(withLook.wgsl).toContain('0.9');
+    expect(plain.wgsl).not.toContain('0.9');
+  });
+
+  it('leaves the nodes a look does not name alone', () => {
+    const out = compileDAG(singleNodeDAG('glow'), { blur: { radius: 0.123 } });
+    expect(out.wgsl).not.toContain('0.123');
+  });
 });
 
 describe('code <-> graph', () => {
