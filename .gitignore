@@ -8,6 +8,9 @@ dist/
 out/
 *.tsbuildinfo
 
+# electron-vite compiles the TS config to a temp .mjs next to it
+electron.vite.config.ts.*.mjs
+
 # Generated schemas (Rust xtask output). The hand-written Zod schemas in
 # packages/common/src remain the authoritative source of truth.
 packages/common/src/generated/

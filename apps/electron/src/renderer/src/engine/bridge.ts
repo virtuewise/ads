@@ -17,6 +17,11 @@ export interface BridgeResult {
   errors: string[];
   /** The compiled DAG result (for debugging). */
   compiled?: ReturnType<typeof compileDAG>;
+  /**
+   * Bindings the renderer must fill with the current media frame, when the
+   * graph contains a media source.
+   */
+  mediaBindings?: { texture: number; sampler: number };
 }
 
 /**
@@ -41,12 +46,12 @@ export function bridgeDAGToComposite(dag: DAG): BridgeResult {
     return { wgsl: COMPOSITE_SHADER, ok: false, errors: compiled.errors, compiled };
   }
 
-  // The single-pass bridge can only supply the uniform block. Any other
-  // @group(0) binding means the graph contains a texture-sampling node that
-  // needs its own render pass; refuse it rather than hand WebGPU an invalid
-  // bind group and silently present a black frame.
-  const bindingCount = (compiled.wgsl.match(/@group\(0\)\s*@binding\(/g) ?? []).length;
-  if (bindingCount > 1) {
+  // The single-pass bridge can only supply the uniform block and the media
+  // texture. A neighbourhood-effect binding means the graph contains a node
+  // that must read a texture produced by *another* node — that needs a render
+  // pass per node, so refuse it rather than hand WebGPU an invalid bind group
+  // and silently present a black frame.
+  if (compiled.neighborhoodBindings > 0) {
     return {
       wgsl: COMPOSITE_SHADER,
       ok: false,
@@ -78,7 +83,13 @@ export function bridgeDAGToComposite(dag: DAG): BridgeResult {
   //    d. Returns the final color
   const wgsl = buildUnifiedShader(extracted, compiled.wgsl);
 
-  return { wgsl, ok: true, errors: [], compiled };
+  return {
+    wgsl,
+    ok: true,
+    errors: [],
+    compiled,
+    ...(compiled.mediaBindings ? { mediaBindings: compiled.mediaBindings } : {}),
+  };
 }
 
 interface FragmentBody {

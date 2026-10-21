@@ -18,17 +18,17 @@
 | Demux | ✅ `engine/demux.ts` parses ISOBMFF with mp4box and emits `EncodedVideoChunk`-ready samples + the decoder config record |
 | Decode video | ✅ `engine/media.ts` feeds a WebCodecs `VideoDecoder`; the media bin shows `N frames decoded` |
 | Poster frame | ✅ `components/MediaThumb.tsx` draws the first decoded frame into a canvas |
-| Frame → GPU texture | ⬜ none (the composite still samples nothing) |
-| Clip → media reference | ⬡ `MediaSourceNode` exists in the DAG, but nothing binds real frames to it |
+| Frame → GPU texture | ✅ `device.importExternalTexture()` — the decoded frame reaches the GPU **without a copy** |
+| Compositing a clip | ✅ a **media source** node in the DAG samples that texture; the bridge runs it in the single pass |
+| Clip → media reference | ⬡ `TimelineClip` still has no `mediaId`; the media bin holds live sources in React state |
 | Audio | ⬜ none behind the track ([25](25-AUDIO.md)) |
 | Metadata / indexing | 🟡 duration, dimensions, fps and codec come from the container; rotation and colour metadata are not read |
 | Proxies | ⬜ none |
 | Disposal | 🟡 `disposeMediaSource()` closes every cached `VideoFrame` |
 
-The honest one-line summary: **the import half of the pipeline is real and verified — a real
-container goes in and real decoded pixels come out — but nothing downstream consumes them yet.**
-The next step is `importExternalTexture()` into the DAG ([§4](#4-frame--gpu-texture)) and a
-`mediaId` on `TimelineClip` ([§5](#5-clip--media-reference)).
+The honest one-line summary: **a real container goes in and real decoded pixels come out the other
+end of the compositor.** What is still missing is the *editor* half: clips are not bound to timeline
+positions, so there is no trimming, no slip, and no multi-clip compositing yet.
 
 ---
 
@@ -114,24 +114,40 @@ The decode path abandons in-process FFmpeg demuxing for the browser-native API:
 
 The futuristic path avoids CPU round-trips:
 
-- **`importExternalTexture()`** wraps a decoded `VideoFrame` in a GPU texture with **no copy**.
-- The compositor samples that external texture directly ([22](22-COMPOSITOR.md)).
-- For multi-clip compositing, frames that must be cached are copied into a **texture pool** (still cheap —
-  a GPU copy, not a CPU upload).
+- ✅ **`importExternalTexture()`** wraps a decoded `VideoFrame` in a GPU texture with **no copy**.
+- ✅ The compositor samples that external texture directly ([22](22-COMPOSITOR.md)).
+- ⬜ For multi-clip compositing, frames that must be cached are copied into a **texture pool**
+  (still cheap — a GPU copy, not a CPU upload).
 
 ```typescript
-// The compositor's media-layer source, conceptually:
-const frame: VideoFrame = await decoder.getFrameAt(t);
+// The compositor's media-layer source:
 const external = device.importExternalTexture({ source: frame });
-// bind `external` as the layer's input texture
+// bind `external` as the media source's input texture
 ```
 
 This is what makes scrubbing 4K footage feel instant instead of sluggish.
 
-> **Not built yet.** The single-pass bridge ([03](03-ENGINE-CORE.md)) rejects any graph that
-> declares more than the uniform binding, so a `mediaSource` node cannot be bound to an external
-> texture until the multi-pass runtime exists. `getFrameAtTime()` returns the right `VideoFrame`;
-> nothing uploads it yet.
+> **How it is wired.** The compiler reserves binding 1 for `media_tex` (a `texture_external`) and
+> binding 2 for its sampler whenever the graph contains a `mediaSource` node
+> (`engine/compiler.ts`). The node's WGSL samples it with
+> `textureSampleBaseClampToEdge(media_tex, media_samp, uv)`.
+>
+> An imported external texture **expires at the end of the current task**, so the viewport rebuilds
+> the media bind group on every rendered frame. The sampler must not filter — external textures
+> only support nearest sampling.
+>
+> **A trap worth knowing:** `queue.copyExternalImageToTexture()` from a decoded frame writes
+> *transparent black*, not the video. WebCodecs hands out YUV frames (I420/NV12), and copying one
+> into an `rgba8unorm` texture silently produces nothing — with no validation error to warn you.
+> The external-texture path is the one that works.
+
+### The bridge's part in it
+
+A media source is a **leaf**: it samples a texture the compositor supplies, and returns a colour at
+a given `uv`. That fits the single-pass bridge exactly — no intermediate render pass is needed,
+because nothing upstream produces a texture. The one thing a single pass *cannot* do is chain
+textures from node to node (a blur reading a colour source's output), which is why the bridge still
+refuses those graphs ([§7](#7-what-this-unblocks)).
 
 ---
 
@@ -269,10 +285,13 @@ All cached to disk keyed by asset hash, so reopening a project is instant.
 | Timestamps | demuxed sample timestamps are monotonic and in microseconds | ✅ `engine/demux.test.ts` |
 | Keyframe flags | the first sample is marked as a keyframe | ✅ `engine/demux.test.ts` |
 | Malformed input | a non-container buffer is rejected with an error, not a crash | ✅ `engine/demux.test.ts` |
+| Media bindings | a media graph reserves bindings 1 and 2 and calls `media_source(uv)` | ✅ `engine/compiler.test.ts` |
+| Bridge | a media graph bridges successfully; a blur graph is still refused | ✅ `engine/compiler.test.ts` |
 | End-to-end decode | an imported MP4 produces N decoded frames and a non-black poster frame | ✅ verified in the running app |
+| End-to-end composite | the imported clip renders in the viewport through the DAG | ✅ verified in the running app (the ffmpeg test pattern appears) |
 | Frame accuracy | decoded frame at `t` matches an FFmpeg-extracted reference frame at `t` | ⬜ |
 | Rotation handling | a rotated source renders upright | ⬜ |
-| Zero-copy path | `importExternalTexture` produces pixels identical to a CPU-uploaded texture | ⬜ |
+| Multi-clip compositing | two clips composite with the right z-order and opacity | ⬜ |
 | Proxy equivalence | proxy and source frames match after scaling within tolerance | ⬜ |
 | Index integrity | re-scanning the same media yields identical index rows | ⬜ |
 

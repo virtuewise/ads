@@ -9,6 +9,18 @@ export interface CompiledShader {
   entryPoint: string;
   uniforms: string[];
   errors: string[];
+  /**
+   * Bindings the compositor must fill for a media source, when the graph has
+   * one. `texture` is the external texture holding the decoded frame,
+   * `sampler` its non-filtering sampler.
+   */
+  mediaBindings?: { texture: number; sampler: number };
+  /**
+   * How many neighbourhood-effect texture bindings the graph needs. Each one
+   * requires its own render pass, so a single-pass compositor cannot run a
+   * graph with any of them.
+   */
+  neighborhoodBindings: number;
 }
 
 /** Map node type to WGSL function name (some differ from the type string). */
@@ -22,6 +34,7 @@ const WGSL_FN_NAME: Record<string, string> = {
   checkerSource: 'checker_source',
   textureTransform: 'texture_transform',
   spatialTransform: 'spatial_transform',
+  mediaSource: 'media_source',
   chromaticAberration: 'chromatic_aberration',
   filmGrain: 'film_grain',
   lensDistortion: 'lens_distortion',
@@ -79,7 +92,22 @@ const NEIGHBORHOOD_EFFECTS = new Set([
 ]);
 
 /** Source nodes that need UV coordinates but no texture sampler. */
-const UV_SOURCES = new Set(['proceduralScene', 'gradientSource', 'checkerSource']);
+const UV_SOURCES = new Set(['proceduralScene', 'gradientSource', 'checkerSource', 'mediaSource']);
+
+/**
+ * Source nodes that sample the media texture the compositor binds.
+ */
+const MEDIA_SOURCES = new Set(['mediaSource']);
+
+/**
+ * Binding numbers are reserved so the compositor knows where to put things:
+ *   0 — the uniform block
+ *   1 — the media texture   (only when the graph has a media source)
+ *   2 — the media sampler   (only when the graph has a media source)
+ *   3+ — neighbourhood-effect texture/sampler pairs
+ */
+const MEDIA_TEXTURE_BINDING = 1;
+const MEDIA_SAMPLER_BINDING = 2;
 
 /** Uniform struct matching visual.ts — the WYSIWYG contract. */
 const UNIFORM_STRUCT = `struct Uniforms {
@@ -100,6 +128,7 @@ export function compileDAG(dag: DAG): CompiledShader {
   const functions: string[] = [];
   const bodyLines: string[] = [];
   const textureBindings: string[] = [];
+  let neighborhoodBindings = 0;
 
   // Build adjacency for topological sort
   const inDegree = new Map<string, number>();
@@ -138,6 +167,20 @@ export function compileDAG(dag: DAG): CompiledShader {
   const outputVars = new Map<string, string>(); // "nodeId:port" -> var name
   let varCounter: number = 0;
   let emittedRenderReturn = false;
+
+  // A media source samples a texture the compositor supplies, so its bindings
+  // are reserved before any neighbourhood-effect bindings are numbered.
+  const hasMediaSource = sorted.some((id) => {
+    const node = nodeMap.get(id);
+    return node ? MEDIA_SOURCES.has(node.type) : false;
+  });
+  if (hasMediaSource) {
+    textureBindings.push(
+      `  @group(0) @binding(${MEDIA_TEXTURE_BINDING}) var media_tex: texture_external;`,
+      `  @group(0) @binding(${MEDIA_SAMPLER_BINDING}) var media_samp: sampler;`,
+    );
+  }
+  let nextBinding = hasMediaSource ? 3 : 1;
 
   for (const id of sorted) {
     const node = nodeMap.get(id);
@@ -208,9 +251,10 @@ export function compileDAG(dag: DAG): CompiledShader {
       // Add texture sampler binding for neighborhood-effect nodes
       if (isNeighborhood) {
         textureBindings.push(
-          `  @group(0) @binding(${textureBindings.length + 1}) var ${varName}_tex: texture_2d<f32>;`,
-          `  @group(0) @binding(${textureBindings.length + 2}) var ${varName}_samp: sampler;`,
+          `  @group(0) @binding(${nextBinding++}) var ${varName}_tex: texture_2d<f32>;`,
+          `  @group(0) @binding(${nextBinding++}) var ${varName}_samp: sampler;`,
         );
+        neighborhoodBindings += 1;
       }
     }
   }
@@ -243,7 +287,16 @@ ${emittedRenderReturn ? '' : '  return vec4<f32>(uv, 0.5, 1.0);'}
 }
 `;
 
-  return { wgsl, entryPoint: 'fs', uniforms, errors };
+  return {
+    wgsl,
+    entryPoint: 'fs',
+    uniforms,
+    errors,
+    neighborhoodBindings,
+    ...(hasMediaSource
+      ? { mediaBindings: { texture: MEDIA_TEXTURE_BINDING, sampler: MEDIA_SAMPLER_BINDING } }
+      : {}),
+  };
 }
 
 // ── DAG Serialization ────────────────────────────────────────────────────────

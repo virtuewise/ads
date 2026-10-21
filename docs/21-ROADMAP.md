@@ -64,8 +64,9 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | Demux a real container (mp4box) into samples + decoder config | ✅ `engine/demux.ts` |
 | Decode real footage through WebCodecs into a frame ring buffer | ✅ `engine/media.ts` |
 | Media bin: import (dialog + drag-and-drop) with a poster frame | ✅ `components/MediaThumb.tsx` |
-| Upload decoded frames as the compositor's input texture (`importExternalTexture`) | ⬜ |
-| Extend `COMPOSITE_SHADER` + both bind groups to sample an input texture | ⬜ |
+| Upload decoded frames as the compositor's input texture (`importExternalTexture`) | ✅ zero-copy external texture in the viewport |
+| Composite an imported clip through the DAG (media source node) | ✅ the **Media** tab's "composite" button wires a `mediaSource` into the graph |
+| Extend `COMPOSITE_SHADER` + both bind groups to sample an input texture | ⬜ (the media path does it; arbitrary node-to-node textures still need multi-pass) |
 | Media bin: drag-to-timeline, and persist imported assets in the project document | ⬜ |
 | Clip → media reference in `TimelineClip` (+ document version bump) | ⬜ |
 | Per-clip keyframes driving the composition transform for the active clip | ⬜ |

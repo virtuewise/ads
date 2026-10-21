@@ -97,6 +97,44 @@ export function useDAG() {
     });
   }, []);
 
+  /** Point the render node at a specific source node. */
+  const setRenderSource = useCallback((nodeId: string) => {
+    setDAG((prev) => {
+      const render = prev.nodes.find((n) => n.type === 'render');
+      if (!render) return prev;
+      const next: DAG = {
+        ...prev,
+        edges: [
+          ...prev.edges.filter((e) => e.to.node !== render.id),
+          {
+            id: createId('edge'),
+            from: { node: nodeId, port: 'output' },
+            to: { node: render.id, port: 'input' },
+          },
+        ],
+      };
+      setCompiled(compileDAG(next));
+      setCode(dagToCode(next));
+      return next;
+    });
+  }, []);
+
+  /**
+   * Make sure the graph has a media source and that the render node reads
+   * from it. Returns the media node's id.
+   */
+  const ensureMediaSource = useCallback(() => {
+    const existing = dag.nodes.find((n) => n.type === 'mediaSource');
+    if (existing) {
+      setRenderSource(existing.id);
+      return existing.id;
+    }
+    const id = addNode('mediaSource', { x: 120, y: 300 });
+    // Both updates are functional, so the rewire sees the node just added.
+    setRenderSource(id);
+    return id;
+  }, [dag.nodes, addNode, setRenderSource]);
+
   const syncFromCode = useCallback((newCode: string) => {
     setCode(newCode);
     const parsed = codeToDAG(newCode);
@@ -132,6 +170,8 @@ export function useDAG() {
     updateNode,
     addEdge,
     removeEdge,
+    setRenderSource,
+    ensureMediaSource,
     syncFromCode,
     resetDAG,
     loadDAG,

@@ -10,6 +10,12 @@ interface WebGPUCanvasProps {
   lut?: BrandLUT | null;
   /** Optional DAG-compiled WGSL shader. Falls back to COMPOSITE_SHADER when absent. */
   shaderCode?: string;
+  /**
+   * The decoded video frame the graph's media source samples. It is handed to
+   * the GPU as an external texture on every rendered frame; null falls back to
+   * a 1×1 black frame.
+   */
+  mediaFrame?: VideoFrame | null;
 }
 
 export interface WebGPUCanvasHandle {
@@ -25,7 +31,17 @@ interface RenderState {
   data: Float32Array;
   pipeline: GPURenderPipeline | null;
   bindGroup: GPUBindGroup | null;
+  /** True when the shader samples a media texture. */
+  needsMedia: boolean;
+  /** Non-filtering sampler: external textures only support nearest sampling. */
+  mediaSampler: GPUSampler;
+  /** A 1×1 black frame used when the graph wants media but none is selected. */
+  fallbackFrame: VideoFrame | null;
 }
+
+/** Binding numbers the compiler reserves for the media texture and its sampler. */
+const MEDIA_TEXTURE_BINDING = 1;
+const MEDIA_SAMPLER_BINDING = 2;
 
 interface CaptureRequest {
   resolve: (image: ImageData | null) => void;
@@ -34,7 +50,7 @@ interface CaptureRequest {
 }
 
 export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(function WebGPUCanvas(
-  { time = 0, transform, lut, shaderCode },
+  { time = 0, transform, lut, shaderCode, mediaFrame = null },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,8 +61,8 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
   const [errorMsg, setErrorMsg] = useState('');
 
   // Latest props, read by the persistent render loop without re-initialising.
-  const propsRef = useRef({ time, transform, lut, shaderCode });
-  propsRef.current = { time, transform, lut, shaderCode };
+  const propsRef = useRef({ time, transform, lut, shaderCode, mediaFrame });
+  propsRef.current = { time, transform, lut, shaderCode, mediaFrame };
 
   useImperativeHandle(
     ref,
@@ -127,6 +143,24 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
+        // The media texture the graph's media source samples. It is an
+        // *external* texture: the decoded VideoFrame goes to the GPU without a
+        // copy, which is why the bind group has to be rebuilt every frame —
+        // an imported external texture expires at the end of the task.
+        // External textures only support nearest sampling, so the media
+        // sampler must not filter.
+        const mediaSampler = gpu.createSampler({
+          magFilter: 'nearest',
+          minFilter: 'nearest',
+          mipmapFilter: 'nearest',
+        });
+        const fallbackFrame = new VideoFrame(new Uint8Array([0, 0, 0, 255]), {
+          format: 'RGBA',
+          codedWidth: 1,
+          codedHeight: 1,
+          timestamp: 0,
+        });
+
         const state: RenderState = {
           device: gpu,
           context,
@@ -135,6 +169,9 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           data: new Float32Array(UNIFORM_FLOATS),
           pipeline: null,
           bindGroup: null,
+          needsMedia: false,
+          mediaSampler,
+          fallbackFrame,
         };
         stateRef.current = state;
 
@@ -223,6 +260,31 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
           });
           gpu.queue.writeBuffer(uniformBuffer, 0, state.data);
 
+          // Bind the current media frame. The decoded VideoFrame is imported as
+          // an external texture, so the pixels reach the GPU without a copy —
+          // but an external texture expires at the end of the task, so the
+          // bind group is rebuilt for every frame.
+          let bindGroup = state.bindGroup;
+          if (state.needsMedia && state.pipeline) {
+            const frame = propsRef.current.mediaFrame ?? state.fallbackFrame;
+            if (frame) {
+              try {
+                const external = gpu.importExternalTexture({ source: frame });
+                bindGroup = gpu.createBindGroup({
+                  layout: state.pipeline.getBindGroupLayout(0),
+                  entries: [
+                    { binding: 0, resource: { buffer: state.uniformBuffer } },
+                    { binding: MEDIA_TEXTURE_BINDING, resource: external },
+                    { binding: MEDIA_SAMPLER_BINDING, resource: state.mediaSampler },
+                  ],
+                });
+              } catch (e) {
+                // A closed frame (the ring buffer evicted it) is not fatal.
+                if (!destroyed) console.warn('media import failed:', e);
+              }
+            }
+          }
+
           const texture = context.getCurrentTexture();
           const encoder = gpu.createCommandEncoder({ label: 'viewport' });
           const pass = encoder.beginRenderPass({
@@ -235,9 +297,9 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
               },
             ],
           });
-          if (state.pipeline && state.bindGroup) {
+          if (state.pipeline && bindGroup) {
             pass.setPipeline(state.pipeline);
-            pass.setBindGroup(0, state.bindGroup);
+            pass.setBindGroup(0, bindGroup);
             pass.draw(6);
           }
           pass.end();
@@ -335,10 +397,26 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
 
         let bindGroup: GPUBindGroup;
         try {
+          // A graph with a media source declares `media_tex`/`media_samp`; the
+          // shader itself is the source of truth for whether they are needed.
+          const needsMedia = source.includes('var media_tex');
+          const entries: GPUBindGroupEntry[] = [
+            { binding: 0, resource: { buffer: state.uniformBuffer } },
+          ];
+          if (needsMedia) {
+            // The external texture itself is bound per frame, because an
+            // imported external texture only lives for the current task.
+            const external = state.device.importExternalTexture({
+              source: state.fallbackFrame as VideoFrame,
+            });
+            entries.push({ binding: MEDIA_TEXTURE_BINDING, resource: external });
+            entries.push({ binding: MEDIA_SAMPLER_BINDING, resource: state.mediaSampler });
+          }
           bindGroup = state.device.createBindGroup({
             layout: pipeline.getBindGroupLayout(0),
-            entries: [{ binding: 0, resource: { buffer: state.uniformBuffer } }],
+            entries,
           });
+          state.needsMedia = needsMedia;
         } catch (e) {
           if (!cancelled) {
             setStatus('error');

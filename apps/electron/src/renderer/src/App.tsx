@@ -27,7 +27,7 @@ import {
   redo,
   undo,
 } from './engine/history';
-import { decodeVideoBuffer, type MediaSource } from './engine/media';
+import { decodeVideoBuffer, getFrameAtTime, type MediaSource } from './engine/media';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
 import {
   addKeyframe,
@@ -275,6 +275,8 @@ export function App() {
   const [mediaBin, setMediaBin] = useState<MediaSource[]>([]);
   const [importing, setImporting] = useState(false);
   const [dropActive, setDropActive] = useState(false);
+  /** The clip the compositor's media source samples. */
+  const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
 
   // ── History (undo/redo) ───────────────────────────────────────────────────
   const [historyStore, setHistoryStore] = useState<DocumentStore>(() =>
@@ -359,6 +361,16 @@ export function App() {
   // Bridge the DAG output into the composite shader pipeline.
   const bridgeResult = useMemo(() => bridgeDAGToComposite(dag.dag), [dag.dag]);
   const bridgedShader = bridgeResult.ok ? bridgeResult.wgsl : undefined;
+
+  // The decoded frame the graph's media source samples, chosen by the playhead.
+  const activeMedia = useMemo(
+    () => mediaBin.find((m) => m.id === activeMediaId) ?? null,
+    [mediaBin, activeMediaId],
+  );
+  const mediaFrame = useMemo(() => {
+    if (!activeMedia) return null;
+    return getFrameAtTime(activeMedia, playhead)?.frame ?? null;
+  }, [activeMedia, playhead]);
 
   const territories = useMemo(
     () => Array.from(new Set(modes.flatMap((m) => m.territories))),
@@ -683,6 +695,17 @@ export function App() {
     } catch (err) {
       notify(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+
+  /**
+   * Point the compositor at a clip: add a media source to the DAG, rewire the
+   * render node to read it, and make the clip the active one.
+   */
+  const sendMediaToViewport = (source: MediaSource) => {
+    dag.ensureMediaSource();
+    setActiveMediaId(source.id);
+    setActiveStage('comp');
+    notify(`Compositing ${source.name}`);
   };
 
   const updateTransform = (patch: Partial<TransformState>) => {
@@ -1351,6 +1374,15 @@ export function App() {
                           {m.frames.length} frames
                         </span>
                       </span>
+                      <button
+                        type="button"
+                        className="iconbtn"
+                        title="Composite this clip in the viewport"
+                        aria-label={`Composite ${m.name} in the viewport`}
+                        onClick={() => sendMediaToViewport(m)}
+                      >
+                        <Icon name="monitor" size={12} />
+                      </button>
                     </div>
                   ))}
                   {mediaBin.length === 0 && !importing && (
@@ -1660,6 +1692,7 @@ export function App() {
                     transform={composition.transform}
                     lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
                     shaderCode={bridgedShader}
+                    mediaFrame={mediaFrame}
                   />
                   <SafeZones
                     active={safeZonesActive}

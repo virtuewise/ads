@@ -107,6 +107,10 @@ to drift.
   or dragging a clip updates the canvas on the very next frame. This is the live-feedback contract
   described in [16-INTERFACE](16-INTERFACE.md).
 - Resizes to the container, accounting for device pixel ratio.
+- **Binds the media layer.** When the graph contains a `mediaSource`, the viewport imports the
+  current decoded `VideoFrame` with `device.importExternalTexture()` and rebuilds the media bind
+  group every frame — an imported external texture only lives for the current task. The pixels
+  reach the GPU with no copy ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md#zero-copy-to-the-gpu)).
 
 ---
 

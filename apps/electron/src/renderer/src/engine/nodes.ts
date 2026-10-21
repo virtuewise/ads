@@ -1457,15 +1457,21 @@ export class MediaSourceNode extends BaseNode {
   readonly type = 'mediaSource';
   readonly label = 'Media';
   readonly category = 'source' as const;
-  readonly ports: Port[] = [
-    { id: 'src', name: 'Source', type: 'string', direction: 'input', default: '' },
-    { id: 'output', name: 'Output', type: 'texture', direction: 'output' },
-  ];
-  execute(inputs: Record<string, unknown>): Record<string, unknown> {
-    return { output: `media_source(${inputs.src ?? ''})` };
+  readonly ports: Port[] = [{ id: 'output', name: 'Output', type: 'texture', direction: 'output' }];
+  execute(): Record<string, unknown> {
+    return { output: 'media_source(uv)' };
   }
   toWGSL() {
-    return `fn media_source() -> vec4<f32> { return vec4(0.5, 0.5, 0.5, 1.0); }`;
+    // `media_tex` and `media_samp` are module-scope bindings the compositor
+    // fills with the current decoded frame (engine/compiler.ts reserves
+    // bindings 1 and 2 for them when the graph contains a media node).
+    //
+    // The texture is an *external* texture — the decoded VideoFrame is handed
+    // to the GPU without a copy — so it must be sampled through the
+    // base-clamp variant, with a non-filtering sampler.
+    return `fn media_source(uv: vec2<f32>) -> vec4<f32> {
+  return textureSampleBaseClampToEdge(media_tex, media_samp, uv);
+}`;
   }
 }
 

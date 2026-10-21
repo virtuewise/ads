@@ -16,6 +16,7 @@
 | Media bin UI | 🟡 a list in the left panel's **Media** tab |
 | Import (drag-drop, picker) | ✅ **File → Import Media…** and a drop zone on the media bin |
 | Asset thumbnails/posters | ✅ poster frame drawn from the first decoded `VideoFrame` |
+| Composite an asset | ✅ the row's composite button adds a `mediaSource` to the DAG and renders the clip |
 | Bulk import | ✅ the file dialog allows multiple selections |
 | Asset search | ⬜ none |
 | Asset tagging | ⬜ none |
@@ -215,6 +216,7 @@ Clicking an asset shows a details panel:
 | Import | a dropped file appears in the media bin | ✅ verified in the running app |
 | Decode | the imported clip reports its real dimensions, fps, duration, and frame count | ✅ verified in the running app |
 | Thumbnail | poster frames match the video content | ✅ verified (the poster is drawn from the decoded frame) |
+| Composite | the clip renders in the viewport through the DAG | ✅ verified in the running app |
 | Bulk import | the file dialog accepts multiple files | ✅ |
 | Dedup | importing the same file twice does not duplicate | ⬜ |
 | Registration | imported assets survive a project save/reload | ⬜ |

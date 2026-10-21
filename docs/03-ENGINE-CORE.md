@@ -148,9 +148,10 @@ fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
 > `engine/bridge.ts` joins them:
 >
 > 1. compile the graph;
-> 2. **refuse** any graph that needs more than the uniform binding — texture-sampling nodes require
->    their own render passes and the runtime does not execute them yet, so the bridge returns
->    `COMPOSITE_SHADER` plus an error instead of presenting an invalid frame;
+> 2. **refuse** any graph whose nodes chain textures into each other (a blur reading a colour
+>    source's output) — those need their own render passes and the runtime does not execute them
+>    yet, so the bridge returns `COMPOSITE_SHADER` plus an error instead of presenting an invalid
+>    frame;
 > 3. extract the graph fragment body, strip its `uv` declaration and `return` statement, and inject the
 >    value into the composite fragment after the inverse transform;
 > 4. apply opacity and the three-point LUT on top of the graph's colour.
@@ -159,6 +160,21 @@ fn fs(@builtin(position) fragCoord: vec4<f32>) -> @location(0) vec4<f32> {
 > shader. The **exporter** still renders the fixed composite path, so WYSIWYG currently holds only for
 > graphs that compile through the bridge (see [04-RENDERING](04-RENDERING.md)). Multi-pass execution of
 > texture-sampling nodes is the next step of the [A3 effects phase](21-ROADMAP.md).
+>
+> ### Bindings
+>
+> The compiler reserves the bind-group slots, so the renderer always knows where to put things:
+>
+> | Binding | Resource | Present when |
+> |---|---|---|
+> | 0 | the uniform block | always |
+> | 1 | `media_tex` — a `texture_external` holding the current decoded frame | the graph has a `mediaSource` |
+> | 2 | `media_samp` — a non-filtering sampler for it | the graph has a `mediaSource` |
+> | 3+ | texture/sampler pairs for neighbourhood-effect nodes | the graph has them (and then the bridge refuses the graph) |
+>
+> A **media source is a leaf**: it samples a texture the compositor supplies and returns a colour at
+> a given `uv`. That fits the single pass exactly — nothing upstream produces a texture — so a
+> media graph bridges and renders. See [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md#zero-copy-to-the-gpu).
 
 ---
 
