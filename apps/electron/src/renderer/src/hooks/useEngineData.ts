@@ -121,6 +121,13 @@ interface StudioApi {
   openProject: () => Promise<OpenResult>;
   writeProject: (filePath: string, doc: unknown, format: ProjectFormat) => Promise<SaveResult>;
   readProject: (filePath: string) => Promise<OpenResult>;
+  pickMedia: () => Promise<MediaPickResult>;
+}
+
+/** Shape returned by the main process after a media file dialog. */
+export interface MediaPickResult {
+  canceled: boolean;
+  items: Array<{ path: string; name: string; data: ArrayBuffer }>;
 }
 
 /** Typed access to the preload bridge; undefined outside Electron. */

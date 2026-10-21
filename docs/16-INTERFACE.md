@@ -67,15 +67,19 @@ Icon names include: `pointer`, `move`, `text`, `square`, `pen`, `hand`, `zoom`, 
 
 ## Left panel (project)
 
-`aside.panel.panel--left` with `panel__tabs` + `panel__body.scroll-thin`. Tabs surface the engine data
-and documents:
+`aside.panel.panel--left` with `panel__tabs` + `panel__body.scroll-thin`. Six tabs, in order:
+**Project · Media · Effects · Text · Modes · AI** (icon-only, `aria-label` carries the name).
 
+- **Project** — composition summary, concepts, templates, metaphors, and the genre selector
+  (`GenreSelector.tsx`).
+- **Media** — the media bin: an **Import Media…** button (native dialog via the preload bridge) and
+  a **drop zone** that accepts a dropped video file. Each imported clip shows a poster frame drawn
+  from its first decoded `VideoFrame` (`MediaThumb.tsx`) plus its dimensions, fps, duration, and
+  decoded frame count ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)).
+- **Effects** — VFX catalogue from `getVFXEffects()` (`cardgrid`/`card`), with a search field.
+- **Text** — typography presets and variable font axes.
 - **Modes** — creative modes from `window.studio.getModes()` (`modecard` / `modecard--active`).
-- **Concepts** — generated + scored concepts (`conceptcard`, `score-track`/`score-fill`).
-- **Effects** — VFX catalogue from `getVFXEffects()` (`cardgrid`/`card`).
-- **Templates** — the twelve genre templates (`tplcard`).
-- **Metaphors** — visual metaphors from `getMetaphors()`.
-- **Genre** — the genre selector and workflow panel (`GenreSelector.tsx`).
+- **AI** — the concept generator and brief form.
 
 While the bridge resolves, panels show **"Loading engine data…"** (`useEngineData().loading`).
 

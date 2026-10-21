@@ -1,12 +1,13 @@
 // biome-ignore-all lint/a11y/noStaticElementInteractions: timeline clips, trim handles and drop targets are pointer-driven editing surfaces.
 // biome-ignore-all lint/a11y/useKeyWithClickEvents: pointer-driven timeline affordances mirror keyboard shortcuts handled globally.
 import { AnimatePresence, motion } from 'motion/react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { DragEvent as ReactDragEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BrandLUTPanel } from './components/BrandLUTPanel';
 import { ExportPanel } from './components/ExportPanel';
 import { GenrePanel, GenreSelector } from './components/GenreSelector';
 import { Icon, type IconName } from './components/Icon';
+import { MediaThumb } from './components/MediaThumb';
 import { NodeEditor } from './components/NodeEditor';
 import { SafeZoneControls, SafeZones } from './components/SafeZones';
 import { ScopesPanel } from './components/ScopesPanel';
@@ -26,6 +27,7 @@ import {
   redo,
   undo,
 } from './engine/history';
+import { decodeVideoBuffer, type MediaSource } from './engine/media';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
 import {
   addKeyframe,
@@ -180,6 +182,7 @@ const TOOLS: Array<{ id: string; icon: IconName; label: string; key: string }> =
 
 const LEFT_TABS: Array<{ id: string; icon: IconName; label: string }> = [
   { id: 'project', icon: 'folder', label: 'Project' },
+  { id: 'media', icon: 'film', label: 'Media' },
   { id: 'effects', icon: 'wand', label: 'Effects' },
   { id: 'text', icon: 'text', label: 'Text' },
   { id: 'modes', icon: 'layers', label: 'Modes' },
@@ -267,6 +270,11 @@ export function App() {
   const [selectedClip, setSelectedClip] = useState<string | null>(null);
   const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set());
   const [fxQuery, setFxQuery] = useState('');
+
+  // ── Media bin (imported clips) ────────────────────────────────────────────
+  const [mediaBin, setMediaBin] = useState<MediaSource[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [dropActive, setDropActive] = useState(false);
 
   // ── History (undo/redo) ───────────────────────────────────────────────────
   const [historyStore, setHistoryStore] = useState<DocumentStore>(() =>
@@ -420,6 +428,11 @@ export function App() {
         actionsRef.current.fresh();
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'i') {
+        e.preventDefault();
+        actionsRef.current.importMedia();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         actionsRef.current.export();
@@ -491,6 +504,8 @@ export function App() {
       setTool('text');
     } else if (label === 'New Project') {
       newProject();
+    } else if (label === 'Import Media…') {
+      importMedia();
     } else if (label === 'Open Project…') {
       openProject();
     } else if (label === 'Save') {
@@ -599,6 +614,75 @@ export function App() {
     if (!selectedClip) return;
     dispatchTimeline('Split Clip', (doc) => splitClip(doc, selectedClip, playhead));
     notify('Clip split at playhead');
+  };
+
+  /**
+   * Decode a set of containers and append them to the media bin.
+   * Shared by the file dialog and the drag-and-drop target.
+   */
+  const ingestMedia = async (items: Array<{ name: string; data: ArrayBuffer }>) => {
+    setImporting(true);
+    try {
+      const decoded: MediaSource[] = [];
+      for (const item of items) {
+        try {
+          const src = await decodeVideoBuffer(item.data, item.name);
+          decoded.push(src);
+        } catch (e) {
+          notify(`${item.name}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+      if (decoded.length > 0) {
+        setMediaBin((prev) => [...prev, ...decoded]);
+        const total = decoded.reduce((a, s) => a + s.frames.length, 0);
+        notify(
+          `Imported ${decoded.length} clip${decoded.length > 1 ? 's' : ''} · ${total} frames decoded`,
+        );
+        setLeftTab('media');
+      }
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  /**
+   * Import media: open the file dialog in the main process, demux each chosen
+   * container with mp4box, and decode it through WebCodecs into the media bin.
+   */
+  const importMedia = async () => {
+    const api = studioApi();
+    if (!api?.pickMedia) {
+      notify('Media import is unavailable outside the editor');
+      return;
+    }
+    try {
+      const res = await api.pickMedia();
+      if (res.canceled || res.items.length === 0) return;
+      await ingestMedia(res.items);
+    } catch (e) {
+      notify(`Import failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  /** Drag-and-drop import: the dropped files are read in the renderer. */
+  const onMediaDrop = async (e: ReactDragEvent<HTMLElement>) => {
+    e.preventDefault();
+    setDropActive(false);
+    const files = [...e.dataTransfer.files].filter((f) =>
+      /\.(mp4|mov|m4v|webm|mkv)$/i.test(f.name),
+    );
+    if (files.length === 0) {
+      notify('Drop a video file (MP4/MOV) to import it');
+      return;
+    }
+    try {
+      const items = await Promise.all(
+        files.map(async (f) => ({ name: f.name, data: await f.arrayBuffer() })),
+      );
+      await ingestMedia(items);
+    } catch (err) {
+      notify(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   const updateTransform = (patch: Partial<TransformState>) => {
@@ -910,6 +994,7 @@ export function App() {
     canUndo: () => boolean;
     canRedo: () => boolean;
     split: () => void;
+    importMedia: () => void;
   }>({
     save: () => {},
     saveAs: () => {},
@@ -924,6 +1009,7 @@ export function App() {
     canUndo: () => false,
     canRedo: () => false,
     split: () => {},
+    importMedia: () => {},
   });
   actionsRef.current = {
     save: () => saveProject(docFormat, docPath == null),
@@ -942,6 +1028,9 @@ export function App() {
     canUndo: () => canUndo(historyStore),
     canRedo: () => canRedo(historyStore),
     split: splitAtPlayhead,
+    importMedia: () => {
+      void importMedia();
+    },
   };
 
   const activeTool = TOOLS.find((t) => t.id === tool);
@@ -1218,6 +1307,58 @@ export function App() {
                       </span>
                     ))}
                   </div>
+                </div>
+              </>
+            )}
+
+            {leftTab === 'media' && (
+              <>
+                <div className="panel__search">
+                  <button
+                    type="button"
+                    className="btn btn--block"
+                    disabled={importing}
+                    onClick={() => importMedia()}
+                  >
+                    <Icon name="upload" size={13} />
+                    {importing ? 'Importing…' : 'Import Media…'}
+                  </button>
+                </div>
+                <div
+                  className={`dropzone ${dropActive ? 'dropzone--active' : ''}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDropActive(true);
+                  }}
+                  onDragLeave={() => setDropActive(false)}
+                  onDrop={onMediaDrop}
+                >
+                  <Icon name="film" size={16} />
+                  <span>Drop a video file here</span>
+                </div>
+                <div className="sect">
+                  <div className="sect__head">
+                    <span className="sect__title">Media Bin</span>
+                    <span className="sect__meta">{mediaBin.length}</span>
+                  </div>
+                  {mediaBin.map((m) => (
+                    <div key={m.id} className="row" title={`${m.codec} · ${m.width}×${m.height}`}>
+                      <MediaThumb frame={m.frames[0]?.frame ?? null} />
+                      <span className="row__body">
+                        <span className="row__title">{m.name}</span>
+                        <span className="row__sub">
+                          {m.width}×{m.height} · {m.fps.toFixed(1)}fps · {m.duration.toFixed(1)}s ·{' '}
+                          {m.frames.length} frames
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                  {mediaBin.length === 0 && !importing && (
+                    <p className="muted">
+                      No media yet. Import an MP4/MOV to decode it with WebCodecs.
+                    </p>
+                  )}
+                  {importing && <p className="muted">Decoding…</p>}
                 </div>
               </>
             )}

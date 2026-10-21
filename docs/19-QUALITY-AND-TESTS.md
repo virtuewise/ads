@@ -65,9 +65,23 @@ no DOM, no Electron, and no GPU:
 | `engine/visual.ts` | Pure: `hexToRgb`, `packUniforms` | hex parsing, uniform layout offsets, LUT-none neutrals |
 | `engine/nodes.ts` | Pure per-node | each node's `execute` and `toWGSL` |
 | `engine/genre-workflows.ts` | Pure data | every template references a valid LUT id; every preset has a valid easing |
+| `engine/demux.ts` | Pure: no DOM, no WebCodecs, no Electron | container parse, decoder-config byte order, monotonic timestamps, keyframe flags, malformed input |
 
 The non-pure modules (WebGPU canvas, FFmpeg export, IPC) are verified by **integration/manual runs** and
 the build gates, not unit tests.
+
+### Running the editor's tests
+
+The root Vitest config covers both the engine monorepo and the editor:
+
+```
+pnpm test                                     # everything (turbo runs every package)
+pnpm --filter @printsync/electron test        # just the editor
+```
+
+`apps/electron` uses the same root config (`vitest run --root ../.. apps/electron`), so editor tests
+live next to their source as `*.test.ts`. The demuxer test uses a **1.6 KB H.264 fixture**
+(`engine/__fixtures__/tiny.mp4`) rather than a large video, so the suite stays fast.
 
 ---
 

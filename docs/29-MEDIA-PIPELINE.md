@@ -1,10 +1,12 @@
 # 29 — Media Pipeline: Import, Decode, Proxies & Indexing
 
-**Status: ⬜ (scaffolding only: metadata probe + decoder shell exist; demux, GPU upload, and audio are ⬜) · Code: `engine/media.ts` (today) → `engine/media/*`, `main/media.ts` (target)**
+**Status: 🟡 (import → demux → WebCodecs decode works end to end; GPU upload, timeline binding, and audio are ⬜) · Code: `engine/demux.ts`, `engine/media.ts`, `main/media.ts`**
 
-> **This is the frontier.** The compositor, timeline, and export are real; the media they operate on is
-> not. The timeline holds placeholder clips and the composite renders a procedural scene
-> ([01-PRODUCT](01-PRODUCT.md)). Everything advanced depends on this document landing first.
+> **This is the frontier.** The compositor, timeline, and export are real; the media they operate on
+> is only now becoming real. A user can import an MP4/MOV, and the editor demuxes the container,
+> decodes every frame through WebCodecs, and shows a poster frame in the media bin — but the
+> timeline still holds placeholder clips, and nothing samples a decoded frame on the GPU yet.
+> Everything advanced depends on the rest of this document landing.
 
 ---
 
@@ -12,29 +14,74 @@
 
 | Capability | Today |
 |---|---|
-| Import media | 🟡 file picker → `createMediaDecoder(file)` probes duration/size via `<video>` metadata |
-| Decode video | 🟡 `decodeVideo()` builds a WebCodecs `VideoDecoder` but **feeds it nothing** — no container parsing, so `source.frames` stays empty |
-| Frame → GPU texture | ⬜ none (the composite samples nothing) |
+| Import media | ✅ **File → Import Media…** (native dialog via `media:pick`) and **drag-and-drop** onto the media bin |
+| Demux | ✅ `engine/demux.ts` parses ISOBMFF with mp4box and emits `EncodedVideoChunk`-ready samples + the decoder config record |
+| Decode video | ✅ `engine/media.ts` feeds a WebCodecs `VideoDecoder`; the media bin shows `N frames decoded` |
+| Poster frame | ✅ `components/MediaThumb.tsx` draws the first decoded frame into a canvas |
+| Frame → GPU texture | ⬜ none (the composite still samples nothing) |
 | Clip → media reference | ⬡ `MediaSourceNode` exists in the DAG, but nothing binds real frames to it |
 | Audio | ⬜ none behind the track ([25](25-AUDIO.md)) |
-| Metadata / indexing | 🟡 duration, width, height (fps hardcoded to 30) |
+| Metadata / indexing | 🟡 duration, dimensions, fps and codec come from the container; rotation and colour metadata are not read |
 | Proxies | ⬜ none |
 | Disposal | 🟡 `disposeMediaSource()` closes every cached `VideoFrame` |
 
-The honest one-line summary: **`engine/media.ts` is a typed shell with a real ring-buffer shape and a
-real disposal path, but no demuxer behind it.** The missing piece is exactly one dependency — a container
-parser (mp4box.js) that produces `EncodedVideoChunk`s — plus the `importExternalTexture()` binding into
-the DAG. Everything else in the file is already the right structure to receive them.
+The honest one-line summary: **the import half of the pipeline is real and verified — a real
+container goes in and real decoded pixels come out — but nothing downstream consumes them yet.**
+The next step is `importExternalTexture()` into the DAG ([§4](#4-frame--gpu-texture)) and a
+`mediaId` on `TimelineClip` ([§5](#5-clip--media-reference)).
+
+---
+
+## 0. What the pipeline looks like today
+
+```
+File → main/media.ts (dialog + fs.readFile)
+     → renderer: engine/demux.ts   (mp4box → samples + avcC/hvcC/vpcC/av1C config)
+     → renderer: engine/media.ts   (EncodedVideoChunk → VideoDecoder → VideoFrame ring buffer)
+     → components/MediaThumb.tsx   (poster frame in the media bin)
+```
+
+`engine/demux.ts` is deliberately **pure** — no DOM, no WebCodecs, no Electron — so it is unit
+testable in plain Node (`engine/demux.test.ts`, run by `pnpm --filter @printsync/electron test`).
+`engine/media.ts` owns the browser half.
+
+### Three demuxer details that are easy to get wrong
+
+These cost real debugging time and are now covered by the regression test:
+
+1. **`file.discardMdatData = false`** — mp4box releases the `mdat` payload as it parses by
+   default, which leaves `getSample()` with nothing to read. Sample extraction silently yields
+   zero samples until this is turned off.
+2. **`file.start()` before `file.flush()`** — `processSamples()` returns immediately unless
+   `sampleProcessingStarted` is set, and only `start()` sets it. Without it, `onSamples` never
+   fires.
+3. **Big-endian when serializing the decoder config** — mp4box's box writers use the
+   `DataStream`'s own endianness, and the default is little-endian. A little-endian stream
+   byte-swaps the 16-bit NALU lengths, and Chromium then rejects the record with
+   `Failed to parse avcC`.
+
+### Two WebCodecs details
+
+4. **Never `flush()` mid-stream.** A flush puts the decoder back into "needs a key frame" state,
+   and every sample after the first is a delta frame — the decoder dies with
+   `A key frame is required after configure() or flush()`. Bound the queue with
+   `decodeQueueSize` instead, and flush once at the end.
+5. **The decoder config is mandatory for MP4.** H.264/HEVC/VP9/AV1 in an ISOBMFF container are
+   length-prefixed (AVCC), so `VideoDecoder.configure()` needs the `avcC`/`hvcC`/`vpcC`/`av1C`
+   payload as `description`.
 
 ---
 
 ## 1. Import
 
-- **Drag-and-drop onto the media bin** and the OS file picker, both through the preload bridge
-  ([08](08-SCRIPTING-API.md) — never `fs` in the renderer).
-- **Probe** each file in the **main process** via FFmpeg/ffprobe: container, streams, codecs, resolution,
-  frame rate, duration, rotation, colour metadata, audio channels/sample rate.
-- **Register** the asset: id, path, hash (for dedupe), probe result, thumbnail, peaks ([25](25-AUDIO.md)).
+- ✅ **Drag-and-drop onto the media bin** and the OS file picker. The picker runs in the main
+  process (`media:pick` → `main/media.ts`) and returns raw bytes over IPC; the renderer never
+  touches `fs` ([08](08-SCRIPTING-API.md)).
+- ✅ **Probe** each file: the demuxer yields container, codec, resolution, frame rate, duration,
+  and the codec string.
+- ⬜ **Register** the asset: id, path, hash (for dedupe), probe result, thumbnail, peaks
+  ([25](25-AUDIO.md)). The media bin currently holds live `MediaSource` objects in React state
+  and does not persist them into the project document.
 
 ```typescript
 interface MediaAsset {
@@ -57,10 +104,11 @@ interface MediaAsset {
 
 The decode path abandons in-process FFmpeg demuxing for the browser-native API:
 
-- **`VideoDecoder`** — hardware-accelerated H.264/HEVC/VP9/AV1 decode.
-- **`AudioDecoder`** — audio where supported; otherwise main-process decode ([25](25-AUDIO.md)).
-- **Demuxing** — a JavaScript MP4 demuxer (mp4box.js) / WebCodecs demuxer, or main-process FFmpeg stream-copies samples on demand.
-- **Seek** — decode from the nearest keyframe, discard forward to the target.
+- ✅ **`VideoDecoder`** — hardware-accelerated H.264/HEVC/VP9/AV1 decode (`engine/media.ts`).
+- ⬜ **`AudioDecoder`** — audio where supported; otherwise main-process decode ([25](25-AUDIO.md)).
+- ✅ **Demuxing** — `engine/demux.ts` wraps mp4box and produces samples plus the decoder config.
+- ⬜ **Seek** — decode from the nearest keyframe, discard forward to the target. Today the whole
+  clip is decoded up front, which is fine for short clips and wrong for long ones.
 
 ### Zero-copy to the GPU
 
@@ -80,6 +128,11 @@ const external = device.importExternalTexture({ source: frame });
 
 This is what makes scrubbing 4K footage feel instant instead of sluggish.
 
+> **Not built yet.** The single-pass bridge ([03](03-ENGINE-CORE.md)) rejects any graph that
+> declares more than the uniform binding, so a `mediaSource` node cannot be bound to an external
+> texture until the multi-pass runtime exists. `getFrameAtTime()` returns the right `VideoFrame`;
+> nothing uploads it yet.
+
 ---
 
 ## 3. The frame ring buffer (the stutter killer)
@@ -92,12 +145,14 @@ playhead ──► [ -30 frames ……… +30 frames ] ──► instant scrub, 
                  pre-decoded WebCodecs frames
 ```
 
-- A **ring buffer** of decoded `VideoFrame`s around the playhead, in both directions.
-- **WebCodecs** issues decode requests ahead of and behind the playspot.
-- **Budgeted by VRAM**: the window (±N frames) shrinks automatically at 4K/8K to fit the budget
-  ([22](22-COMPOSITOR.md#performance--vram)).
-- Frame stepping, single-frame slip, and reverse playback all become **zero-latency** because the frames
-  are already decoded.
+- ✅ A **ring buffer** of decoded `VideoFrame`s — `decodeVideoBuffer()` keeps the most recent
+  `maxFrames` (default 120) and closes the oldest as it evicts them.
+- ⬜ **Both directions.** The buffer only holds what has already been decoded; seeking backwards
+  needs a re-decode from the previous keyframe.
+- ⬜ **Budgeted by VRAM**: the window (±N frames) should shrink automatically at 4K/8K to fit the
+  budget ([22](22-COMPOSITOR.md#performance--vram)).
+- ✅ Frame stepping and single-frame slip are zero-latency **within** the decoded window, because
+  the frames are already decoded.
 
 This is a generalization of `renderFrame.ts`'s single-frame approach ([04](04-RENDERING.md)) to a working
 window.
@@ -171,13 +226,18 @@ an engine demo into an editor.
 `ProjectDocument.version` bumps; `normalizeProject` tolerates clips without `mediaId` (old projects keep
 loading — [05](05-PROJECT-FORMAT.md#versioning--migration-policy)).
 
+> **Not built yet.** `TimelineClip` still has no `mediaId`; the media bin holds decoded sources in
+> React state and the timeline keeps its seeded placeholder clips.
+
 ---
 
 ## 7. Thumbnails & posters
 
-- **Poster frames** (first/25%/50%/75%) generated on import via FFmpeg, cached.
-- **Filmstrip** on the timeline clip: lazily decoded thumbnails at clip zoom, cached.
-- **Media bin grid** uses the posters; the **hover scrub** plays the poster sequence.
+- ✅ **Poster frame** — `components/MediaThumb.tsx` draws the first decoded frame into a canvas in
+  the media bin. It is drawn from the live `VideoFrame`, so a black rectangle means the decode
+  failed even though the container parsed.
+- ⬜ **Filmstrip** on the timeline clip: lazily decoded thumbnails at clip zoom, cached.
+- ⬜ **Media bin grid** uses the posters; the **hover scrub** plays the poster sequence.
 
 All cached to disk keyed by asset hash, so reopening a project is instant.
 
@@ -202,14 +262,25 @@ All cached to disk keyed by asset hash, so reopening a project is instant.
 
 ## Verification
 
-| Property | Test |
-|---|---|
-| Frame accuracy | decoded frame at `t` matches an FFmpeg-extracted reference frame at `t` |
-| Rotation handling | a rotated source renders upright |
-| Ring-buffer correctness | frames in the window are correct and in order |
-| Zero-copy path | `importExternalTexture` produces pixels identical to a CPU-uploaded texture |
-| Proxy equivalence | proxy and source frames match after scaling within tolerance |
-| Index integrity | re-scanning the same media yields identical index rows |
+| Property | Test | Status |
+|---|---|---|
+| Container parse | the demuxer reads codec, dimensions, fps, duration and sample count from a real MP4 | ✅ `engine/demux.test.ts` |
+| Decoder config | the `avcC` payload is byte-identical to the container's own, in big-endian order | ✅ `engine/demux.test.ts` |
+| Timestamps | demuxed sample timestamps are monotonic and in microseconds | ✅ `engine/demux.test.ts` |
+| Keyframe flags | the first sample is marked as a keyframe | ✅ `engine/demux.test.ts` |
+| Malformed input | a non-container buffer is rejected with an error, not a crash | ✅ `engine/demux.test.ts` |
+| End-to-end decode | an imported MP4 produces N decoded frames and a non-black poster frame | ✅ verified in the running app |
+| Frame accuracy | decoded frame at `t` matches an FFmpeg-extracted reference frame at `t` | ⬜ |
+| Rotation handling | a rotated source renders upright | ⬜ |
+| Zero-copy path | `importExternalTexture` produces pixels identical to a CPU-uploaded texture | ⬜ |
+| Proxy equivalence | proxy and source frames match after scaling within tolerance | ⬜ |
+| Index integrity | re-scanning the same media yields identical index rows | ⬜ |
+
+Run the demuxer tests with:
+
+```
+pnpm --filter @printsync/electron test
+```
 
 ---
 

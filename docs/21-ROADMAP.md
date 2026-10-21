@@ -61,9 +61,12 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 
 | Task | Status |
 |---|---|
-| Decode real footage (WebCodecs) and upload as the compositor's input texture | ⬜ |
+| Demux a real container (mp4box) into samples + decoder config | ✅ `engine/demux.ts` |
+| Decode real footage through WebCodecs into a frame ring buffer | ✅ `engine/media.ts` |
+| Media bin: import (dialog + drag-and-drop) with a poster frame | ✅ `components/MediaThumb.tsx` |
+| Upload decoded frames as the compositor's input texture (`importExternalTexture`) | ⬜ |
 | Extend `COMPOSITE_SHADER` + both bind groups to sample an input texture | ⬜ |
-| Media bin: import, thumbnails, drag-to-timeline | ⬜ |
+| Media bin: drag-to-timeline, and persist imported assets in the project document | ⬜ |
 | Clip → media reference in `TimelineClip` (+ document version bump) | ⬜ |
 | Per-clip keyframes driving the composition transform for the active clip | ⬜ |
 | Audio decode + WebAudio graph + J/L crossfades | ⬜ |

@@ -20,6 +20,9 @@ contextBridge.exposeInMainWorld('studio', {
     ipcRenderer.invoke('project:write', filePath, doc, format),
   readProject: (filePath: string) => ipcRenderer.invoke('project:read', filePath),
 
+  // ── Media import ───────────────────────────────────────────────────────────
+  pickMedia: () => ipcRenderer.invoke('media:pick'),
+
   // ── Export pipeline ────────────────────────────────────────────────────────
   probeEncoders: () => ipcRenderer.invoke('export:probe'),
   chooseExportPath: (opts: { preset: string; suggestedName?: string }) =>

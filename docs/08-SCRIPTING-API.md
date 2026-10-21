@@ -105,6 +105,17 @@ The `Brief` and result shapes are typed in `hooks/useEngineData.ts`.
 
 See [05-PROJECT-FORMAT](05-PROJECT-FORMAT.md) for the document and codec.
 
+### `studio.*` — media
+
+| Method | Purpose |
+|---|---|
+| `pickMedia()` | Native open dialog → `{canceled, items: [{path, name, data}]}` |
+
+The bytes come back from the **main process** (`main/media.ts`) so the renderer never touches
+`fs`; the renderer then demuxes and decodes them itself
+([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)). Drag-and-drop onto the media bin skips the dialog
+and reads the dropped file directly in the renderer.
+
 ### `studio.*` — export
 
 | Method | Purpose |

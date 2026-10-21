@@ -1,10 +1,11 @@
 # 43 — Asset Management & Media Organization
 
-**Status: ⬜ (no media bin exists; the timeline holds placeholder clips) · Code (target): `components/MediaBin.tsx`, `engine/media/*`, `main/media.ts`**
+**Status: 🟡 (a media bin exists with import, drag-and-drop, and poster frames; no registration, search, tagging, or offline relink) · Code: `App.tsx` (media tab), `engine/demux.ts`, `engine/media.ts`, `main/media.ts`**
 
-> There is **no media bin** — no import, no asset browser, no thumbnails, no organization. The left
-> panel's "project" tab contains genre workflows, not media. This document specifies the complete
-> asset management system.
+> A **media bin** now exists as the second tab of the left panel: it imports via a native file
+> dialog or drag-and-drop, decodes the container, and shows each clip with a poster frame drawn
+> from its first decoded frame. What is still missing is everything that makes it a *library*:
+> assets are not registered, not persisted with the project, and cannot be searched or relinked.
 
 ---
 
@@ -12,47 +13,51 @@
 
 | Capability | Today |
 |---|---|
-| Media bin UI | ⬜ none |
-| Import (drag-drop, picker) | ⬜ none |
-| Asset thumbnails/posters | ⬜ none |
+| Media bin UI | 🟡 a list in the left panel's **Media** tab |
+| Import (drag-drop, picker) | ✅ **File → Import Media…** and a drop zone on the media bin |
+| Asset thumbnails/posters | ✅ poster frame drawn from the first decoded `VideoFrame` |
+| Bulk import | ✅ the file dialog allows multiple selections |
 | Asset search | ⬜ none |
 | Asset tagging | ⬜ none |
 | Asset organization (bins, folders) | ⬜ none |
 | Proxy management | ⬜ none |
-| Media metadata display | ⬜ none |
+| Media metadata display | 🟡 dimensions, fps, duration, frame count, codec (in the row tooltip) |
+| Asset registration in the project document | ⬜ none — the bin lives in React state and is lost on reload |
 | Offline/relink missing media | ⬜ none |
 
 ---
 
-## 2. The media bin (target)
+## 2. The media bin
 
 ### 2.1 The UI
 
-A dockable panel (left side, or bottom) showing imported assets:
+A list in the left panel's **Media** tab, each row carrying a poster frame, the file name, and a
+metadata line (`320×180 · 30.0fps · 2.0s · 60 frames`):
 
 ```
 ┌─ Media ──────────────────────────────┐
-│ 🔍 Search…    [All ▾] [+ Import]    │
-├──────────────────────────────────────┤
-│ ┌──────┐ ┌──────┐ ┌──────┐          │
-│ │ ▶    │ │ ▶    │ │ 🎵    │          │
-│ │Hero  │ │B-Roll│ │Score │          │
-│ │0:30  │ │1:12  │ │2:00  │          │
-│ └──────┘ └──────┘ └──────┘          │
-│ ┌──────┐ ┌──────┐                   │
-│ │ 🖼    │ │ ▶    │                   │
-│ │Logo  │ │Drone │                   │
-│ │1080p │ │0:45  │                   │
-│ └──────┘ └──────┘                   │
+│ [⤒ Import Media…]                    │
+│ ┌───────────────────────────────────┐ │
+│ │      Drop a video file here       │ │
+│ └───────────────────────────────────┘ │
+│ MEDIA BIN                    1        │
+│ ┌──────┐ ┌──────────────────────────┐│
+│ │ ▶    │ │ testsrc.mp4              ││
+│ │      │ │ 320×180 · 30fps · 2.0s   ││
+│ └──────┘ │ 60 frames                ││
+│          └──────────────────────────┘│
 └──────────────────────────────────────┘
 ```
 
+The target layout — a poster grid with search, filters, and bins — is in §2.1 of the original
+spec below.
+
 ### 2.2 Import
 
-- **Drag-and-drop** from the OS file manager onto the media bin.
-- **File picker** via the "+ Import" button.
-- **Bulk import** — multiple files or a folder.
-- **Import URL** — paste a URL to download (stock footage, CDN).
+- ✅ **Drag-and-drop** from the OS file manager onto the media bin.
+- ✅ **File picker** via the "Import Media…" button (`media:pick` → `main/media.ts`).
+- ✅ **Bulk import** — the file dialog allows multiple selections.
+- ⬜ **Import URL** — paste a URL to download (stock footage, CDN).
 
 ### 2.3 Asset registration
 
@@ -205,15 +210,18 @@ Clicking an asset shows a details panel:
 
 ## 9. Verification
 
-| Property | Test |
-|---|---|
-| Import | a dropped file appears in the media bin |
-| Dedup | importing the same file twice does not duplicate |
-| Thumbnail | poster frames match the video content |
-| Search | a text search finds the right asset |
-| Missing detection | removing a file and reloading flags it |
-| Relink | browsing to the new location restores the asset |
-| Proxy | the quality toggle switches between source and proxy |
+| Property | Test | Status |
+|---|---|---|
+| Import | a dropped file appears in the media bin | ✅ verified in the running app |
+| Decode | the imported clip reports its real dimensions, fps, duration, and frame count | ✅ verified in the running app |
+| Thumbnail | poster frames match the video content | ✅ verified (the poster is drawn from the decoded frame) |
+| Bulk import | the file dialog accepts multiple files | ✅ |
+| Dedup | importing the same file twice does not duplicate | ⬜ |
+| Registration | imported assets survive a project save/reload | ⬜ |
+| Search | a text search finds the right asset | ⬜ |
+| Missing detection | removing a file and reloading flags it | ⬜ |
+| Relink | browsing to the new location restores the asset | ⬜ |
+| Proxy | the quality toggle switches between source and proxy | ⬜ |
 
 ---
 

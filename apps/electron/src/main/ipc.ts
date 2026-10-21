@@ -18,6 +18,7 @@ import {
 } from '@printsync/visual-grammar-engine';
 import { ipcMain } from 'electron';
 import { registerExportIpc } from './export';
+import { registerMediaIpc } from './media';
 import { registerProjectIpc } from './project';
 
 ipcMain.handle('engine:getModes', async () => {
@@ -122,3 +123,4 @@ ipcMain.handle('engine:getConcepts', async () => []);
 
 registerProjectIpc();
 registerExportIpc();
+registerMediaIpc();

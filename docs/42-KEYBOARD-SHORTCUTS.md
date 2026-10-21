@@ -18,10 +18,28 @@ A fuzzy-search palette (lines 2154–2192 in `App.tsx`):
 - Arrow keys to navigate, Enter to select.
 - Selecting an item navigates to the relevant tab.
 
-### 1.2 Menu hints (display-only)
+### 1.2 Menu hints and the shortcuts that are wired
 
-Menu items show keyboard hints (`Ctrl+Z`, `Ctrl+S`, etc.) but the underlying actions are mostly
-stubs. The hints document the *intended* shortcuts.
+Menu items show keyboard hints (`Ctrl+Z`, `Ctrl+S`, etc.). The hints document the *intended*
+shortcuts — and many of them are now live:
+
+| Shortcut | Wired | Action |
+|---|---|---|
+| `Ctrl+Z` / `Cmd+Z` | ✅ | Undo (restores the visible timeline) |
+| `Ctrl+Shift+Z`, `Ctrl+Y` | ✅ | Redo |
+| `Ctrl+S` / `Cmd+S` | ✅ | Save |
+| `Ctrl+Shift+S` | ✅ | Save As |
+| `Ctrl+O` | ✅ | Open project |
+| `Ctrl+N` | ✅ | New project |
+| `Ctrl+E` | ✅ | Export panel |
+| `Ctrl+I` | ✅ | Import media (native file dialog) |
+| `Ctrl+K` | ✅ | Quick Apply palette |
+| `Delete` / `Backspace` | ✅ | Delete the selected clip(s) |
+| `Space` | ✅ | Play / pause |
+| `V` `W` `T` `U` `P` `H` `Z` | ✅ | Tool select |
+| `Ctrl+X` `Ctrl+C` `Ctrl+V` `Ctrl+D` `Ctrl+A` | ⬜ | not wired yet |
+
+The rest of the tables in this document are the **target** set.
 
 ---
 
@@ -58,6 +76,7 @@ stubs. The hints document the *intended* shortcuts.
 | `Ctrl+A` | Select all |
 | `Ctrl+S` / `Cmd+S` | Save |
 | `Ctrl+Shift+S` | Save As |
+| `Ctrl+I` | Import media |
 | `Ctrl+K` | Quick Apply palette |
 
 ### 2.3 Timeline
