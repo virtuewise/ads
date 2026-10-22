@@ -295,12 +295,13 @@ interface Selection {
 
 ## 12. Versioning
 
-`ProjectDocument.version` starts at `PROJECT_VERSION` (1). When the advanced system lands:
+`ProjectDocument.version` is `PROJECT_VERSION` (currently 3):
 
 | Version | Adds |
 |---|---|
 | 1 | base document |
-| 2 | layers, color, audio, captions, media, history, selection |
+| 2 | `assets[]`, `mediaId`, and `sourceStart` for imported media |
+| 3 | optional `textNodeId` and per-clip `look` fields |
 
 `normalizeProject` migrates older documents forward — see
 [05-PROJECT-FORMAT.md](05-PROJECT-FORMAT.md#versioning--migration-policy).

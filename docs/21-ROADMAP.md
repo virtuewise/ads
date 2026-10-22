@@ -54,10 +54,11 @@ kinetic typography / transitions / VFX in the motion engine.
 | Interaction depth: transform→canvas, clip drag/trim, effect drop, keyframe diamonds | ✅ | [16](16-INTERFACE.md) |
 | Electron 44.9 binary working | ✅ | [20](20-OPERATIONS.md) |
 
-### Milestone 1 — Media import (the current frontier)
+### Milestone 1 — Media import and editable production surface
 
-The timeline holds **engine-seeded placeholder clips**; the compositor renders only the procedural
-grade/LUT/transform layer. Closing this is the highest-value work.
+Media import and graph-aware preview/export are implemented. The editor now starts with a clean
+composition and provides real title clips and shader-backed effect-stack nodes; audio and transitions
+remain future work.
 
 | Task | Status |
 |---|---|
@@ -69,6 +70,8 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | Media bin: add a clip to the timeline (`mediaId` + `sourceStart`) | ✅ the **+** button; scrubbing the timeline scrubs the footage |
 | Media survives a save/load (`assets[]` in the project document) | ✅ the project records where the footage is and re-imports it on open |
 | **A brief compiles into an editable, composited production** | ✅ `buildProductionPlan()` → `compilePlan()` → the editor's graph and timeline |
+| Editable title layers with preset typography, clip motion, and preview/export parity | 🟡 graph-backed title nodes, text editing, placement, and opacity/scale/position/rotation/reveal animation |
+| Effect library applies real renderer nodes with editable shader parameters | 🟡 stack order and common node parameters edit the active render graph |
 | A shared, versioned graph IR both the engines and the editor target | ✅ `packages/creative-graph` |
 | Connections type-checked before they are made | ✅ the port rules, in the shared package |
 | A perceptual grade (Oklab) and a filmic tone map (ACES) as graph nodes | ✅ `oklabGrade`, `toneMap` — the maths is shared by the shader and the editor |
@@ -80,7 +83,7 @@ grade/LUT/transform layer. Closing this is the highest-value work.
 | Per-clip transform/effects/grade driving the composition | ⬜ |
 | Per-clip keyframes driving the composition transform for the active clip | ⬜ |
 | Compute passes (the four compute nodes) inside a graph | ⬜ reported as an error; no compute runtime |
-| A plan's typography, audio and transitions rendered | 🟡 the titles render (`text` node, editor-painted, driven by the script); audio and transitions ⬜ |
+| A plan's typography, audio and transitions rendered | 🟡 script titles render; editor-authored title layers animate; audio and transitions ⬜ |
 | A per-shot look: each shot rendered with its own graph | ✅ the shots share one graph and each clip switches its effects on or off (`look`) |
 | Audio decode + WebAudio graph + J/L crossfades | ⬜ |
 | Audio/video muxing in the FFmpeg export (remove `-an`) | ⬜ |
@@ -145,9 +148,10 @@ Media import (M1)
         Brand-QA gate ──► Export is trustworthy
 ```
 
-**Media import and graph-aware rendering are implemented in both the viewport and exporter.** The next
-critical gaps are audio, per-clip transforms/keyframes, scene detection, and transcript indexing; these
-remain prerequisites for genre-complete production.
+**Media import, graph-aware rendering, editable title layers, and a renderer-backed effect stack are
+implemented in the viewport and exporter.** The next critical gaps are audio, transitions, per-clip
+transforms/keyframes, scene detection, and transcript indexing; these remain prerequisites for
+genre-complete production.
 
 ---
 

@@ -1,10 +1,11 @@
 # 16 — Interface Specification (the human layer)
 
-**Status: ✅ · Code: `App.tsx`, `components/*.tsx`, `styles.css`**
+**Status: 🟡 · Code: `App.tsx`, `components/*.tsx`, `styles.css`**
 
 > The interface is an **IDE for video**: a menu bar, a tool rail, a left project panel, a canvas
 > workspace, a right inspector, and a keyframe timeline — all in the deep-ink Virtue Studio visual
-> language. Every visible affordance is wired to the engine; nothing is decorative.
+> language. The core media, title, effect, timeline, and export paths are interactive; the remaining
+> planned items are called out instead of being presented as finished controls.
 
 ---
 
@@ -71,15 +72,17 @@ Icon names include: `pointer`, `move`, `text`, `square`, `pen`, `hand`, `zoom`, 
 **Project · Media · Effects · Text · Modes · AI** (icon-only, `aria-label` carries the name).
 
 - **Project** — composition summary, concepts, templates, metaphors, and the genre selector
-  (`GenreSelector.tsx`).
+  (`GenreSelector.tsx`). Visual grammar entries apply their beats as timed animated title clips.
 - **Media** — the media bin: an **Import Media…** button (native dialog via the preload bridge) and
   a **drop zone** that accepts a dropped video file. Each imported clip shows a poster frame drawn
   from its first decoded `VideoFrame` (`MediaThumb.tsx`) plus its dimensions, fps, duration, and
   decoded frame count. The **+** button puts the clip on the timeline at the playhead, where it
   renders its own poster and drives the viewport
   ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)).
-- **Effects** — VFX catalogue from `getVFXEffects()` (`cardgrid`/`card`), with a search field.
-- **Text** — typography presets and variable font axes.
+- **Effects** — renderable graph shader nodes with search, stack order, live parameter controls, and
+  parameter state saved in the project graph.
+- **Text** — title presets, direct copy/style/placement editing, and animation channels. Clicking the
+  canvas with the Text tool creates a linked title clip.
 - **Modes** — creative modes from `window.studio.getModes()` (`modecard` / `modecard--active`).
 - **AI** — the brief form, with two actions:
   - **Generate Concepts** — the engine's concepts for the brief.
@@ -113,11 +116,13 @@ While the bridge resolves, panels show **"Loading engine data…"** (`useEngineD
 
 - Composition settings (name, width, height, fps, duration, background).
 - **Transform fields** — x, y, scale, rotation, opacity → `packUniforms` → canvas.
+- **Editor Preferences** — timeline snapping, preview zoom, and timeline zoom.
 - **Brand LUT** picker (`BrandLUTPanel.tsx`).
 - **Scopes** — live histogram, waveform, and vectorscope sampled from the viewport (`ScopesPanel.tsx`, [23-COLOR](23-COLOR.md#5-scopes)).
 - **Keyframe inspector** — per-keyframe seek button, a **25-easing selector** (`EASING_ORDER`/`EASING_LABELS` from `engine/easing.ts`), and a remove button ([32](32-KEYFRAME-ANIMATION.md#5-easing-functions)).
 - **Safe-zone** controls (`SafeZoneControls`).
-- **Effects stack** — drag-and-drop reorder, add, remove.
+- **Effects stack** — drag-and-drop reorder, add, remove, and edit renderer-node inputs. Effect order is
+  rebuilt into the active render path and preserved by project save/load and undo/redo.
 - **Export** — the `ExportPanel` ([07](07-EXPORT-PIPELINE.md)).
 
 ---
@@ -126,7 +131,7 @@ While the bridge resolves, panels show **"Loading engine data…"** (`useEngineD
 
 `section.timeline`:
 
-- `timeline__bar` — transport (`tbtn`, `tbtn--play`, `tbtn--rec`), timecode (`timeline__tc`), zoom.
+- `timeline__bar` — transport (`tbtn`, `tbtn--play`), timecode (`timeline__tc`), zoom.
 - `ruler` — time marks.
 - `tracks` — the five lanes (`lane`) with track heads (`trackhead`).
 - `clip` / `clip--active` — draggable, trimmable spans.
@@ -182,18 +187,23 @@ Reusable classes so the UI stays consistent:
 
 ## Interaction contracts
 
-The following affordances are **wired**, not decorative:
+The following core affordances are wired:
 
 | Affordance | Effect |
 |---|---|
 | Transform field edit | Live update to the WebGPU canvas |
 | Clip drag | `moveClip` with snap-to-neighbours |
 | Clip edge drag | `trimClip` |
+| Duplicate | Creates a neighboring clip copy; title copies receive their own graph-backed text node |
+| Split imported clip | The right-hand piece advances its media source in-point |
 | Lane click | `addKeyframe` at the playhead |
 | Diamond drag | `moveKeyframe` |
 | Diamond delete | `removeKeyframe` |
-| Effect drop onto the stack | Reorder the effects stack |
-| Genre template apply | Sets LUT, lays out beats, records presets |
+| Effect library add/drop | Adds a real shader node and applies it to preview/export |
+| Effect parameter edit | Updates the node input and supports undo/redo |
+| Title preset / canvas Text tool | Creates an editable title clip and graph node with motion channels |
+| Title keyframe value edit | Updates the selected property at the active keyframe |
+| Genre template apply | Builds timed title beats with motion and sets the genre LUT |
 | LUT pick | Live `packUniforms` change |
 | Safe-zone toggle | Overlay on/off + ratio |
 

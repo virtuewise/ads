@@ -17,7 +17,7 @@ import type {
   TransformState,
 } from './types';
 
-export const PROJECT_VERSION = 2;
+export const PROJECT_VERSION = 3;
 export const APP_NAME = 'Virtue Studio';
 export const APP_VERSION = '0.1.0';
 
@@ -128,6 +128,16 @@ function sanitizeTimeline(raw: unknown, duration: number): TimelineDoc {
         .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
         .map((c, i) => {
           const mediaId = str(c.mediaId, '');
+          const textNodeId = str(c.textNodeId, '');
+          const rawLook = c.look;
+          const look: Record<string, Record<string, unknown>> | undefined =
+            rawLook && typeof rawLook === 'object' && !Array.isArray(rawLook)
+              ? (Object.fromEntries(
+                  Object.entries(rawLook as Record<string, unknown>).filter(
+                    ([, value]) => value && typeof value === 'object' && !Array.isArray(value),
+                  ),
+                ) as Record<string, Record<string, unknown>>)
+              : undefined;
           return {
             id: str(c.id, `clip-${i}`),
             trackId: str(c.trackId, 'video'),
@@ -138,6 +148,8 @@ function sanitizeTimeline(raw: unknown, duration: number): TimelineDoc {
             // A media binding survives a save/load round-trip.
             ...(mediaId ? { mediaId } : {}),
             ...(mediaId ? { sourceStart: num(c.sourceStart, 0) } : {}),
+            ...(textNodeId ? { textNodeId } : {}),
+            ...(look ? { look } : {}),
           };
         })
     : [];

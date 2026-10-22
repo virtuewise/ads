@@ -613,6 +613,24 @@ export class TextNode extends BaseNode {
     { id: 'x', name: 'X', type: 'number', direction: 'input', default: 0.5 },
     { id: 'y', name: 'Y', type: 'number', direction: 'input', default: 0.12 },
     { id: 'colour', name: 'Colour', type: 'color', direction: 'input', default: '#ffffff' },
+    {
+      id: 'font',
+      name: 'Font',
+      type: 'string',
+      direction: 'input',
+      default: 'Inter, "Segoe UI", system-ui, sans-serif',
+    },
+    { id: 'weight', name: 'Weight', type: 'number', direction: 'input', default: 800 },
+    { id: 'align', name: 'Alignment', type: 'string', direction: 'input', default: 'center' },
+    { id: 'backgroundColor', name: 'Box Color', type: 'color', direction: 'input', default: '' },
+    {
+      id: 'backgroundOpacity',
+      name: 'Box Opacity',
+      type: 'number',
+      direction: 'input',
+      default: 0,
+    },
+    { id: 'padding', name: 'Box Padding', type: 'number', direction: 'input', default: 0 },
     { id: 'output', name: 'Output', type: 'color', direction: 'output' },
   ];
   execute(inputs: Record<string, unknown>): Record<string, unknown> {

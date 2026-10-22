@@ -75,19 +75,12 @@ Both fields survive a save/load round-trip — `normalizeProject` keeps them, an
 
 ---
 
-## Seeding
+## Starting a composition
 
-`defaultTimeline(captionNames, effectNames, duration)` builds a starter timeline:
-
-- **video**: `Main Comp` (0 → min(6.4, dur)) and `B-Roll 02` (6.9 → dur).
-- **audio**: `Score: Main Theme` across the whole duration.
-- **captions**: the first two engine caption preset names (or `Opening Title` / `Closing Tagline`).
-- **effects**: the first three engine VFX names (or `Glow` / `Chromatic Blur`).
-- **transitions**: a `Cross Dissolve` around 6.3–7s.
-
-> These are **engine-seeded placeholder clips**. They carry names and ranges but not media references —
-> decoding real footage into the compositor is the next milestone. See [01-PRODUCT](01-PRODUCT.md) and
-> [21-ROADMAP](21-ROADMAP.md).
+`createEmptyTimeline(duration)` creates a clean timeline with no invented footage, audio, captions,
+effects, or transitions. Imported media adds real video clips; the Text tool and title presets create
+caption-track clips bound to graph-backed title nodes. The audio and transitions lanes remain available
+for future implementations but are empty until those systems can create renderable objects.
 
 ---
 

@@ -1,6 +1,6 @@
 # 32 — Keyframe Animation System
 
-**Status: 🟡 (real keyframe engine + 25-easing library; per-property sampling UI and a graph editor are ⬜) · Code: `engine/timeline.ts`, `engine/easing.ts`, `engine/types.ts`, `engine/nodes.ts`**
+**Status: 🟡 (real keyframe engine + 25 easings; editable title channels and keyframe values are live, while general per-clip graph transforms remain planned) · Code: `engine/timeline.ts`, `engine/text.ts`, `engine/easing.ts`, `engine/types.ts`, `engine/nodes.ts`**
 
 > The keyframe system is one of the most real parts of the editor: a pure data model, four timeline
 > transforms, easing interpolation, snapping, and a UI with draggable diamonds. This document is the
@@ -29,6 +29,7 @@ export interface TimelineClip {
   end: number;
   name: string;
   keyframes: Keyframe[];
+  textNodeId?: string;    // graph text node rendered for an editor-authored title
 }
 ```
 
@@ -99,6 +100,11 @@ Changes a keyframe's time. Re-sorts the array. Does not change value or easing.
 Changes the easing of a single keyframe. The easing governs the interpolation **from** this keyframe
 **to** the next one.
 
+### 3.5 `setKeyframeValue(doc, clipId, kfId, value)`
+
+Updates one scalar value without changing the keyframe's time or easing. The selected title channel can
+be edited in the keyframe inspector; repeated value adjustments merge into one undo step.
+
 ---
 
 ## 4. Sampling: `sampleKeyframes(keyframes, time, fallback)`
@@ -122,10 +128,9 @@ Algorithm:
 > **Critical subtlety:** the easing used is the **target** keyframe's (`b.easing`), not the source's.
 > This matches the convention in most animation tools (the easing is "arriving at" the keyframe).
 
-> **Known limitation:** `sampleKeyframes` interpolates across **all** keyframes in the array regardless
-> of `property`. If a clip holds keyframes for `opacity` and `scale` mixed together, sampling will
-> incorrectly interpolate between them. The caller **must pre-filter by property** — no helper does
-> this yet. This is a correctness gap the advanced system closes.
+`sampleKeyframes` accepts an optional property filter, and `sampleProperty` provides the safe
+single-channel path used by title rendering. Callers that omit the filter still sample all keyframes,
+so multi-property consumers should use `sampleProperty`.
 
 ---
 

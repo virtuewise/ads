@@ -1,6 +1,6 @@
 # 01 — Product Overview & Personas
 
-**Status: 🟡 (v0.1 — editor shell + engine real; media import pending) · Code: `apps/electron`**
+**Status: 🟡 (v0.1 — editor, real media import, graph rendering, animated titles, and renderable effects are implemented; audio, transitions, and several advanced production systems remain) · Code: `apps/electron`**
 
 > Virtue Studio is a **local, engine-driven motion-design application**. It looks and feels like an
 > IDE for video: menu bar, tool rail, canvas, node graph, code editor, and a keyframe timeline — all
@@ -123,15 +123,18 @@ Every feature traceable to a real module. `✅` = implemented, `🟡` = partial,
 
 | Feature | Status | Module |
 |---|---|---|
-| Import media → decode → upload as compositor input texture | ⬜ | *(next milestone — [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md))* |
+| Import media → decode → upload as compositor input texture | ✅ | [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md) |
+| Editable title layers with clip motion | 🟡 | [33-TEXT-AND-TYPOGRAPHY](33-TEXT-AND-TYPOGRAPHY.md) |
+| Renderable effects stack | 🟡 | [27-EFFECTS-LIBRARY](27-EFFECTS-LIBRARY.md) |
 | Audio decode + WebAudio J/L cut crossfades | ⬜ | *(narrative genre — [11](11-GENRE-NARRATIVE.md))* |
 | Transcript indexing + search (SQLite) | ⬜ | *(documentary genre — [14](14-GENRE-DOCUMENTARY.md))* |
 | Frame ring-buffer cache (WebCodecs) | ⬜ | *(detective genre — [15](15-GENRE-DETECTIVE.md))* |
 
-> **Honest summary:** the *compositing and editing architecture* is real and working end to end —
-> project in, graded/transformed frames out, encoded to disk. The **timeline currently holds
-> engine-seeded placeholder clips**; wiring real footage into the compositor's input texture is the
-> next milestone. See [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md) and [21-ROADMAP](21-ROADMAP.md).
+> **Honest summary:** media can be imported, decoded, placed on the timeline, previewed through the
+> compositor, and saved with its project reference. Editable titles and compatible effects also reach
+> preview/export. Audio, transitions, multi-clip compositing, per-clip graph transforms, and advanced
+> text shaping remain future work. See [29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md) and
+> [21-ROADMAP](21-ROADMAP.md).
 
 ---
 

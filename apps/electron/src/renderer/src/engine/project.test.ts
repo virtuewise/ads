@@ -35,6 +35,29 @@ describe('normalizeProject — timeline sanitising', () => {
     expect(clip.sourceStart).toBe(0.5);
   });
 
+  it('keeps text-layer bindings and per-clip looks through a round-trip', () => {
+    const doc = docWith({
+      duration: 12,
+      clips: [
+        {
+          id: 'title-1',
+          trackId: 'captions',
+          start: 1,
+          end: 4,
+          name: 'Opening headline',
+          keyframes: [],
+          textNodeId: 'text-node-1',
+          look: { glow: { intensity: 0.35 }, oklabGrade: { contrast: 1.08 } },
+        },
+      ],
+    });
+    expect(doc.timeline.clips[0].textNodeId).toBe('text-node-1');
+    expect(doc.timeline.clips[0].look).toEqual({
+      glow: { intensity: 0.35 },
+      oklabGrade: { contrast: 1.08 },
+    });
+  });
+
   it('does not invent a media binding', () => {
     const doc = docWith({
       duration: 12,

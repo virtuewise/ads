@@ -13,19 +13,21 @@ function createId(prefix: string) {
   return `${prefix}-${++nodeCounter}`;
 }
 
-const DEFAULT_DAG: DAG = {
-  nodes: [
-    {
-      id: 'n1',
-      type: 'proceduralScene',
-      position: { x: 120, y: 120 },
-      inputs: {},
-      outputs: {},
-    },
-    { id: 'n2', type: 'render', position: { x: 440, y: 120 }, inputs: {}, outputs: {} },
-  ],
-  edges: [{ id: 'e1', from: { node: 'n1', port: 'output' }, to: { node: 'n2', port: 'input' } }],
-};
+export function createDefaultDAG(): DAG {
+  return {
+    nodes: [
+      {
+        id: 'n1',
+        type: 'proceduralScene',
+        position: { x: 120, y: 120 },
+        inputs: {},
+        outputs: {},
+      },
+      { id: 'n2', type: 'render', position: { x: 440, y: 120 }, inputs: {}, outputs: {} },
+    ],
+    edges: [{ id: 'e1', from: { node: 'n1', port: 'output' }, to: { node: 'n2', port: 'input' } }],
+  };
+}
 
 /** The output port a node type publishes. */
 function outputPortFor(type: string): string {
@@ -38,7 +40,7 @@ function outputPortFor(type: string): string {
 }
 
 export function useDAG() {
-  const [dag, setDAG] = useState<DAG>(DEFAULT_DAG);
+  const [dag, setDAG] = useState<DAG>(createDefaultDAG);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   /**
    * The code the user typed, when it differs from what the graph would
@@ -174,7 +176,7 @@ export function useDAG() {
 
   const resetDAG = useCallback(() => {
     setCodeOverride(null);
-    setDAG(DEFAULT_DAG);
+    setDAG(createDefaultDAG());
     setSelectedNode(null);
   }, []);
 

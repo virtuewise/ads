@@ -1,17 +1,17 @@
 # 24 — Transitions: A Real Transition Engine
 
-**Status: ⬜ (no transition engine exists; only placeholder clips) · Code (target): `engine/transitions.ts`, `engine/shaders/transitions/*.wgsl`**
+**Status: ⬜ (no transition engine exists; the transitions lane is empty by default) · Code (target): `engine/transitions.ts`, `engine/shaders/transitions/*.wgsl`**
 
-> Today the timeline has a **Transitions track** (`TRACKS` in `engine/timeline.ts`) holding a single
-> placeholder "Cross Dissolve" clip, and **no engine behind it**. There is no way to place, tune, or render
-> a transition. This document specifies the engine.
+> Today the timeline has a **Transitions track** (`TRACKS` in `engine/timeline.ts`) but no transition
+> engine behind it. New timelines are empty: there is no way to place, tune, or render a transition. This
+> document specifies the engine.
 
 ---
 
 ## The gap, precisely
 
-`engine/timeline.ts` defines the `transitions` track with icon `shuffle` and colour `#f472b6`, and
-`defaultTimeline()` seeds one clip spanning ~6.3–7.0s. That clip has:
+`engine/timeline.ts` defines the `transitions` track with icon `shuffle` and colour `#f472b6`. No
+transition clips are seeded. A transition implementation still needs:
 
 - No link to the two clips it joins.
 - No transition type beyond its name.

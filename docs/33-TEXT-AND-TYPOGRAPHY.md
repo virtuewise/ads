@@ -1,10 +1,10 @@
 # 33 — Text & Typography Engine
 
-**Status: 🟡 (the `text` node renders — an editor-painted title over the picture, driven by the script's timing; the layered text model, kinetic type and the SDF atlas are still ⬜) · Code: `engine/text.ts`, `engine/nodes.ts` (`text`), `hooks/useEngineData.ts`**
+**Status: 🟡 (editable graph-backed title layers, rasterized typography, clip-bound motion, and export parity are implemented; advanced shaping and glyph animation remain planned) · Code: `engine/text.ts`, `engine/timeline.ts`, `engine/nodes.ts` (`text`), `App.tsx`**
 
-> The editor displays typography presets fetched from the engine and seeds caption clips from them.
-> There is **no text rendering engine** — no font loading, no text layer in the compositor, no text
-> animation. This document specifies the full text subsystem.
+> The editor supports graph-backed title layers with editable copy, typography, placement, backgrounds,
+> per-clip motion, and a shared preview/export rasterization path. This document records what is live and
+> what remains in the advanced text-system plan.
 
 ---
 
@@ -12,7 +12,7 @@
 
 ### 1.0 Titles render — `engine/text.ts`, `engine/nodes.ts` (`text`)
 
-The **`text` node (the 56th) renders.** The GPU has no font, so the editor draws: the node declares
+The **`text` node renders.** The GPU has no font, so the editor draws: the node declares
 `usesAppTexture`, the compiler gives it a texture binding pair of its own and reports those numbers
 (`compiled.appTextures[nodeId]`), the editor rasterises the words into a 2D canvas
 (`rasteriseText`) and paints them into that texture through the viewport's `writeAppTexture` slot
@@ -25,30 +25,29 @@ fn text(color: vec4<f32>, src: texture_2d<f32>, samp: sampler, uv: vec2<f32>) ->
 }
 ```
 
-The plan's titles come from the **script**: `compilePlan` puts a `title` node on after the grade
-stage — the picture is graded, the title keeps the colour it was set in — and the node's words follow
-the script step that is on screen, so the title changes as the edit plays. What this is *not* (yet)
-is the layered text model below: one node, one style, no per-glyph animation, no SDF atlas.
+Editor-authored title nodes are linked to timeline clips through `textNodeId`. The renderer samples
+each clip's independent `opacity`, `scale`, `x`, `y`, `rotation`, and `reveal` channels, then rasterizes
+the current title style. The same per-time texture callback drives preview and export. Script-plan
+titles remain separately driven by the active plan step.
 
 ### 1.1 Typography presets (real data)
 
 `hooks/useEngineData.ts` fetches `typography: TypographyPreset[]` from the engine bridge. These are
-displayed in the left panel's **Text** tab alongside **Variable Font Axes** (weight, width, slant,
-optical size).
+displayed in the left panel's **Text** tab and can be applied to a selected title or used to create a
+title layer.
 
-A `TypographyPreset` contains at minimum: `id`, `name`, `family`, `weight`, `style`. The presets are
-**read-only display data** — clicking one does not create a text layer.
+A `TypographyPreset` contains at minimum: `id`, `name`, `family`, `weight`, `style`. Applying one updates
+the selected text node's type treatment; with no title selected it creates a linked title clip.
 
-### 1.2 Caption seeding
+### 1.2 Title clips
 
-`defaultTimeline()` in `engine/timeline.ts` seeds caption clips on the `captions` track from typography
-preset names. These are placeholder clips with names like "Kinetic Title" — no text content, no styling,
-no rendering.
+New compositions start empty. Creating a title preset or using the canvas Text tool adds a real clip on
+the `captions` track, a linked `text` graph node, and the preset's initial motion keyframes.
 
 ### 1.3 Text tool
 
-The `text(T)` tool in the left rail is tracked in state but has **no canvas behavior** — clicking the
-canvas does not place text.
+The `text(T)` tool places a title at the clicked normalized canvas position and opens the Text panel for
+editing.
 
 ---
 
@@ -59,13 +58,13 @@ canvas does not place text.
 | Font loading | ⬜ system fonts through 2D canvas only |
 | Text layer in compositor | ✅ the `text` node, painted by the editor into its own GPU texture |
 | Text rendering (WGSL/Skia/Wasm) | 🟡 2D canvas rasterisation → `rgba8unorm` texture (`rasteriseText`); SDF atlas ⬜ |
-| Text animation (kinetic type) | ⬜ none |
+| Text animation | 🟡 opacity, scale, x/y, rotation and reveal keyframes; no per-glyph/stagger animation |
 | Text on path | ⬜ none |
-| Variable font axes control | ⬜ displayed but not wired to state |
+| Variable font axes control | ⬜ not exposed by the current title editor |
 | Text effects (glow, shadow, outline) | 🟡 a soft drop shadow from the rasteriser; distance-field effects ⬜ |
-| Auto-fit / text wrapping | ⬜ none |
+| Auto-fit / text wrapping | 🟡 multiline text; no automatic fit or advanced wrapping |
 | Multi-language / RTL / CJK | ⬜ whatever 2D canvas gives |
-| Text as a layer kind | ⬜ `LayerKind` has no `'text'` |
+| Text as a compositor layer | 🟡 represented by graph `text` nodes and title clips; not part of a general layer stack |
 
 ---
 

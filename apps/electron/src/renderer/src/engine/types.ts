@@ -332,6 +332,8 @@ export interface TimelineClip {
   mediaId?: string;
   /** In-point within the source, in seconds. */
   sourceStart?: number;
+  /** Text graph node rendered during this clip's active range. */
+  textNodeId?: string;
   /**
    * The look for this clip: the parameters of each node kind, keyed by kind.
    *

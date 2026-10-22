@@ -1,12 +1,11 @@
 # 29 — Media Pipeline: Import, Decode, Proxies & Indexing
 
-**Status: 🟡 (import → demux → WebCodecs decode works end to end; GPU upload, timeline binding, and audio are ⬜) · Code: `engine/demux.ts`, `engine/media.ts`, `main/media.ts`**
+**Status: 🟡 (media import, WebCodecs decode, single active clip preview, and project re-import work; audio, proxies, and multi-clip compositing remain planned) · Code: `engine/demux.ts`, `engine/media.ts`, `main/media.ts`, `components/WebGPUCanvas.tsx`**
 
-> **This is the frontier.** The compositor, timeline, and export are real; the media they operate on
-> is only now becoming real. A user can import an MP4/MOV, and the editor demuxes the container,
-> decodes every frame through WebCodecs, and shows a poster frame in the media bin — but the
-> timeline still holds placeholder clips, and nothing samples a decoded frame on the GPU yet.
-> Everything advanced depends on the rest of this document landing.
+> **Media import is implemented.** A user can import an MP4/MOV, inspect a poster, add it to the
+> timeline, scrub the active clip through the WebGPU compositor, and reopen a project with its media
+> references restored. The remaining pipeline gaps include audio, proxies, source slip/retime, and
+> compositing multiple media clips at once.
 
 ---
 
@@ -19,7 +18,7 @@
 | Decode video | ✅ `engine/media.ts` feeds a WebCodecs `VideoDecoder`; the media bin shows `N frames decoded` |
 | Poster frame | ✅ `components/MediaThumb.tsx` draws the first decoded frame into a canvas |
 | Frame → GPU texture | ✅ `device.importExternalTexture()` — the decoded frame reaches the GPU **without a copy** |
-| Compositing a clip | ✅ a **media source** node in the DAG samples that texture; the bridge runs it in the single pass |
+| Compositing a clip | ✅ a **media source** node samples that texture through the graph-aware viewport/export path |
 | Clip → media reference | ✅ `TimelineClip.mediaId` + `sourceStart`; the media bin's **+** button puts a clip on the timeline, and scrubbing the timeline scrubs the footage |
 | Media survives a save/load | ✅ the project stores `assets[]` (where the footage is) and re-imports it on open |
 | Audio | ⬜ none behind the track ([25](25-AUDIO.md)) |
@@ -28,9 +27,8 @@
 | Disposal | 🟡 `disposeMediaSource()` closes every cached `VideoFrame` |
 
 The honest one-line summary: **a real container goes in and real decoded pixels come out the other
-end of the compositor, the timeline drives them, and a saved project brings its footage back.** What is
-still missing is the *editor* half: one clip at a time, no trimming of the source in-point, no slip,
-and no multi-clip compositing.
+end of the compositor, the timeline drives the selected clip, and a saved project brings its footage
+back.** Still missing are source in-point slip/retime, audio, and simultaneous multi-clip compositing.
 
 ---
 
@@ -264,7 +262,8 @@ loading — [05](05-PROJECT-FORMAT.md#versioning--migration-policy)).
 - ⬜ **Filmstrip** on the timeline clip: lazily decoded thumbnails at clip zoom, cached.
 - ⬜ **Media bin grid** uses the posters; the **hover scrub** plays the poster sequence.
 
-All cached to disk keyed by asset hash, so reopening a project is instant.
+The current poster frames live with the imported media sources in memory; persistent thumbnail caching
+is not implemented.
 
 ---
 

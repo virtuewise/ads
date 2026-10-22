@@ -19,7 +19,8 @@ import { WebGPUCanvas, type WebGPUCanvasHandle } from './components/WebGPUCanvas
 import { analyseFrame, type FrameStats, gradeToMatch, isMeasurable } from './engine/balance';
 import { bridgeDAGToComposite } from './engine/bridge';
 import { EASING_LABELS, EASING_ORDER } from './engine/easing';
-import type { GenreTemplate, KeyframePreset } from './engine/genre-workflows';
+import { appendEffectNodesToGraph } from './engine/effects';
+import { allTemplates, type GenreTemplate, type KeyframePreset } from './engine/genre-workflows';
 import type { Command, DocumentStore } from './engine/history';
 import {
   canRedo,
@@ -32,21 +33,41 @@ import {
   replaceDoc,
   undo,
 } from './engine/history';
-import { decodeFrameAt, decodeVideoBuffer, type MediaSource } from './engine/media';
+import {
+  decodeFrameAt,
+  decodeVideoBuffer,
+  disposeMediaSource,
+  type MediaSource,
+} from './engine/media';
 import { graphToDAG, timelineToDoc } from './engine/plan';
 import { buildProject, createDefaultComposition, normalizeProject } from './engine/project';
-import { rasteriseText, textStyleFrom } from './engine/text';
+import {
+  animatedTextStyle,
+  appendTextNodesToGraph,
+  DEFAULT_TEXT_STYLE,
+  rasteriseText,
+  removeTextNodesFromGraph,
+  TEXT_LAYER_PRESETS,
+  type TextLayerPreset,
+  type TextMotion,
+  type TextStyle,
+  textStyleFrom,
+} from './engine/text';
 import {
   addKeyframe,
   addMediaClip,
+  applyTextMotion,
   clipsFor,
-  defaultTimeline,
+  createEmptyTimeline,
+  createTextClip,
   moveKeyframe,
+  nextId,
   removeKeyframe,
   renameClip,
   setClipFields,
   setClipRange,
   setKeyframeEasing,
+  setKeyframeValue,
   splitClip,
   TRACKS,
 } from './engine/timeline';
@@ -63,7 +84,7 @@ import type {
   TransformState,
 } from './engine/types';
 import { BRAND_LUTS } from './engine/types';
-import { useDAG } from './engine/useDAG';
+import { createDefaultDAG, useDAG } from './engine/useDAG';
 import type { Brief, Concept, CreativeMode } from './hooks/useEngineData';
 import { studioApi, useEngineData } from './hooks/useEngineData';
 
@@ -226,35 +247,7 @@ const FX_ICONS: Record<string, IconName> = {
 };
 const fxIcon = (category: string): IconName => FX_ICONS[category] ?? 'sparkle';
 
-const AI_TOOLS: Array<{ icon: IconName; name: string; desc: string }> = [
-  { icon: 'scissors', name: 'Object Matte', desc: 'AI subject isolation & tracking masks' },
-  { icon: 'refresh', name: 'Generative Extend', desc: 'Extend clip duration with AI frames' },
-  { icon: 'contrast', name: 'Unmult', desc: 'Remove black/white matted backgrounds' },
-  { icon: 'wind', name: 'Curl Noise', desc: 'Procedural fluid dynamics & particles' },
-];
-
-const TEMPLATES = [
-  {
-    name: 'Case File Reveal',
-    desc: 'Suspenseful investigative flow',
-    bg: 'linear-gradient(135deg,#1a1a2e,#16213e)',
-  },
-  {
-    name: 'Data Reveal',
-    desc: 'Animated chart with kinetic numbers',
-    bg: 'linear-gradient(135deg,#134e5e,#71b280)',
-  },
-  {
-    name: 'Process Flow',
-    desc: 'Step-by-step node animation',
-    bg: 'linear-gradient(135deg,#4b1248,#f09819)',
-  },
-  {
-    name: 'Interrogation Room',
-    desc: 'Dramatic single-subject interview',
-    bg: 'linear-gradient(135deg,#2c3e50,#4ca1af)',
-  },
-];
+const TEMPLATES = allTemplates();
 
 type TrackState = Record<string, { visible: boolean; locked: boolean }>;
 const DEFAULT_TRACK_STATE: TrackState = {
@@ -265,8 +258,42 @@ const DEFAULT_TRACK_STATE: TrackState = {
   transitions: { visible: true, locked: false },
 };
 
+interface GraphEditCommand extends Command {
+  fromGraph: DAG;
+  toGraph: DAG;
+  mergeKey?: string;
+}
+
+function makeGraphEditCommand(
+  label: string,
+  fromGraph: DAG,
+  toGraph: DAG,
+  mergeKey?: string,
+): GraphEditCommand {
+  return {
+    id: `graph-${Date.now().toString(36)}`,
+    label,
+    fromGraph,
+    toGraph,
+    ...(mergeKey ? { mergeKey } : {}),
+    do: (doc) => ({ ...doc, graph: toGraph }),
+    undo: (doc) => ({ ...doc, graph: fromGraph }),
+    mergeWith: (previous) => {
+      const previousGraphCommand = previous as Partial<GraphEditCommand>;
+      if (
+        !mergeKey ||
+        previousGraphCommand.mergeKey !== mergeKey ||
+        !previousGraphCommand.fromGraph
+      ) {
+        return null;
+      }
+      return makeGraphEditCommand(label, previousGraphCommand.fromGraph, toGraph, mergeKey);
+    },
+  };
+}
+
 export function App() {
-  const { modes, typography, effects, grammars, stats } = useEngineData();
+  const { modes, typography, grammars, stats } = useEngineData();
 
   // ── Shell state ───────────────────────────────────────────────────────────
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -282,6 +309,7 @@ export function App() {
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [selectedClip, setSelectedClip] = useState<string | null>(null);
   const [selectedClips, setSelectedClips] = useState<Set<string>>(new Set());
+  const [animationProperty, setAnimationProperty] = useState('opacity');
   const [fxQuery, setFxQuery] = useState('');
 
   // ── Media bin (imported clips) ────────────────────────────────────────────
@@ -300,7 +328,7 @@ export function App() {
         safeZones: { active: false, ratio: '16:9' },
         brandLUT: 'none',
         timeline: { duration: createDefaultComposition().duration, clips: [] },
-        graph: { nodes: [], edges: [] },
+        graph: createDefaultDAG(),
         effectsStack: [],
       }),
     ),
@@ -323,6 +351,7 @@ export function App() {
   const applyHistory = useCallback((next: DocumentStore) => {
     setHistoryStore(next);
     setTimelineDoc(next.doc.timeline);
+    setEffectsStack(next.doc.effectsStack);
     loadDAGRef.current?.(next.doc.graph);
   }, []);
 
@@ -335,6 +364,7 @@ export function App() {
 
   // ── Quick Apply ───────────────────────────────────────────────────────────
   const [showQuickApply, setShowQuickApply] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [quickApply, setQuickApply] = useState('');
 
   // ── Genre-aware editing ───────────────────────────────────────────────────
@@ -355,7 +385,6 @@ export function App() {
   const [dirty, setDirty] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-  const seededRef = useRef(false);
 
   const DURATION = composition.duration;
   const FPS = composition.fps;
@@ -374,12 +403,27 @@ export function App() {
     formats: ['16:9', '9:16'],
   });
   const [generated, setGenerated] = useState<Concept[]>([]);
+  const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
   // ── DAG engine ────────────────────────────────────────────────────────────
   const dag = useDAG();
   loadDAGRef.current = dag.loadDAG;
+
+  const selectedTimelineClip = useMemo(
+    () => timelineDoc.clips.find((clip) => clip.id === selectedClip),
+    [timelineDoc.clips, selectedClip],
+  );
+  const selectedTextNode = useMemo(() => {
+    const linkedId = selectedTimelineClip?.textNodeId;
+    const nodeId = linkedId ?? dag.selectedNode;
+    return dag.dag.nodes.find((node) => node.id === nodeId && node.type === 'text');
+  }, [dag.dag.nodes, dag.selectedNode, selectedTimelineClip?.textNodeId]);
+  const selectedTextStyle = useMemo(
+    () => (selectedTextNode ? textStyleFrom(selectedTextNode.inputs) : null),
+    [selectedTextNode],
+  );
 
   /**
    * Keep the document's graph current as the user edits it.
@@ -432,15 +476,20 @@ export function App() {
     for (const [nodeId, binding] of Object.entries(slots)) {
       const node = nodes.find((n) => n.id === nodeId);
       if (!node) continue;
-      const style = textStyleFrom(node.inputs ?? {});
-      // A title follows the script: the line that is on screen now.
+      const style = textStyleFrom(node.inputs);
+      const textClips = timelineDoc.clips.filter((clip) => clip.textNodeId === nodeId);
+      const clip = textClips.find((item) => playhead >= item.start && playhead < item.end);
       const step = plan?.script?.steps?.find(
-        (s) => s.text && playhead >= s.start && playhead < s.end,
+        (item) => item.text && playhead >= item.start && playhead < item.end,
       );
-      const image = rasteriseText(step?.text ? { ...style, text: step.text } : style);
+      const isEditorLayer = node.inputs.editorLayer === true;
+      const visible = textClips.length > 0 ? !!clip : !isEditorLayer;
+      const animated = clip ? animatedTextStyle(style, clip, playhead) : style;
+      const copy = clip ? style.text : (step?.text ?? style.text);
+      const image = rasteriseText({ ...animated, text: visible ? copy : '' });
       if (image) viewportRef.current?.writeAppTexture(binding.texture, image);
     }
-  }, [appTextures, dag.dag.nodes, plan, playhead]);
+  }, [appTextures, dag.dag.nodes, plan, playhead, timelineDoc.clips]);
 
   // The decoded frame the graph's media source samples. It comes from the
   // The frame the compositor samples. It is decoded on demand around the
@@ -484,7 +533,9 @@ export function App() {
   const exportMediaSourcesRef = useRef(new Map<MediaSource, MediaSource>());
   const programAtTime = useCallback(
     (time: number) => {
-      const clip = timelineDoc.clips.find((item) => time >= item.start && time < item.end);
+      const clip = timelineDoc.clips.find(
+        (item) => item.trackId === 'video' && time >= item.start && time < item.end,
+      );
       const look = clip?.look;
       const key = JSON.stringify(look ?? null);
       let program = exportPrograms.variants.get(key);
@@ -533,15 +584,21 @@ export function App() {
         const node = dag.dag.nodes.find((item) => item.id === nodeId);
         if (!node) continue;
         const style = textStyleFrom(node.inputs ?? {});
+        const textClips = timelineDoc.clips.filter((clip) => clip.textNodeId === nodeId);
+        const clip = textClips.find((item) => time >= item.start && time < item.end);
         const step = plan?.script?.steps?.find(
           (item) => item.text && time >= item.start && time < item.end,
         );
-        const image = rasteriseText(step?.text ? { ...style, text: step.text } : style);
+        const isEditorLayer = node.inputs.editorLayer === true;
+        const visible = textClips.length > 0 ? !!clip : !isEditorLayer;
+        const animated = clip ? animatedTextStyle(style, clip, time) : style;
+        const copy = clip ? style.text : (step?.text ?? style.text);
+        const image = rasteriseText({ ...animated, text: visible ? copy : '' });
         if (image) images[binding.texture] = image;
       }
       return images;
     },
-    [appTextures, dag.dag.nodes, plan],
+    [appTextures, dag.dag.nodes, plan, timelineDoc.clips],
   );
 
   /**
@@ -630,10 +687,37 @@ export function App() {
     [modes],
   );
 
+  const renderEffects = useMemo(() => {
+    const visualCategories = new Set([
+      'effect',
+      'blur',
+      'color',
+      'distort',
+      'stylize',
+      'keying',
+      'temporal',
+    ]);
+    return dag.nodeTypes.filter((node) => {
+      if (!visualCategories.has(node.category)) return false;
+      return (
+        node.ports.filter((port) => port.direction === 'input' && port.type === 'texture')
+          .length === 1 &&
+        node.ports.filter((port) => port.direction === 'output' && port.type === 'texture')
+          .length === 1
+      );
+    });
+  }, [dag.nodeTypes]);
+
   const filteredEffects = useMemo(
     () =>
-      effects.filter((e) => fxQuery === '' || e.name.toLowerCase().includes(fxQuery.toLowerCase())),
-    [effects, fxQuery],
+      renderEffects.filter(
+        (effect) => fxQuery === '' || effect.label.toLowerCase().includes(fxQuery.toLowerCase()),
+      ),
+    [renderEffects, fxQuery],
+  );
+  const selectedEffectDefinition = renderEffects.find((effect) => effect.type === selectedEffect);
+  const selectedEffectNode = dag.dag.nodes.find(
+    (node) => node.type === selectedEffect && node.inputs.editorEffectNode === true,
   );
 
   /** The imported media a timeline clip shows, if any. */
@@ -642,20 +726,6 @@ export function App() {
       clip.mediaId ? mediaBin.find((m) => m.id === clip.mediaId) : undefined,
     [mediaBin],
   );
-
-  // ── Seed the default timeline once engine data is available ──────────────
-  useEffect(() => {
-    if (seededRef.current) return;
-    if (typography.length === 0 && effects.length === 0) return;
-    seededRef.current = true;
-    setTimelineDoc(
-      defaultTimeline(
-        typography.map((p) => p.name),
-        effects.map((e) => e.name),
-        composition.duration,
-      ),
-    );
-  }, [typography, effects, composition.duration]);
 
   /**
    * A clip's label, with the grade that was matched onto it.
@@ -797,7 +867,7 @@ export function App() {
     } else if (label === 'Browse Effects…') {
       setLeftTab('effects');
     } else if (label === 'New Text Layer') {
-      setTool('text');
+      createTextLayer(TEXT_LAYER_PRESETS[0]);
     } else if (label === 'New Project') {
       newProject();
     } else if (label === 'Import Media…') {
@@ -816,6 +886,8 @@ export function App() {
       applyHistory(redo(historyStore));
     } else if (label === 'Split at Playhead') {
       splitAtPlayhead();
+    } else if (label === 'Remove All Effects') {
+      applyEffectStack([]);
     }
   };
 
@@ -828,6 +900,7 @@ export function App() {
       ).studio;
       const result = await api?.generateConcepts?.(brief);
       setGenerated(result ?? []);
+      setSelectedConcept(result?.[0] ?? null);
     } catch (e) {
       setGenError(String(e));
     } finally {
@@ -851,14 +924,18 @@ export function App() {
           studio?: { buildPlan: (b: unknown) => Promise<ProductionPlan> };
         }
       ).studio;
+      const concept = selectedConcept;
+      const objective = concept?.logline || concept?.story_summary || brief.objective;
       const plan = await api?.buildPlan?.({
-        title: brief.objective,
-        duration: composition.duration,
-        mode: 'CORPORATE',
+        title: concept?.title ?? brief.objective,
+        duration: selectedMode?.duration ?? composition.duration,
+        mode: selectedMode?.id ?? genre.toUpperCase(),
         service: brief.service,
-        objective: brief.objective,
-        voice: 'confident',
-        scenes: [brief.objective],
+        objective,
+        voice: selectedMode?.voice ?? brief.emotional_objective,
+        scenes: [concept?.story_summary, concept?.key_visual, objective].filter(
+          (value): value is string => !!value,
+        ),
       });
       if (!plan) {
         setGenError('The production planner is unavailable.');
@@ -874,16 +951,22 @@ export function App() {
       // history: one Ctrl+Z puts the previous timeline and graph back.
       const fromTimeline = timelineDoc;
       const fromGraph = dag.dag;
+      const fromEffectsStack = effectsStack;
       const cmd: Command = {
         id: `cmd-${Date.now().toString(36)}`,
         label: 'Load Production',
-        do: (doc) => ({ ...doc, timeline: nextTimeline, graph: nextGraph }),
-        undo: (doc) => ({ ...doc, timeline: fromTimeline, graph: fromGraph }),
+        do: (doc) => ({ ...doc, timeline: nextTimeline, graph: nextGraph, effectsStack: [] }),
+        undo: (doc) => ({
+          ...doc,
+          timeline: fromTimeline,
+          graph: fromGraph,
+          effectsStack: fromEffectsStack,
+        }),
       };
       setHistoryStore((s) => dispatch(s, cmd));
       setTimelineDoc(nextTimeline);
       dag.loadDAG(nextGraph);
-      seededRef.current = true;
+      setEffectsStack([]);
       setActiveStage('comp');
       notify(
         compiled.warnings.length > 0
@@ -909,12 +992,12 @@ export function App() {
   const quickApplyItems = useMemo(
     () =>
       [
-        ...effects.map((e) => ({ kind: 'Effect', name: e.name, id: e.id })),
+        ...renderEffects.map((effect) => ({ kind: 'Effect', name: effect.label, id: effect.type })),
         ...typography.map((p) => ({ kind: 'Font', name: p.name, id: p.id })),
         ...modes.map((m) => ({ kind: 'Mode', name: m.name, id: m.id })),
         ...grammars.map((g) => ({ kind: 'Grammar', name: g.name, id: g.name })),
       ].filter((x) => quickApply === '' || x.name.toLowerCase().includes(quickApply.toLowerCase())),
-    [effects, typography, modes, grammars, quickApply],
+    [renderEffects, typography, modes, grammars, quickApply],
   );
 
   const applyQAItem = (x: { kind: string; name: string; id: string }) => {
@@ -967,6 +1050,138 @@ export function App() {
     touch();
   };
 
+  const commitTextStructure = (label: string, nextTimeline: TimelineDoc, nextGraph: DAG) => {
+    const fromTimeline = timelineDoc;
+    const fromGraph = dag.dag;
+    const command: Command = {
+      id: `text-${Date.now().toString(36)}`,
+      label,
+      do: (doc) => ({ ...doc, timeline: nextTimeline, graph: nextGraph }),
+      undo: (doc) => ({ ...doc, timeline: fromTimeline, graph: fromGraph }),
+    };
+    setHistoryStore((store) => dispatch(store, command));
+    setTimelineDoc(nextTimeline);
+    dag.loadDAG(nextGraph);
+    touch();
+  };
+
+  const updateTextNode = (
+    nodeId: string,
+    values: Record<string, unknown>,
+    label = 'Edit Title',
+  ) => {
+    const node = dag.dag.nodes.find((item) => item.id === nodeId && item.type === 'text');
+    if (!node) return;
+    const fromGraph = dag.dag;
+    const inputs = { ...node.inputs, ...values };
+    const nextGraph: DAG = {
+      ...fromGraph,
+      nodes: fromGraph.nodes.map((item) => (item.id === nodeId ? { ...item, inputs } : item)),
+    };
+    const mergeKey = `${label}:${nodeId}:${Object.keys(values).sort().join(',')}`;
+    setHistoryStore((store) =>
+      dispatchMerged(store, makeGraphEditCommand(label, fromGraph, nextGraph, mergeKey)),
+    );
+    dag.updateNode(nodeId, { inputs });
+    touch();
+  };
+
+  const createTextLayer = (
+    preset: TextLayerPreset = TEXT_LAYER_PRESETS[0],
+    position?: Pick<TextStyle, 'x' | 'y'>,
+  ) => {
+    const style = { ...preset.style, ...position };
+    const duration = Math.min(4, DURATION);
+    const start = Math.min(playhead, Math.max(0, DURATION - duration));
+    try {
+      const appended = appendTextNodesToGraph(dag.dag, [{ name: preset.label, style }]);
+      const nodeId = appended.nodeIds[0];
+      const clip = createTextClip(timelineDoc, {
+        textNodeId: nodeId,
+        name: preset.label,
+        start,
+        duration,
+      });
+      if (!clip) {
+        notify('There is not enough room at the playhead for a title layer.');
+        return;
+      }
+      const withClip = { ...timelineDoc, clips: [...timelineDoc.clips, clip] };
+      const animated = applyTextMotion(
+        withClip,
+        clip.id,
+        preset.motion,
+        style,
+        preset.motion === 'typewriter' ? 1.4 : 0.7,
+      );
+      commitTextStructure(`Add ${preset.label}`, animated, appended.graph);
+      setSelectedClip(clip.id);
+      dag.setSelectedNode(nodeId);
+      setLeftTab('text');
+      setActiveStage('comp');
+      setTool('select');
+      notify(`${preset.label} added to the timeline`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const applyTypographyPreset = (preset: (typeof typography)[number]) => {
+    setSelectedPreset(preset.id);
+    const motion: TextMotion =
+      preset.animation === 'KINETIC_CTA' || preset.animation === 'KINETIC_DATA'
+        ? 'pop'
+        : preset.animation === 'SLIDE_IN'
+          ? 'slide-in'
+          : preset.animation === 'TYPEWRITER' || preset.animation === 'SCRAMBLE'
+            ? 'typewriter'
+            : preset.animation === 'FADE_UP'
+              ? 'caption-fade'
+              : 'fade-rise';
+    const style: TextStyle = {
+      ...(selectedTextStyle ?? DEFAULT_TEXT_STYLE),
+      font: preset.fontFamily,
+      weight: preset.fontWeight,
+      size: Math.max(16, Math.min(220, 96 * preset.fontSize)),
+      lineHeight: preset.lineHeight,
+      colour: preset.color,
+    };
+    if (!selectedTextNode) {
+      createTextLayer({
+        ...TEXT_LAYER_PRESETS[0],
+        label: preset.name,
+        motion,
+        style: { ...style, text: preset.name },
+      });
+      return;
+    }
+    updateTextNode(
+      selectedTextNode.id,
+      style as unknown as Record<string, unknown>,
+      'Apply Typography',
+    );
+    if (selectedTimelineClip?.textNodeId === selectedTextNode.id) {
+      dispatchTimeline('Apply Typography Motion', (doc) =>
+        applyTextMotion(doc, selectedTimelineClip.id, motion, style, preset.animationDuration),
+      );
+    }
+  };
+
+  const animateSelectedText = (motion: TextMotion) => {
+    if (
+      !selectedTimelineClip?.textNodeId ||
+      selectedTimelineClip.textNodeId !== selectedTextNode?.id ||
+      !selectedTextStyle
+    ) {
+      notify('Select a title clip on the timeline first.');
+      return;
+    }
+    dispatchTimeline('Animate Title', (doc) =>
+      applyTextMotion(doc, selectedTimelineClip.id, motion, selectedTextStyle),
+    );
+    notify(`Applied ${motion.replace('-', ' ')} motion`);
+  };
+
   /**
    * Commit an inspector edit to the history.
    *
@@ -1010,8 +1225,15 @@ export function App() {
 
   /** Split the selected clip at the playhead. */
   const splitAtPlayhead = () => {
-    if (!selectedClip) return;
-    dispatchTimeline('Split Clip', (doc) => splitClip(doc, selectedClip, playhead));
+    if (!selectedTimelineClip) {
+      notify('Select a clip to split');
+      return;
+    }
+    if (playhead < selectedTimelineClip.start + 0.2 || playhead > selectedTimelineClip.end - 0.2) {
+      notify('Move the playhead inside the selected clip to split it');
+      return;
+    }
+    dispatchTimeline('Split Clip', (doc) => splitClip(doc, selectedTimelineClip.id, playhead));
     notify('Clip split at playhead');
   };
 
@@ -1142,19 +1364,30 @@ export function App() {
 
   const applyDoc = (raw: unknown) => {
     const doc = normalizeProject(raw);
+    const supportedEffects = doc.effectsStack.filter((id) =>
+      renderEffects.some((effect) => effect.type === id),
+    );
+    const normalizedDoc = { ...doc, effectsStack: supportedEffects };
+    mediaBin.forEach(disposeMediaSource);
+    setMediaBin([]);
+    setPlaying(false);
     setComposition(doc.composition);
     setTimelineDoc(doc.timeline);
     setGenre(doc.genre);
     setSafeZonesActive(doc.safeZones.active);
     setSafeZoneRatio(doc.safeZones.ratio);
     setBrandLUT(doc.brandLUT);
-    setEffectsStack(doc.effectsStack);
+    setEffectsStack(supportedEffects);
     dag.loadDAG(doc.graph);
-    seededRef.current = true;
+    setPlan(null);
+    setSelectedClip(null);
+    setSelectedClips(new Set());
+    setSelectedEffect(null);
+    setSelectedConcept(null);
     setPlayhead(0);
     // A new document starts a new history. Without this, Ctrl+Z after opening
     // a project would restore the *previous* project's timeline.
-    setHistoryStore((s) => replaceDoc(s, doc));
+    setHistoryStore((s) => replaceDoc(s, normalizedDoc));
     // Re-import the project's footage from disk. The ids must match the ones
     // the timeline's clips reference, so they are restored verbatim rather
     // than regenerated.
@@ -1196,15 +1429,22 @@ export function App() {
 
   const newProject = () => {
     const comp = createDefaultComposition();
-    const timeline = defaultTimeline([], [], comp.duration);
+    const timeline = createEmptyTimeline(comp.duration);
+    const graph = createDefaultDAG();
     setComposition(comp);
     setTimelineDoc(timeline);
+    setPlan(null);
+    setSelectedClip(null);
+    setSelectedClips(new Set());
+    mediaBin.forEach(disposeMediaSource);
+    setMediaBin([]);
+    setPlaying(false);
     setGenre('corporate');
     setSafeZonesActive(false);
     setSafeZoneRatio('16:9');
     setBrandLUT('none');
     setEffectsStack([]);
-    dag.resetDAG();
+    dag.loadDAG(graph);
     setDocPath(null);
     setDocFormat('json');
     setPlayhead(0);
@@ -1220,7 +1460,7 @@ export function App() {
           safeZones: { active: false, ratio: '16:9' },
           brandLUT: 'none',
           timeline,
-          graph: dag.dag,
+          graph,
           effectsStack: [],
         }),
       ),
@@ -1303,34 +1543,90 @@ export function App() {
   }, []);
 
   // ── Effects stack ─────────────────────────────────────────────────────────
-  const pushEffect = (id: string) => {
-    setEffectsStack((s) => (s.includes(id) ? s : [...s, id]));
+  const applyEffectStack = (next: string[]) => {
+    const supported = next.filter(
+      (id, index) =>
+        renderEffects.some((effect) => effect.type === id) && next.indexOf(id) === index,
+    );
+    const currentNodeTypes = dag.dag.nodes
+      .filter((node) => node.inputs.editorEffectNode === true)
+      .map((node) => node.type);
+    if (
+      JSON.stringify(supported) === JSON.stringify(effectsStack) &&
+      JSON.stringify(supported) === JSON.stringify(currentNodeTypes)
+    )
+      return;
+    try {
+      const appended = appendEffectNodesToGraph(dag.dag, supported);
+      const fromGraph = dag.dag;
+      const fromEffectsStack = effectsStack;
+      const command: Command = {
+        id: `effects-${Date.now().toString(36)}`,
+        label: 'Edit Effect Stack',
+        do: (doc) => ({ ...doc, graph: appended.graph, effectsStack: supported }),
+        undo: (doc) => ({ ...doc, graph: fromGraph, effectsStack: fromEffectsStack }),
+      };
+      setHistoryStore((store) => dispatch(store, command));
+      dag.loadDAG(appended.graph);
+      setEffectsStack(supported);
+      touch();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error));
+    }
+  };
+  const updateEffectParameter = (key: string, value: unknown) => {
+    if (!selectedEffectNode) return;
+    const fromGraph = dag.dag;
+    const nextGraph: DAG = {
+      ...fromGraph,
+      nodes: fromGraph.nodes.map((node) =>
+        node.id === selectedEffectNode.id
+          ? { ...node, inputs: { ...node.inputs, [key]: value } }
+          : node,
+      ),
+    };
+    const mergeKey = `effect-parameter:${selectedEffectNode.id}:${key}`;
+    setHistoryStore((store) =>
+      dispatchMerged(store, makeGraphEditCommand('Adjust Effect', fromGraph, nextGraph, mergeKey)),
+    );
+    dag.updateNode(selectedEffectNode.id, {
+      inputs: { ...selectedEffectNode.inputs, [key]: value },
+    });
     touch();
+  };
+  const pushEffect = (id: string) => {
+    if (!renderEffects.some((effect) => effect.type === id)) return;
+    if (effectsStack.includes(id)) {
+      setSelectedEffect(id);
+      return;
+    }
+    applyEffectStack([...effectsStack, id]);
   };
   const dropEffect = (id: string) => {
-    setEffectsStack((s) => s.filter((x) => x !== id));
-    touch();
+    applyEffectStack(effectsStack.filter((effect) => effect !== id));
+    if (selectedEffect === id) setSelectedEffect(null);
   };
   const moveEffect = (id: string, dir: -1 | 1) => {
-    setEffectsStack((s) => {
-      const i = s.indexOf(id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= s.length) return s;
-      const next = [...s];
-      [next[i], next[j]] = [next[j], next[i]];
-      return next;
-    });
-    touch();
+    const index = effectsStack.indexOf(id);
+    const nextIndex = index + dir;
+    if (index < 0 || nextIndex < 0 || nextIndex >= effectsStack.length) return;
+    const next = [...effectsStack];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    applyEffectStack(next);
   };
   const reorderEffect = (from: number, to: number) => {
-    setEffectsStack((s) => {
-      if (from < 0 || from >= s.length || to < 0 || to >= s.length || from === to) return s;
-      const next = [...s];
-      const [item] = next.splice(from, 1);
-      next.splice(to, 0, item);
-      return next;
-    });
-    touch();
+    if (
+      from < 0 ||
+      from >= effectsStack.length ||
+      to < 0 ||
+      to >= effectsStack.length ||
+      from === to
+    )
+      return;
+    const next = [...effectsStack];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    applyEffectStack(next);
   };
 
   // ── Timeline interaction ──────────────────────────────────────────────────
@@ -1450,19 +1746,113 @@ export function App() {
       notify('Select a clip first');
       return;
     }
-    dispatchTimeline('Add Keyframe', (doc) => addKeyframe(doc, selectedClip, playhead));
+    const selectedTitle = selectedTimelineClip?.textNodeId === selectedTextNode?.id;
+    const property = selectedTitle ? animationProperty : 'opacity';
+    const value = selectedTitle
+      ? Number((selectedTextStyle as unknown as Record<string, unknown> | null)?.[property] ?? 1)
+      : 1;
+    dispatchTimeline('Add Keyframe', (doc) =>
+      addKeyframe(doc, selectedClip, playhead, property, Number.isFinite(value) ? value : 1),
+    );
   };
 
   const deleteSelectedClip = () => {
     const targets =
       selectedClips.size > 0 ? selectedClips : selectedClip ? new Set([selectedClip]) : new Set();
     if (targets.size === 0) return;
-    dispatchTimeline('Delete Clips', (doc) => ({
-      ...doc,
-      clips: doc.clips.filter((c) => !targets.has(c.id)),
-    }));
+    const removedTextNodes = new Set(
+      timelineDoc.clips
+        .filter((clip) => targets.has(clip.id) && clip.textNodeId)
+        .filter(
+          (clip) =>
+            !timelineDoc.clips.some(
+              (other) => !targets.has(other.id) && other.textNodeId === clip.textNodeId,
+            ),
+        )
+        .map((clip) => clip.textNodeId as string),
+    );
+    const nextTimeline = {
+      ...timelineDoc,
+      clips: timelineDoc.clips.filter((clip) => !targets.has(clip.id)),
+    };
+    if (removedTextNodes.size > 0) {
+      const nextGraph = removeTextNodesFromGraph(dag.dag, removedTextNodes);
+      commitTextStructure('Delete Title Layer', nextTimeline, nextGraph);
+    } else {
+      dispatchTimeline('Delete Clips', (doc) => ({
+        ...doc,
+        clips: doc.clips.filter((clip) => !targets.has(clip.id)),
+      }));
+    }
     setSelectedClip(null);
     setSelectedClips(new Set());
+  };
+
+  const duplicateSelectedClip = () => {
+    const source = selectedTimelineClip;
+    if (!source) {
+      notify('Select a clip to duplicate');
+      return;
+    }
+    const duration = source.end - source.start;
+    const gap = Math.min(0.1, duration * 0.05);
+    const after = source.end + gap;
+    const before = source.start - duration - gap;
+    const start = after + duration <= DURATION ? after : before;
+    if (start < 0 || start + duration > DURATION) {
+      notify('There is no room to duplicate this clip in the composition');
+      return;
+    }
+    const offset = start - source.start;
+    const copyId = nextId('clip');
+    const keyframes = source.keyframes.map((keyframe) => ({
+      ...keyframe,
+      id: nextId('kf'),
+      time: keyframe.time + offset,
+    }));
+    const copy: TimelineClip = {
+      ...source,
+      id: copyId,
+      name: `${source.name} Copy`,
+      start,
+      end: start + duration,
+      keyframes,
+    };
+
+    if (source.textNodeId) {
+      const sourceNode = dag.dag.nodes.find(
+        (node) => node.id === source.textNodeId && node.type === 'text',
+      );
+      if (!sourceNode) {
+        notify('The selected title layer is missing from the render graph');
+        return;
+      }
+      try {
+        const appended = appendTextNodesToGraph(dag.dag, [
+          { name: copy.name, style: textStyleFrom(sourceNode.inputs) },
+        ]);
+        copy.textNodeId = appended.nodeIds[0];
+        commitTextStructure(
+          'Duplicate Title Layer',
+          {
+            ...timelineDoc,
+            clips: [...timelineDoc.clips, copy].sort((a, b) => a.start - b.start),
+          },
+          appended.graph,
+        );
+      } catch (error) {
+        notify(error instanceof Error ? error.message : String(error));
+        return;
+      }
+    } else {
+      dispatchTimeline('Duplicate Clip', (doc) => ({
+        ...doc,
+        clips: [...doc.clips, copy].sort((a, b) => a.start - b.start),
+      }));
+    }
+    setSelectedClip(copyId);
+    setSelectedClips(new Set([copyId]));
+    notify(`Duplicated ${source.name}`);
   };
 
   // ── Genre workflow application ────────────────────────────────────────────
@@ -1482,17 +1872,116 @@ export function App() {
   const applyTemplate = (template: GenreTemplate, templateGenre: GenreId) => {
     setGenre(templateGenre);
     setBrandLUT(template.lut);
-    seededRef.current = false;
-    setTimelineDoc(
-      defaultTimeline(
-        template.beats,
-        effects.map((e) => e.name),
-        composition.duration,
-      ),
-    );
-    seededRef.current = true;
-    touch();
-    notify(`Loaded template "${template.name}"`);
+    setPlan(null);
+    try {
+      const editorTextNodes = new Set(
+        dag.dag.nodes.filter((node) => node.type === 'text').map((node) => node.id),
+      );
+      const baseGraph = removeTextNodesFromGraph(dag.dag, editorTextNodes);
+      const layers = template.beats.map((beat, index) => {
+        const isFinalCta = templateGenre === 'corporate' && index === template.beats.length - 1;
+        const preset =
+          TEXT_LAYER_PRESETS.find((item) => item.id === (isFinalCta ? 'cta' : 'chapter')) ??
+          TEXT_LAYER_PRESETS[0];
+        return {
+          name: beat,
+          style: {
+            ...preset.style,
+            text: beat.toUpperCase(),
+            size: beat.length > 22 ? 48 : beat.length > 14 ? 58 : 72,
+            x: 0.5,
+            y: 0.5,
+            align: 'center' as const,
+          },
+          motion: preset.motion,
+        };
+      });
+      const appended = appendTextNodesToGraph(baseGraph, layers);
+      const nextTimeline = createEmptyTimeline(DURATION);
+      const beatDuration = DURATION / Math.max(1, template.beats.length);
+      let timeline = nextTimeline;
+      for (const [index, layer] of layers.entries()) {
+        const clip = createTextClip(timeline, {
+          textNodeId: appended.nodeIds[index],
+          name: template.beats[index],
+          start: index * beatDuration,
+          duration: beatDuration,
+        });
+        if (!clip) continue;
+        timeline = { ...timeline, clips: [...timeline.clips, clip] };
+        timeline = applyTextMotion(
+          timeline,
+          clip.id,
+          layer.motion,
+          layer.style,
+          Math.min(0.65, beatDuration),
+        );
+      }
+      commitTextStructure(`Apply ${template.name}`, timeline, appended.graph);
+      setSelectedClip(timeline.clips[0]?.id ?? null);
+      if (appended.nodeIds[0]) dag.setSelectedNode(appended.nodeIds[0]);
+      setActiveStage('comp');
+      setLeftTab('text');
+      notify(`Built ${template.beats.length} animated title beats from “${template.name}”`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const applyVisualGrammar = (grammar: (typeof grammars)[number]) => {
+    const beats = grammar.sequence.map((beat) => beat.trim()).filter(Boolean);
+    if (beats.length === 0) {
+      notify(`“${grammar.name}” does not contain any production beats`);
+      return;
+    }
+    try {
+      setPlan(null);
+      const textNodes = new Set(
+        dag.dag.nodes.filter((node) => node.type === 'text').map((node) => node.id),
+      );
+      const baseGraph = removeTextNodesFromGraph(dag.dag, textNodes);
+      const preset =
+        TEXT_LAYER_PRESETS.find((item) => item.id === 'chapter') ?? TEXT_LAYER_PRESETS[0];
+      const layers = beats.map((beat, index) => ({
+        name: `${grammar.name} · ${index + 1}`,
+        style: {
+          ...preset.style,
+          text: beat.toUpperCase(),
+          size: beat.length > 24 ? 44 : beat.length > 16 ? 54 : 64,
+          x: 0.5,
+          y: 0.5,
+          align: 'center' as const,
+        },
+      }));
+      const appended = appendTextNodesToGraph(baseGraph, layers);
+      const beatDuration = DURATION / beats.length;
+      let timeline = createEmptyTimeline(DURATION);
+      for (const [index, layer] of layers.entries()) {
+        const clip = createTextClip(timeline, {
+          textNodeId: appended.nodeIds[index],
+          name: layer.name,
+          start: index * beatDuration,
+          duration: beatDuration,
+        });
+        if (!clip) continue;
+        timeline = { ...timeline, clips: [...timeline.clips, clip] };
+        timeline = applyTextMotion(
+          timeline,
+          clip.id,
+          preset.motion,
+          layer.style,
+          Math.min(0.65, beatDuration),
+        );
+      }
+      commitTextStructure(`Apply ${grammar.name}`, timeline, appended.graph);
+      setSelectedClip(timeline.clips[0]?.id ?? null);
+      if (appended.nodeIds[0]) dag.setSelectedNode(appended.nodeIds[0]);
+      setActiveStage('comp');
+      setLeftTab('text');
+      notify(`Applied “${grammar.name}” as ${timeline.clips.length} animated title beats`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const applySmartCutRatio = (ratio: SafeZoneRatio) => {
@@ -1637,7 +2126,13 @@ export function App() {
             <Icon name="download" size={13} />
             Export
           </button>
-          <button type="button" className="iconbtn" title="Settings" aria-label="Settings">
+          <button
+            type="button"
+            className="iconbtn"
+            title="Settings"
+            aria-label="Settings"
+            onClick={() => setShowSettings(true)}
+          >
             <Icon name="settings" size={14} />
           </button>
         </div>
@@ -1665,17 +2160,41 @@ export function App() {
         </div>
         <span className="ctxbar__sep" aria-hidden="true" />
         <div className="ctxbar__group">
-          <button type="button" className="iconbtn" title="Undo (Ctrl+Z)">
+          <button
+            type="button"
+            className="iconbtn"
+            title="Undo (Ctrl+Z)"
+            disabled={!canUndo(historyStore)}
+            onClick={() => applyHistory(undo(historyStore))}
+          >
             <Icon name="undo" size={14} />
           </button>
-          <button type="button" className="iconbtn" title="Redo (Ctrl+Y)">
+          <button
+            type="button"
+            className="iconbtn"
+            title="Redo (Ctrl+Y)"
+            disabled={!canRedo(historyStore)}
+            onClick={() => applyHistory(redo(historyStore))}
+          >
             <Icon name="redo" size={14} />
           </button>
           <span className="ctxbar__sep" aria-hidden="true" />
-          <button type="button" className="iconbtn" title="Split at playhead (S)">
+          <button
+            type="button"
+            className="iconbtn"
+            title="Split at playhead (S)"
+            disabled={!selectedTimelineClip}
+            onClick={splitAtPlayhead}
+          >
             <Icon name="split" size={14} />
           </button>
-          <button type="button" className="iconbtn" title="Duplicate (Ctrl+D)">
+          <button
+            type="button"
+            className="iconbtn"
+            title="Duplicate (Ctrl+D)"
+            disabled={!selectedTimelineClip}
+            onClick={duplicateSelectedClip}
+          >
             <Icon name="copy" size={14} />
           </button>
           <button
@@ -1733,7 +2252,10 @@ export function App() {
               title={`${t.label} (${t.key})`}
               aria-label={t.label}
               aria-pressed={tool === t.id}
-              onClick={() => setTool(t.id)}
+              onClick={() => {
+                setTool(t.id);
+                if (t.id === 'text') setLeftTab('text');
+              }}
             >
               <Icon name={t.icon} size={16} />
               <kbd>{t.key}</kbd>
@@ -1759,10 +2281,22 @@ export function App() {
             <Icon name="code" size={16} />
           </button>
           <div className="mt-auto flex flex-col gap-1">
-            <button type="button" className="rail__btn" title="Fit view" aria-label="Fit view">
+            <button
+              type="button"
+              className="rail__btn"
+              title="Reset preview zoom"
+              aria-label="Reset preview zoom"
+              onClick={() => setStageZoom(1)}
+            >
               <Icon name="maximize" size={16} />
             </button>
-            <button type="button" className="rail__btn" title="Settings" aria-label="Settings">
+            <button
+              type="button"
+              className="rail__btn"
+              title="Settings"
+              aria-label="Settings"
+              onClick={() => setShowSettings(true)}
+            >
               <Icon name="settings" size={16} />
             </button>
           </div>
@@ -1805,13 +2339,20 @@ export function App() {
                     <span className="sect__meta">{grammars.length}</span>
                   </div>
                   {grammars.map((g) => (
-                    <button key={g.name} type="button" className="row">
+                    <button
+                      key={g.name}
+                      type="button"
+                      className="row"
+                      onClick={() => applyVisualGrammar(g)}
+                    >
                       <span className="row__icon">
                         <Icon name="nodes" size={13} />
                       </span>
                       <span className="row__body">
                         <span className="row__title">{g.name}</span>
-                        <span className="row__sub">{g.sequence.length} beats</span>
+                        <span className="row__sub">
+                          Apply {g.sequence.length} animated title beats
+                        </span>
                       </span>
                       <Icon name="chevronRight" size={12} />
                     </button>
@@ -1913,20 +2454,21 @@ export function App() {
                   </div>
                   {filteredEffects.map((e) => (
                     <button
-                      key={e.id}
+                      key={e.type}
                       type="button"
-                      className={`row ${selectedEffect === e.id ? 'row--active' : ''}`}
+                      className={`row ${selectedEffect === e.type ? 'row--active' : ''}`}
                       onClick={() => {
-                        setSelectedEffect(e.id);
+                        setSelectedEffect(e.type);
                         setInsTab('fx');
+                        pushEffect(e.type);
                       }}
                     >
                       <span className="row__icon">
                         <Icon name={fxIcon(e.category)} size={13} />
                       </span>
                       <span className="row__body">
-                        <span className="row__title">{e.name}</span>
-                        <span className="row__sub">{e.compatiblePurposes[0] ?? e.category}</span>
+                        <span className="row__title">{e.label}</span>
+                        <span className="row__sub">Live {e.category} shader</span>
                       </span>
                       <span className="row__tag">{e.category}</span>
                     </button>
@@ -1942,6 +2484,223 @@ export function App() {
               <>
                 <div className="sect">
                   <div className="sect__head">
+                    <span className="sect__title">Create a Title Layer</span>
+                    <span className="sect__meta">{TEXT_LAYER_PRESETS.length} styles</span>
+                  </div>
+                  <p className="muted">
+                    Add editable headlines, captions, lower thirds, or calls to action.
+                  </p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {TEXT_LAYER_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className="btn"
+                        title={preset.description}
+                        onClick={() => createTextLayer(preset)}
+                      >
+                        <Icon name="text" size={12} />
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedTextNode && selectedTextStyle && (
+                  <div className="sect">
+                    <div className="sect__head">
+                      <span className="sect__title">Selected Title</span>
+                      <span className="sect__meta">
+                        {selectedTimelineClip?.name ?? 'Graph layer'}
+                      </span>
+                    </div>
+                    <label className="field">
+                      <span className="field__label">On-screen copy</span>
+                      <textarea
+                        className="field__input"
+                        rows={3}
+                        value={selectedTextStyle.text}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, { text: event.target.value })
+                        }
+                        aria-label="Title text"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Font family</span>
+                      <input
+                        className="field__input"
+                        value={selectedTextStyle.font}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, { font: event.target.value })
+                        }
+                        aria-label="Title font family"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Size</span>
+                      <input
+                        className="field__input"
+                        type="number"
+                        min={8}
+                        max={360}
+                        value={selectedTextStyle.size}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, {
+                            size: toNum(event.target.value, selectedTextStyle.size),
+                          })
+                        }
+                        aria-label="Title size"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Weight</span>
+                      <input
+                        className="field__input"
+                        type="range"
+                        min={100}
+                        max={900}
+                        step={50}
+                        value={selectedTextStyle.weight}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, {
+                            weight: Number(event.target.value),
+                          })
+                        }
+                        aria-label="Title font weight"
+                      />
+                      <span className="field__value">{selectedTextStyle.weight}</span>
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Colour</span>
+                      <input
+                        className="field__input"
+                        type="color"
+                        value={selectedTextStyle.colour}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, { colour: event.target.value })
+                        }
+                        aria-label="Title colour"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Alignment</span>
+                      <select
+                        className="field__input"
+                        value={selectedTextStyle.align ?? 'center'}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, { align: event.target.value })
+                        }
+                        aria-label="Title alignment"
+                      >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </label>
+                    <div className="grid grid-cols-2 gap-1">
+                      <label className="field">
+                        <span className="field__label">Horizontal position</span>
+                        <input
+                          className="field__input"
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={selectedTextStyle.x}
+                          onChange={(event) =>
+                            updateTextNode(selectedTextNode.id, { x: Number(event.target.value) })
+                          }
+                          aria-label="Title horizontal position"
+                        />
+                      </label>
+                      <label className="field">
+                        <span className="field__label">Vertical position</span>
+                        <input
+                          className="field__input"
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.01}
+                          value={selectedTextStyle.y}
+                          onChange={(event) =>
+                            updateTextNode(selectedTextNode.id, { y: Number(event.target.value) })
+                          }
+                          aria-label="Title vertical position"
+                        />
+                      </label>
+                    </div>
+                    <label className="field">
+                      <span className="field__label">Background box</span>
+                      <input
+                        className="field__input"
+                        type="color"
+                        value={selectedTextStyle.backgroundColor || '#101722'}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, {
+                            backgroundColor: event.target.value,
+                            backgroundOpacity: selectedTextStyle.backgroundOpacity || 0.84,
+                          })
+                        }
+                        aria-label="Title background colour"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Box opacity</span>
+                      <input
+                        className="field__input"
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={selectedTextStyle.backgroundOpacity ?? 0}
+                        onChange={(event) =>
+                          updateTextNode(selectedTextNode.id, {
+                            backgroundOpacity: Number(event.target.value),
+                          })
+                        }
+                        aria-label="Title background opacity"
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="field__label">Animation channel</span>
+                      <select
+                        className="field__input"
+                        value={animationProperty}
+                        onChange={(event) => setAnimationProperty(event.target.value)}
+                        aria-label="Animation channel"
+                      >
+                        {['opacity', 'scale', 'x', 'y', 'rotation', 'reveal'].map((property) => (
+                          <option key={property} value={property}>
+                            {property}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="grid grid-cols-2 gap-1">
+                      {(
+                        [
+                          ['Fade + Rise', 'fade-rise'],
+                          ['Slide In', 'slide-in'],
+                          ['CTA Pop', 'pop'],
+                          ['Typewriter', 'typewriter'],
+                        ] as const
+                      ).map(([label, motion]) => (
+                        <button
+                          key={motion}
+                          type="button"
+                          className="btn"
+                          onClick={() => animateSelectedText(motion)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="sect">
+                  <div className="sect__head">
                     <span className="sect__title">Typography Presets</span>
                     <span className="sect__meta">{typography.length}</span>
                   </div>
@@ -1950,7 +2709,7 @@ export function App() {
                       key={p.id}
                       type="button"
                       className={`row ${selectedPreset === p.id ? 'row--active' : ''}`}
-                      onClick={() => setSelectedPreset(p.id)}
+                      onClick={() => applyTypographyPreset(p)}
                     >
                       <span className="row__icon">
                         <Icon name="text" size={13} />
@@ -1973,22 +2732,6 @@ export function App() {
                     </button>
                   ))}
                   {typography.length === 0 && <p className="muted">Loading engine data…</p>}
-                </div>
-                <div className="sect">
-                  <div className="sect__head">
-                    <span className="sect__title">Variable Font Axes</span>
-                  </div>
-                  {[
-                    ['Weight', '100–900'],
-                    ['Slant', '-15° to 0°'],
-                    ['Width', '75–125'],
-                    ['Wiggle', '0–1'],
-                  ].map(([k, v]) => (
-                    <label key={k} className="field">
-                      <span className="field__label">{k}</span>
-                      <input className="field__input" defaultValue={v} aria-label={`${k} axis`} />
-                    </label>
-                  ))}
                 </div>
               </>
             )}
@@ -2027,12 +2770,24 @@ export function App() {
                     <span className="sect__meta">{TEMPLATES.length}</span>
                   </div>
                   <div className="cardgrid">
-                    {TEMPLATES.map((t) => (
-                      <button key={t.name} type="button" className="tplcard">
-                        <span className="tplcard__preview" style={{ background: t.bg }} />
+                    {TEMPLATES.map((template) => (
+                      <button
+                        key={template.id}
+                        type="button"
+                        className="tplcard"
+                        onClick={() => applyTemplate(template, template.genre)}
+                      >
+                        <span
+                          className="tplcard__preview"
+                          style={{
+                            background: `linear-gradient(135deg, ${BRAND_LUTS.find((lut) => lut.id === template.lut)?.colors.shadow ?? '#151923'}, ${BRAND_LUTS.find((lut) => lut.id === template.lut)?.colors.midtone ?? '#59647a'})`,
+                          }}
+                        />
                         <span className="tplcard__meta">
-                          <span className="tplcard__name">{t.name}</span>
-                          <span className="tplcard__desc">{t.desc}</span>
+                          <span className="tplcard__name">{template.name}</span>
+                          <span className="tplcard__desc">
+                            {template.beats.length} animated title beats · {template.genre}
+                          </span>
                         </span>
                       </button>
                     ))}
@@ -2118,7 +2873,19 @@ export function App() {
                       {generated.map((c) => {
                         const s = scoreOf(c);
                         return (
-                          <div key={c.title} className="conceptcard">
+                          <button
+                            key={c.id ?? c.title}
+                            type="button"
+                            className="conceptcard"
+                            style={{
+                              width: '100%',
+                              textAlign: 'left',
+                              borderColor:
+                                selectedConcept?.title === c.title ? '#ff5a2c' : undefined,
+                            }}
+                            aria-pressed={selectedConcept?.title === c.title}
+                            onClick={() => setSelectedConcept(c)}
+                          >
                             <ScoreRing value={s} />
                             <div className="flex-1 min-w-0">
                               <div className="conceptcard__title">{c.title}</div>
@@ -2130,28 +2897,12 @@ export function App() {
                                 {c.mood && <span className="chip">{c.mood}</span>}
                               </div>
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
                   </div>
                 )}
-                <div className="sect">
-                  <div className="sect__head">
-                    <span className="sect__title">AI Tools</span>
-                  </div>
-                  <div className="cardgrid">
-                    {AI_TOOLS.map((t) => (
-                      <button key={t.name} type="button" className="card">
-                        <span className="card__icon">
-                          <Icon name={t.icon} size={14} />
-                        </span>
-                        <span className="card__title">{t.name}</span>
-                        <span className="card__desc">{t.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </>
             )}
           </div>
@@ -2194,7 +2945,24 @@ export function App() {
           <div className="flex-1 min-h-0 flex flex-col">
             {activeStage === 'comp' && (
               <div className="viewport">
-                <div className="viewport__frame" style={{ transform: `scale(${stageZoom})` }}>
+                <div
+                  className="viewport__frame"
+                  style={{
+                    transform: `scale(${stageZoom})`,
+                    cursor: tool === 'text' ? 'crosshair' : undefined,
+                  }}
+                  onClick={(event) => {
+                    if (tool !== 'text') return;
+                    const target = event.target as HTMLElement;
+                    if (target.closest('button')) return;
+                    const bounds = event.currentTarget.getBoundingClientRect();
+                    if (bounds.width <= 0 || bounds.height <= 0) return;
+                    createTextLayer(TEXT_LAYER_PRESETS[0], {
+                      x: (event.clientX - bounds.left) / bounds.width,
+                      y: (event.clientY - bounds.top) / bounds.height,
+                    });
+                  }}
+                >
                   <WebGPUCanvas
                     ref={viewportRef}
                     time={playhead}
@@ -2538,12 +3306,30 @@ export function App() {
                             <button
                               type="button"
                               className="rowbtn rowbtn--kf"
-                              onClick={() => setPlayhead(k.time)}
+                              onClick={() => {
+                                setPlayhead(k.time);
+                                setAnimationProperty(k.property);
+                              }}
                               title={`${k.time.toFixed(2)}s · ${k.property}`}
                             >
                               <span className="row__title">{k.time.toFixed(2)}s</span>
                               <span className="row__sub">{k.property}</span>
                             </button>
+                            <input
+                              className="field__input"
+                              type="number"
+                              step="any"
+                              value={k.value}
+                              onChange={(event) => {
+                                const value = Number(event.target.value);
+                                if (!Number.isFinite(value)) return;
+                                dispatchTimeline('Set Keyframe Value', (doc) =>
+                                  setKeyframeValue(doc, clip.id, k.id, value),
+                                );
+                              }}
+                              aria-label={`Value for ${k.property} keyframe`}
+                              style={{ maxWidth: 76 }}
+                            />
                             <select
                               className="field__input kf__ease"
                               value={k.easing}
@@ -2604,7 +3390,7 @@ export function App() {
                 <div className="sect">
                   <div className="sect__head">
                     <span className="sect__title">Effects Stack</span>
-                    <span className="sect__meta">{effectsStack.length} on layer</span>
+                    <span className="sect__meta">{effectsStack.length} active</span>
                   </div>
                   <div
                     className="flex flex-col gap-1 rounded-lg border border-dashed border-line p-1"
@@ -2616,7 +3402,7 @@ export function App() {
                     }}
                   >
                     {effectsStack.map((id, index) => {
-                      const e = effects.find((x) => x.id === id);
+                      const e = renderEffects.find((effect) => effect.type === id);
                       return (
                         <div
                           key={id}
@@ -2645,7 +3431,7 @@ export function App() {
                             className="rowbtn"
                             onClick={() => setSelectedEffect(id)}
                           >
-                            <span className="row__title">{e?.name ?? id}</span>
+                            <span className="row__title">{e?.label ?? id}</span>
                             <span className="row__sub">{e?.category ?? 'effect'}</span>
                           </button>
                           <button
@@ -2686,15 +3472,15 @@ export function App() {
                 <div className="sect">
                   <div className="sect__head">
                     <span className="sect__title">Effect Library</span>
-                    <span className="sect__meta">{effects.length}</span>
+                    <span className="sect__meta">{renderEffects.length}</span>
                   </div>
-                  {effects.map((e) => (
+                  {renderEffects.map((e) => (
                     <div
-                      key={e.id}
-                      className={`row ${selectedEffect === e.id ? 'row--active' : ''}`}
+                      key={e.type}
+                      className={`row ${selectedEffect === e.type ? 'row--active' : ''}`}
                       draggable
                       onDragStart={(ev) =>
-                        ev.dataTransfer.setData('application/x-virtue-effect', e.id)
+                        ev.dataTransfer.setData('application/x-virtue-effect', e.type)
                       }
                     >
                       <span className="row__icon">
@@ -2703,38 +3489,116 @@ export function App() {
                       <button
                         type="button"
                         className="rowbtn"
-                        onClick={() => setSelectedEffect(e.id)}
+                        onClick={() => setSelectedEffect(e.type)}
                       >
-                        <span className="row__title">{e.name}</span>
+                        <span className="row__title">{e.label}</span>
                         <span className="row__sub">{e.category}</span>
                       </button>
                       <button
                         type="button"
                         className="iconbtn iconbtn--primary"
                         title="Add to stack"
-                        aria-label={`Add ${e.name} to stack`}
-                        onClick={() => pushEffect(e.id)}
+                        aria-label={`Add ${e.label} to stack`}
+                        onClick={() => {
+                          setSelectedEffect(e.type);
+                          pushEffect(e.type);
+                        }}
                       >
                         <Icon name="plus" size={12} />
                       </button>
                     </div>
                   ))}
-                  {effects.length === 0 && <p className="muted">Loading engine data…</p>}
+                  {renderEffects.length === 0 && (
+                    <p className="muted">No compatible render effects are available.</p>
+                  )}
                 </div>
                 {selectedEffect && (
                   <div className="sect">
                     <div className="sect__head">
                       <span className="sect__title">Parameters</span>
-                      <span className="sect__meta">{selectedEffect}</span>
+                      <span className="sect__meta">
+                        {selectedEffectDefinition?.label ?? selectedEffect}
+                      </span>
                     </div>
-                    {Object.entries(
-                      effects.find((e) => e.id === selectedEffect)?.parameters ?? {},
-                    ).map(([k, v]) => (
-                      <label key={k} className="field">
-                        <span className="field__label">{k}</span>
-                        <input className="field__input" defaultValue={String(v)} aria-label={k} />
-                      </label>
-                    ))}
+                    {!selectedEffectNode && (
+                      <p className="muted">
+                        Add this effect to the stack to edit its live shader parameters.
+                      </p>
+                    )}
+                    {selectedEffectNode &&
+                      selectedEffectDefinition?.ports
+                        .filter((port) => port.direction === 'input' && port.type !== 'texture')
+                        .map((port) => {
+                          const value = selectedEffectNode.inputs[port.id] ?? port.default ?? '';
+                          return (
+                            <div key={port.id} className="field">
+                              <span className="field__label">{port.name}</span>
+                              {port.type === 'number' ? (
+                                (() => {
+                                  const number = Number(value) || 0;
+                                  const min = port.id.toLowerCase().includes('exposure')
+                                    ? -5
+                                    : port.id.toLowerCase().includes('hue')
+                                      ? -180
+                                      : 0;
+                                  const max = port.id.toLowerCase().includes('radius')
+                                    ? 16
+                                    : port.id.toLowerCase().includes('hue')
+                                      ? 180
+                                      : port.id.toLowerCase().includes('softness')
+                                        ? 1
+                                        : 2;
+                                  const step = port.id.toLowerCase().includes('radius')
+                                    ? 0.1
+                                    : 0.01;
+                                  return (
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        className="field__input"
+                                        type="range"
+                                        min={min}
+                                        max={max}
+                                        step={step}
+                                        value={Math.min(max, Math.max(min, number))}
+                                        aria-label={port.name}
+                                        onChange={(event) =>
+                                          updateEffectParameter(
+                                            port.id,
+                                            toNum(event.target.value, number),
+                                          )
+                                        }
+                                      />
+                                      <span className="field__value">{number.toFixed(2)}</span>
+                                    </div>
+                                  );
+                                })()
+                              ) : port.type === 'color' ? (
+                                <input
+                                  className="field__input"
+                                  type="color"
+                                  value={
+                                    typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)
+                                      ? value
+                                      : '#808080'
+                                  }
+                                  aria-label={port.name}
+                                  onChange={(event) =>
+                                    updateEffectParameter(port.id, event.target.value)
+                                  }
+                                />
+                              ) : (
+                                <input
+                                  className="field__input"
+                                  value={String(value)}
+                                  aria-label={port.name}
+                                  onChange={(event) =>
+                                    updateEffectParameter(port.id, event.target.value)
+                                  }
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                   </div>
                 )}
               </>
@@ -2787,9 +3651,6 @@ export function App() {
               onClick={() => setPlayhead(DURATION)}
             >
               <Icon name="skipFwd" size={15} />
-            </button>
-            <button type="button" className="tbtn tbtn--rec" title="Record">
-              <Icon name="record" size={13} />
             </button>
           </div>
           <div className="timeline__tc">
@@ -3020,6 +3881,76 @@ export function App() {
                 </span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showSettings && (
+        <div
+          className="qa-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setShowSettings(false);
+          }}
+        >
+          <div className="dialog" role="dialog" aria-modal="true" aria-label="Editor preferences">
+            <div className="dialog__head">
+              <span className="dialog__title">Editor Preferences</span>
+              <button
+                type="button"
+                className="iconbtn"
+                aria-label="Close preferences"
+                onClick={() => setShowSettings(false)}
+              >
+                <Icon name="close" size={13} />
+              </button>
+            </div>
+            <label className="field">
+              <span className="field__label">Timeline snapping</span>
+              <input
+                type="checkbox"
+                checked={snap}
+                onChange={(event) => setSnap(event.target.checked)}
+              />
+            </label>
+            <label className="field">
+              <span className="field__label">
+                Preview zoom <span className="field__value">{Math.round(stageZoom * 100)}%</span>
+              </span>
+              <input
+                className="field__input"
+                type="range"
+                min="0.5"
+                max="1.5"
+                step="0.05"
+                value={stageZoom}
+                onChange={(event) => setStageZoom(toNum(event.target.value, 1))}
+              />
+            </label>
+            <label className="field">
+              <span className="field__label">
+                Timeline zoom <span className="field__value">{Math.round(tlZoom * 100)}%</span>
+              </span>
+              <input
+                className="field__input"
+                type="range"
+                min="0.5"
+                max="3"
+                step="0.1"
+                value={tlZoom}
+                onChange={(event) => setTlZoom(toNum(event.target.value, 1))}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setSnap(true);
+                setStageZoom(1);
+                setTlZoom(1);
+              }}
+            >
+              Reset editor preferences
+            </button>
           </div>
         </div>
       )}

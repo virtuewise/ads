@@ -4,6 +4,7 @@
 
 import type { IconName } from '../components/Icon';
 import { easeValue } from './easing';
+import type { TextMotion, TextStyle } from './text';
 import type { Keyframe, KeyframeEasing, TimelineClip, TimelineDoc } from './types';
 
 export interface TrackMeta {
@@ -44,62 +45,9 @@ export function snapTime(time: number, targets: number[], threshold = SNAP_THRES
   return best;
 }
 
-/** Seed a default timeline from engine-provided caption/effect names. */
-export function defaultTimeline(
-  captionNames: string[],
-  effectNames: string[],
-  duration: number,
-): TimelineDoc {
-  const caps =
-    captionNames.length > 0
-      ? captionNames.slice(0, 2).map((name, i) => ({
-          start: i === 0 ? 0.8 : 7,
-          end: i === 0 ? 4.2 : Math.min(10.5, duration),
-          name,
-        }))
-      : [
-          { start: 0.8, end: 4.2, name: 'Opening Title' },
-          { start: 7, end: Math.min(10.5, duration), name: 'Closing Tagline' },
-        ];
-  const fx =
-    effectNames.length > 0
-      ? effectNames.slice(0, 3).map((name, i) => ({
-          start: 0.5 + i * 4,
-          end: Math.min(3.3 + i * 4, duration),
-          name,
-        }))
-      : [
-          { start: 0.5, end: 3.3, name: 'Glow' },
-          { start: 4.5, end: Math.min(7.3, duration), name: 'Chromatic Blur' },
-        ];
-
-  const clips: TimelineClip[] = [
-    ...seed('video', [
-      { start: 0, end: Math.min(6.4, duration), name: 'Main Comp' },
-      { start: 6.9, end: duration, name: 'B-Roll 02' },
-    ]),
-    ...seed('audio', [{ start: 0, end: duration, name: 'Score: Main Theme' }]),
-    ...seed('captions', caps),
-    ...seed('effects', fx),
-    ...seed('transitions', [
-      { start: Math.max(0, 6.3), end: Math.min(7, duration), name: 'Cross Dissolve' },
-    ]),
-  ];
-  return { duration, clips };
-}
-
-function seed(
-  trackId: string,
-  items: Array<{ start: number; end: number; name: string }>,
-): TimelineClip[] {
-  return items.map((it) => ({
-    id: nextId('clip'),
-    trackId,
-    start: it.start,
-    end: it.end,
-    name: it.name,
-    keyframes: [],
-  }));
+/** A new composition starts clean; real clips are added from media or tools. */
+export function createEmptyTimeline(duration: number): TimelineDoc {
+  return { duration: Math.max(0.1, duration), clips: [] };
 }
 
 export function findClip(doc: TimelineDoc, id: string): TimelineClip | undefined {
@@ -184,6 +132,7 @@ export function splitClip(doc: TimelineDoc, id: string, time: number): TimelineD
     id: nextId('clip'),
     start: t,
     end: clip.end,
+    ...(clip.mediaId ? { sourceStart: (clip.sourceStart ?? 0) + (t - clip.start) } : {}),
     keyframes: clip.keyframes.filter((k) => k.time >= t).map((k) => ({ ...k, id: nextId('kf') })),
   };
   return {
@@ -243,6 +192,95 @@ export function addMediaClip(
   return { ...doc, clips: [...doc.clips, clip] };
 }
 
+/** Create a timeline clip that owns one editor-authored text graph node. */
+export function createTextClip(
+  doc: TimelineDoc,
+  opts: { textNodeId: string; name: string; start: number; duration: number },
+): TimelineClip | null {
+  const start = clamp(opts.start, 0, Math.max(0, doc.duration - 0.05));
+  const end = Math.min(doc.duration, start + Math.max(0.2, opts.duration));
+  if (end - start < 0.2) return null;
+  return {
+    id: nextId('text'),
+    trackId: 'captions',
+    start,
+    end,
+    name: opts.name,
+    keyframes: [],
+    textNodeId: opts.textNodeId,
+  };
+}
+
+/** Add a named motion treatment to a title's independent property channels. */
+export function applyTextMotion(
+  doc: TimelineDoc,
+  clipId: string,
+  motion: TextMotion,
+  style: Pick<TextStyle, 'x' | 'y' | 'opacity' | 'scale' | 'rotation'>,
+  duration = 0.7,
+): TimelineDoc {
+  const clip = findClip(doc, clipId);
+  if (!clip) return doc;
+  const start = clip.start;
+  const end = Math.min(clip.end, start + Math.max(0.05, duration));
+  const span = Math.max(0.05, end - start);
+  const properties =
+    motion === 'fade-rise'
+      ? ['opacity', 'y', 'scale']
+      : motion === 'slide-in'
+        ? ['opacity', 'x']
+        : motion === 'pop'
+          ? ['opacity', 'scale']
+          : motion === 'caption-fade'
+            ? ['opacity', 'y']
+            : ['reveal'];
+  let next: TimelineDoc = {
+    ...doc,
+    clips: doc.clips.map((item) =>
+      item.id === clipId
+        ? {
+            ...item,
+            keyframes: item.keyframes.filter((keyframe) => !properties.includes(keyframe.property)),
+          }
+        : item,
+    ),
+  };
+  const key = (time: number, property: string, value: number) => {
+    next = addKeyframe(next, clipId, time, property, value, 'easeOut');
+  };
+  const alpha = style.opacity ?? 1;
+  const scale = style.scale ?? 1;
+
+  if (motion === 'fade-rise') {
+    key(start, 'opacity', 0);
+    key(end, 'opacity', alpha);
+    key(start, 'y', Math.min(1, style.y + 0.065));
+    key(end, 'y', style.y);
+    key(start, 'scale', scale * 0.94);
+    key(end, 'scale', scale);
+  } else if (motion === 'slide-in') {
+    key(start, 'opacity', 0);
+    key(end, 'opacity', alpha);
+    key(start, 'x', Math.max(0, style.x - 0.12));
+    key(end, 'x', style.x);
+  } else if (motion === 'pop') {
+    key(start, 'opacity', 0);
+    key(end, 'opacity', alpha);
+    key(start, 'scale', scale * 0.82);
+    key(start + span * 0.72, 'scale', scale * 1.055);
+    key(end, 'scale', scale);
+  } else if (motion === 'caption-fade') {
+    key(start, 'opacity', 0);
+    key(end, 'opacity', alpha);
+    key(start, 'y', Math.min(1, style.y + 0.025));
+    key(end, 'y', style.y);
+  } else {
+    key(start, 'reveal', 0);
+    key(end, 'reveal', 1);
+  }
+  return next;
+}
+
 export function addKeyframe(
   doc: TimelineDoc,
   clipId: string,
@@ -257,9 +295,11 @@ export function addKeyframe(
   const existing = clip.keyframes.find(
     (k) => Math.abs(k.time - t) < 0.02 && k.property === property,
   );
-  const kf: Keyframe = existing ?? { id: nextId('kf'), time: t, property, value, easing };
+  const kf: Keyframe = existing
+    ? { ...existing, value, easing }
+    : { id: nextId('kf'), time: t, property, value, easing };
   const keyframes = existing
-    ? clip.keyframes
+    ? clip.keyframes.map((keyframe) => (keyframe.id === existing.id ? kf : keyframe))
     : [...clip.keyframes, kf].sort((a, b) => a.time - b.time);
   return { ...doc, clips: doc.clips.map((c) => (c.id === clipId ? { ...c, keyframes } : c)) };
 }
@@ -309,6 +349,29 @@ export function setKeyframeEasing(
       c.id === clipId
         ? { ...c, keyframes: c.keyframes.map((k) => (k.id === kfId ? { ...k, easing } : k)) }
         : c,
+    ),
+  };
+}
+
+/** Set a keyframe's scalar value without changing its time or easing. */
+export function setKeyframeValue(
+  doc: TimelineDoc,
+  clipId: string,
+  kfId: string,
+  value: number,
+): TimelineDoc {
+  if (!Number.isFinite(value)) return doc;
+  return {
+    ...doc,
+    clips: doc.clips.map((clip) =>
+      clip.id === clipId
+        ? {
+            ...clip,
+            keyframes: clip.keyframes.map((keyframe) =>
+              keyframe.id === kfId ? { ...keyframe, value } : keyframe,
+            ),
+          }
+        : clip,
     ),
   };
 }
