@@ -1,5 +1,6 @@
 /// <reference types="@webgpu/types" />
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import type { TransitionOverlay } from '../engine/transitions';
 import type { BrandLUT, TransformState } from '../engine/types';
 import { COMPOSITE_SHADER, packUniforms, UNIFORM_BYTES, UNIFORM_FLOATS } from '../engine/visual';
 
@@ -22,6 +23,8 @@ interface WebGPUCanvasProps {
    * a 1×1 black frame.
    */
   mediaFrame?: VideoFrame | null;
+  /** Timeline transition overlay rendered above the same live composite. */
+  transitionOverlay?: TransitionOverlay | null;
   /**
    * The texture bindings the editor has to paint, by binding number.
    *
@@ -168,6 +171,7 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
     outputSegment = 0,
     compileError,
     mediaFrame = null,
+    transitionOverlay = null,
     appTextureSlots = [],
   },
   ref,
@@ -636,6 +640,13 @@ export const WebGPUCanvas = forwardRef<WebGPUCanvasHandle, WebGPUCanvasProps>(fu
   return (
     <div className="relative w-full h-full bg-ink">
       <canvas ref={canvasRef} className="w-full h-full block" />
+      {transitionOverlay && transitionOverlay.opacity > 0 && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none"
+          style={{ backgroundColor: transitionOverlay.color, opacity: transitionOverlay.opacity }}
+        />
+      )}
       {status === 'init' && (
         <div className="absolute inset-0 flex items-center justify-center text-muted text-sm">
           Initializing WebGPU…

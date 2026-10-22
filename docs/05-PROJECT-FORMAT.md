@@ -33,7 +33,7 @@ Both encode **the same document**. Moving between them is lossless (modulo JSON'
 ```typescript
 interface ProjectDocument {
   format: 'vfxproj';
-  version: number;              // PROJECT_VERSION = 3
+  version: number;              // PROJECT_VERSION = 4
   savedAt: string;              // ISO timestamp
   app: { name: string; version: string };   // 'Virtue Studio', '0.1.0'
   composition: CompositionState; // name, width, height, fps, duration, background, transform
@@ -49,7 +49,8 @@ interface ProjectDocument {
 
 Text clips may carry `textNodeId` to identify their editable compositor title node. Optional per-shot
 `look` values preserve grade/effect parameters for the source clip. Editor-owned title and effect nodes
-are stored in `graph`; `effectsStack` stores their ordered renderer node types.
+are stored in `graph`; `effectsStack` stores their ordered renderer node types. Transition clips carry a
+validated `transition` definition with the joined clip ids, dip style, color, and easing.
 
 `MediaAsset` records **where** the footage is, not the footage itself:
 
@@ -77,7 +78,7 @@ Pure logic; no fs, no Electron.
 
 | Export | Purpose |
 |---|---|
-| `PROJECT_VERSION` (3), `APP_NAME`, `APP_VERSION` | Constants stamped into the document |
+| `PROJECT_VERSION` (4), `APP_NAME`, `APP_VERSION` | Constants stamped into the document |
 | `JSON_EXT` (`.vfxproj`), `BINARY_EXT` (`.vfxproj.bin`) | Canonical extensions |
 | `createDefaultTransform()` | `{x:0,y:0,scale:1,rotation:0,opacity:1}` |
 | `createDefaultComposition()` | 1920×1080, 30 fps, 12s, background `#07090d` |
@@ -202,9 +203,10 @@ Registers the four project IPC handlers used by `window.studio.project.*`:
 | 1 | The original document: composition, genre, safe zones, LUT, timeline, graph, effects stack | — |
 | 2 | `assets[]` — the imported media a timeline's clips reference. Clips also gained the optional `mediaId` and `sourceStart` fields. | None needed: a v1 document has no `assets`, and `normalizeProject` fills in an empty list. A v1 document's clips have no `mediaId`, and none is invented for them. |
 | 3 | Optional `textNodeId` and per-clip `look` metadata for editable, animated title layers and shot looks. | Additive; older clips load without title bindings or looks. |
+| 4 | Optional transition definitions on transition-track clips: linked cut ids, dip-to-color style, color, and easing. | Additive; older projects load with no transitions. |
 
-`normalizeProject` keeps a clip's `mediaId`/`sourceStart`, `textNodeId`, `look`, and its keyframes'
-easings, so older documents survive a save/load round-trip
+`normalizeProject` keeps a clip's `mediaId`/`sourceStart`, `textNodeId`, `look`, transition settings, and
+keyframe easings, so older documents survive a save/load round-trip
 ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md#6-clip--media-wiring)).
 
 ---

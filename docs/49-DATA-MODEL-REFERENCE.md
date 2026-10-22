@@ -101,11 +101,20 @@ interface TimelineClip {
   // ── extended ──
   mediaId?: string;            // source asset [29]
   sourceStart?: number;        // in-point in source
+  transition?: TransitionDefinition; // linked dip transition, on a transition-track clip
   speed?: number;              // retime factor
   reverse?: boolean;
   transform?: TransformStack;  // per-clip transform [22]
   effects?: string[];          // effect node ids
   grade?: string[];            // grade node ids
+}
+
+interface TransitionDefinition {
+  type: 'dip-black' | 'dip-white' | 'dip-color';
+  fromClipId: string;
+  toClipId: string;
+  color: string;
+  easing: KeyframeEasing;
 }
 
 interface Keyframe {
@@ -295,13 +304,14 @@ interface Selection {
 
 ## 12. Versioning
 
-`ProjectDocument.version` is `PROJECT_VERSION` (currently 3):
+`ProjectDocument.version` is `PROJECT_VERSION` (currently 4):
 
 | Version | Adds |
 |---|---|
 | 1 | base document |
 | 2 | `assets[]`, `mediaId`, and `sourceStart` for imported media |
 | 3 | optional `textNodeId` and per-clip `look` fields |
+| 4 | optional transition definitions on transition-track clips |
 
 `normalizeProject` migrates older documents forward — see
 [05-PROJECT-FORMAT.md](05-PROJECT-FORMAT.md#versioning--migration-policy).

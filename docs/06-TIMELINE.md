@@ -26,6 +26,7 @@ interface TimelineClip {
   keyframes: Keyframe[];
   mediaId?: string;         // the imported source this clip shows
   sourceStart?: number;     // in-point within that source, in seconds
+  transition?: TransitionDefinition; // transition-track clip joining two video clips
   /**
    * The look for this clip: the parameters of each node kind, keyed by kind.
    *
@@ -33,6 +34,14 @@ interface TimelineClip {
    * off, so the viewport shows a different look at every shot.
    */
   look?: Record<string, Record<string, unknown>>;
+}
+
+interface TransitionDefinition {
+  type: 'dip-black' | 'dip-white' | 'dip-color';
+  fromClipId: string;
+  toClipId: string;
+  color: string;
+  easing: KeyframeEasing;
 }
 
 interface Keyframe {
@@ -69,7 +78,7 @@ Both fields survive a save/load round-trip — `normalizeProject` keeps them, an
 | `audio` | Audio | `music` | `#5eead4` | Score, dialogue, VO |
 | `captions` | Captions | `captions` | `#ffb347` | Titles, lower-thirds, burned captions |
 | `effects` | Effects | `wand` | `#a78bfa` | Effect spans |
-| `transitions` | Transitions | `shuffle` | `#f472b6` | Cross-dissolves, wipes |
+| `transitions` | Transitions | `shuffle` | `#f472b6` | Dip-to-black, dip-to-white, and custom-color dips |
 
 `clipsFor(doc, trackId)` returns a track's clips **sorted by start time** — the row order the UI draws.
 
@@ -79,8 +88,8 @@ Both fields survive a save/load round-trip — `normalizeProject` keeps them, an
 
 `createEmptyTimeline(duration)` creates a clean timeline with no invented footage, audio, captions,
 effects, or transitions. Imported media adds real video clips; the Text tool and title presets create
-caption-track clips bound to graph-backed title nodes. The audio and transitions lanes remain available
-for future implementations but are empty until those systems can create renderable objects.
+caption-track clips bound to graph-backed title nodes. Audio remains unimplemented; transitions are
+created at an adjacent video cut with the toolbar's Add Transition action.
 
 ---
 
@@ -106,6 +115,7 @@ All return a new `TimelineDoc`. The constant `min = 0.2s` is the minimum clip le
 | `setClipRange` | `(doc, id, start, end, snapTargets?)` | Sets absolute range; clamps to `[0, duration]`; snaps both edges; enforces min length |
 | `moveClip` | `(doc, id, delta, snapTargets?)` | Moves by `delta` preserving length; clamps and snaps the start |
 | `trimClip` | `(doc, id, edge, time, snapTargets?)` | Trims `start` or `end` to an absolute time; enforces min length |
+| `removeClips` | `(doc, ids)` | Removes clips and transition clips whose linked shot was removed |
 | `addKeyframe` | `(doc, clipId, time, property='opacity', value=1, easing='easeInOut')` | Adds a diamond, clamped to the clip; **dedupes** within 0.02s on the same property |
 | `removeKeyframe` | `(doc, clipId, kfId)` | Deletes a keyframe |
 | `moveKeyframe` | `(doc, clipId, kfId, time)` | Repositions a diamond, clamped to the clip, then re-sorts |
@@ -163,7 +173,11 @@ sampleKeyframes(…)  ──►  property values (opacity, scale, …)
 composition transform  ──►  packUniforms  ──►  compose frame
 ```
 
-Today the viewport is driven by the **composition transform** and the **playhead time**. Wiring
+The viewport is driven by the **composition transform** and the **playhead time**. Transition-track
+clips resolve a time-dependent color overlay; the same color and easing are applied to export frames.
+The current transition set is dip-to-color only; two-layer dissolves and wipes depend on the compositor.
+
+Wiring
 per-clip keyframes to drive the composition transform for the active clip is the interaction-depth
 milestone that closes the loop between the timeline and the canvas. See [16-INTERFACE](16-INTERFACE.md)
 and [21-ROADMAP](21-ROADMAP.md).

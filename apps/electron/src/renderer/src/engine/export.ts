@@ -6,6 +6,7 @@
 
 import type { BridgeResult } from './bridge';
 import { createFrameRenderer } from './renderFrame';
+import type { TransitionOverlay } from './transitions';
 import type { BrandLUT, TransformState } from './types';
 
 export type ExportPresetId = 'fast-1080p' | 'prores-4k';
@@ -105,6 +106,8 @@ export interface RunExportOptions {
   mediaFrameAtTime?: (time: number) => Promise<VideoFrame | null>;
   /** Rasterized title/matte textures for the requested frame. */
   appTexturesAtTime?: (time: number) => Record<number, ImageData>;
+  /** Full-frame transition overlay, shared with the viewport timeline. */
+  outputOverlayAtTime?: (time: number) => TransitionOverlay | null;
   /** Release decoded export-only frames after success, failure, or cancellation. */
   disposeExportMedia?: () => void;
   onProgress?: (p: ExportProgressEvent) => void;
@@ -182,7 +185,13 @@ export async function runExport(options: RunExportOptions): Promise<RunExportRes
       if (program && !program.ok) throw new Error(program.errors.join('\n'));
       const mediaFrame = await options.mediaFrameAtTime?.(time);
       const appTextures = options.appTexturesAtTime?.(time);
-      const bytes = await renderer.render(time, transform, { program, mediaFrame, appTextures });
+      const outputOverlay = options.outputOverlayAtTime?.(time) ?? undefined;
+      const bytes = await renderer.render(time, transform, {
+        program,
+        mediaFrame,
+        appTextures,
+        outputOverlay,
+      });
       await api.writeExportFrame(bytes);
       framesWritten += 1;
       options.onProgress?.({

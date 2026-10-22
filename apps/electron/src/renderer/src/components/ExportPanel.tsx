@@ -8,6 +8,7 @@ import {
   formatBytes,
   runExport,
 } from '../engine/export';
+import type { TransitionOverlay } from '../engine/transitions';
 import type { BrandLUT, CompositionState } from '../engine/types';
 import { Icon } from './Icon';
 
@@ -16,6 +17,7 @@ interface ExportPanelProps {
   lut?: BrandLUT | null;
   programAtTime?: (time: number) => BridgeResult;
   mediaFrameAtTime?: (time: number) => Promise<VideoFrame | null>;
+  outputOverlayAtTime?: (time: number) => TransitionOverlay | null;
   appTexturesAtTime?: (time: number) => Record<number, ImageData>;
   disposeExportMedia?: () => void;
 }
@@ -31,6 +33,7 @@ export function ExportPanel({
   lut,
   programAtTime,
   mediaFrameAtTime,
+  outputOverlayAtTime,
   appTexturesAtTime,
   disposeExportMedia,
 }: ExportPanelProps) {
@@ -89,6 +92,7 @@ export function ExportPanel({
         transform: composition.transform,
         programAtTime,
         mediaFrameAtTime,
+        outputOverlayAtTime,
         appTexturesAtTime,
         disposeExportMedia,
         onProgress: setProgress,

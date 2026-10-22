@@ -58,6 +58,101 @@ describe('normalizeProject — timeline sanitising', () => {
     });
   });
 
+  it('keeps editable transition settings through a save/load normalization', () => {
+    const doc = docWith({
+      duration: 12,
+      clips: [
+        {
+          id: 'clip-a',
+          trackId: 'video',
+          start: 0,
+          end: 3,
+          name: 'A',
+          keyframes: [],
+        },
+        {
+          id: 'clip-b',
+          trackId: 'video',
+          start: 3,
+          end: 6,
+          name: 'B',
+          keyframes: [],
+        },
+        {
+          id: 'transition-1',
+          trackId: 'transitions',
+          start: 2.5,
+          end: 3.5,
+          name: 'Dip to color',
+          keyframes: [],
+          transition: {
+            type: 'dip-color',
+            fromClipId: 'clip-a',
+            toClipId: 'clip-b',
+            color: '#28435c',
+            easing: 'cubicOut',
+          },
+        },
+      ],
+    });
+    expect(doc.version).toBe(4);
+    expect(doc.timeline.clips.find((clip) => clip.id === 'transition-1')?.transition).toEqual({
+      type: 'dip-color',
+      fromClipId: 'clip-a',
+      toClipId: 'clip-b',
+      color: '#28435c',
+      easing: 'cubicOut',
+    });
+  });
+
+  it('drops invalid transition settings at the project boundary', () => {
+    const doc = docWith({
+      duration: 12,
+      clips: [
+        {
+          id: 'transition-1',
+          trackId: 'transitions',
+          start: 2,
+          end: 3,
+          name: 'Transition',
+          keyframes: [],
+          transition: {
+            type: 'run-arbitrary-shader',
+            fromClipId: 'clip-a',
+            toClipId: 'clip-b',
+            color: 'url(javascript:alert(1))',
+            easing: 'unknown',
+          },
+        },
+      ],
+    });
+    expect(doc.timeline.clips[0].transition).toBeUndefined();
+  });
+
+  it('drops transitions whose linked video clips are missing', () => {
+    const doc = docWith({
+      duration: 12,
+      clips: [
+        {
+          id: 'transition-1',
+          trackId: 'transitions',
+          start: 2,
+          end: 3,
+          name: 'Transition',
+          keyframes: [],
+          transition: {
+            type: 'dip-black',
+            fromClipId: 'missing-a',
+            toClipId: 'missing-b',
+            color: '#000000',
+            easing: 'easeInOut',
+          },
+        },
+      ],
+    });
+    expect(doc.timeline.clips).toEqual([]);
+  });
+
   it('does not invent a media binding', () => {
     const doc = docWith({
       duration: 12,

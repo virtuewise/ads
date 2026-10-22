@@ -1,24 +1,27 @@
 # 24 — Transitions: A Real Transition Engine
 
-**Status: ⬜ (no transition engine exists; the transitions lane is empty by default) · Code (target): `engine/transitions.ts`, `engine/shaders/transitions/*.wgsl`**
+**Status: 🟡 (dip-to-color transitions run in preview and export; two-input transitions remain planned) · Code: `engine/transitions.ts`, `engine/timeline.ts`, `components/WebGPUCanvas.tsx`, `engine/renderFrame.ts`**
 
-> Today the timeline has a **Transitions track** (`TRACKS` in `engine/timeline.ts`) but no transition
-> engine behind it. New timelines are empty: there is no way to place, tune, or render a transition. This
-> document specifies the engine.
+> The timeline can now create, edit, preview, save, and export dip-to-black, dip-to-white, and
+> dip-to-custom-color transitions at an adjacent video cut. The larger transition engine in this
+> document remains a plan: dissolves, wipes, motion transitions, and optical-flow transitions need
+> two-input compositing and/or additional render passes.
 
 ---
 
 ## The gap, precisely
 
-`engine/timeline.ts` defines the `transitions` track with icon `shuffle` and colour `#f472b6`. No
-transition clips are seeded. A transition implementation still needs:
+`engine/timeline.ts` defines the `transitions` track with icon `shuffle` and colour `#f472b6`. A user
+selects a video clip and adds a dip transition at its nearest adjacent cut. Current behavior:
 
-- No link to the two clips it joins.
-- No transition type beyond its name.
-- No duration/easing/parameters model.
-- No rendering path — the compositor cannot blend two layers ([22](22-COMPOSITOR.md)).
+- The transition clip links `fromClipId` and `toClipId`, and stays centered on that cut while it exists.
+- The inspector exposes dip style, custom color, duration, and the shared easing library.
+- The viewport paints the time-evaluated color overlay above the WebGPU canvas.
+- Export composites the same overlay into each RGBA frame before encoding.
+- Deleting or separating the linked clips removes the transition rather than leaving a broken effect.
 
-So "transitions" is currently a **label on a rectangle**.
+The current transition uses one selected video frame at a time and fades through a solid color. It is not
+a cross-dissolve and does not composite two clips simultaneously.
 
 ---
 
@@ -27,24 +30,17 @@ So "transitions" is currently a **label on a rectangle**.
 A transition is a **first-class object** joining two adjacent clips.
 
 ```typescript
-interface Transition {
-  id: string;
-  type: TransitionType;
-  /** The outgoing clip (A) and incoming clip (B). */
+interface TransitionDefinition {
+  type: 'dip-black' | 'dip-white' | 'dip-color';
   fromClipId: string;
   toClipId: string;
-  /** Duration in seconds. Overlap = duration; the clips' own ranges are unchanged. */
-  duration: number;
-  easing: KeyframeEasing;          // reuse the timeline easing model
-  /** Type-specific parameters. */
-  params: Record<string, number | string | boolean>;
-  /** Optional custom WGSL, for a Script transition (see Script-node pattern). */
-  customShader?: string;
+  color: string;
+  easing: KeyframeEasing;
 }
 
 type TransitionType =
   // Dissolves
-  | 'dissolve' | 'dip-to-color' | 'dip-to-black' | 'dip-to-white'
+  | 'dissolve' | 'dip-color' | 'dip-black' | 'dip-white'
   // Wipes
   | 'wipe-linear' | 'wipe-radial' | 'wipe-clock' | 'wipe-matte' | 'wipe-shape'
   // Moves
@@ -55,14 +51,16 @@ type TransitionType =
   | 'morph' | 'warp' | 'optical-flow' | 'particle-dissolve';
 ```
 
-Transitions live on the Transitions track and **overlap** the two clips: rendering the transition means
-compositing A and B with the transition shader during the overlap window.
+The transition is a clip on the Transitions track. Its `start` and `end` bound its duration, while its
+definition references the adjacent video clips. The current implementation centers the dip on their
+cut. Adding overlap or a gap removes the transition until the shots are adjacent again.
 
 ---
 
-## Rendering: WGSL transitions driven by progress
+## Future rendering: two-input WGSL transitions
 
-Every built-in transition is a **fragment shader** with a shared signature:
+The current dip effect is a solid-color overlay. Cross-dissolves and wipes will need both source frames
+and a shared fragment transition in the compositor. The planned WGSL signature is:
 
 ```wgsl
 // Renders A→B at progress p ∈ [0,1].
@@ -75,9 +73,9 @@ fn transition(
 ) -> vec4<f32>;
 ```
 
-Because transitions are WGSL and the compositor runs the same shader in viewport and export
-([04-RENDERING](04-RENDERING.md)), **the transition renders identically in preview and deliverable** —
-including the `p` value, which is derived from the *eased* timeline time, not the wall clock.
+The time-derived progress must be deterministic. The target remains pixel parity between the viewport
+and export ([04-RENDERING](04-RENDERING.md)); the shipped dip currently uses matching timing and color
+math in both paths, with CSS canvas overlay in preview and RGBA blending in export.
 
 ### Worked examples
 
@@ -185,13 +183,11 @@ same logic:
 
 ## Interaction surface
 
-- **Create**: drop a transition onto the Transitions track at a clip junction, or select two adjacent
-  clips → "Apply Transition".
-- **Trim**: drag the transition's edges (reuses `trimClip` semantics — [06](06-TIMELINE.md)).
-- **Tune**: a transition inspector with type picker, duration, easing, and type-specific params (angle,
-  softness, colour, flow amount).
-- **Preview**: the viewport shows the transition live because it *is* the render.
-- **Align**: snapping already applies; a "centre on cut" action is a convenience.
+- **Create**: select a video clip and choose **Add dip transition** beside a cut.
+- **Tune**: the inspector edits dip style, custom color, duration, and easing.
+- **Preview/export**: preview and exported frames share the same time-evaluated dip overlay.
+- **Planned**: drag/drop transition catalog, two-input dissolves and wipes, type-specific shader controls,
+  and transitions across overlapping clips.
 
 ---
 
@@ -199,9 +195,10 @@ same logic:
 
 | Property | Test |
 |---|---|
-| `p` derivation | eased progress matches `sampleKeyframes` easing exactly |
-| Endpoint exactness | at `p=0` the output is byte-identical to A; at `p=1` to B |
-| Viewport == export | frame hashes match mid-transition ([04](04-RENDERING.md)) |
+| Eased progress | transition peak follows the shared easing curves |
+| Color and duration | custom dip color and duration stay in the project and match at the cut |
+| Viewport/export overlay | both use the same color, easing, and playhead time |
+| Linked-cut cleanup | deleting, splitting, or separating source clips removes the invalid transition |
 | Flow determinism | identical flow field for identical inputs across runs |
 
 ---

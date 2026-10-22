@@ -5,6 +5,8 @@
 
 /// <reference types="@webgpu/types" />
 import type { BridgeResult } from './bridge';
+import type { TransitionOverlay } from './transitions';
+import { compositeTransitionOverlay } from './transitions';
 import type { BrandLUT, TransformState } from './types';
 import { COMPOSITE_SHADER, packUniforms, UNIFORM_BYTES, UNIFORM_FLOATS } from './visual';
 
@@ -12,6 +14,7 @@ export interface FrameInputs {
   program?: BridgeResult;
   mediaFrame?: VideoFrame | null;
   appTextures?: Record<number, ImageData>;
+  outputOverlay?: TransitionOverlay;
 }
 
 export interface FrameRendererOptions {
@@ -305,6 +308,13 @@ export async function createFrameRenderer(
         result = out.slice();
       }
       staging.unmap();
+      if (inputs.outputOverlay) {
+        compositeTransitionOverlay(
+          result,
+          inputs.outputOverlay.color,
+          inputs.outputOverlay.opacity,
+        );
+      }
       return result;
     },
     dispose() {

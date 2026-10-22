@@ -4,10 +4,12 @@
 // (git-friendly) or a compact checksummed binary blob.
 
 import { EASING_ORDER } from './easing';
+import { reconcileTransitions } from './timeline';
 import type {
   CompositionState,
   DAG,
   GenreId,
+  KeyframeEasing,
   MediaAsset,
   ProjectDocument,
   ProjectFormat,
@@ -17,7 +19,7 @@ import type {
   TransformState,
 } from './types';
 
-export const PROJECT_VERSION = 3;
+export const PROJECT_VERSION = 4;
 export const APP_NAME = 'Virtue Studio';
 export const APP_VERSION = '0.1.0';
 
@@ -129,6 +131,30 @@ function sanitizeTimeline(raw: unknown, duration: number): TimelineDoc {
         .map((c, i) => {
           const mediaId = str(c.mediaId, '');
           const textNodeId = str(c.textNodeId, '');
+          const rawTransition = c.transition;
+          let transition: TimelineDoc['clips'][number]['transition'];
+          if (rawTransition && typeof rawTransition === 'object' && !Array.isArray(rawTransition)) {
+            const value = rawTransition as Record<string, unknown>;
+            const type = value.type;
+            const fromClipId = str(value.fromClipId, '');
+            const toClipId = str(value.toClipId, '');
+            const color = str(value.color, '#000000');
+            if (
+              (type === 'dip-black' || type === 'dip-white' || type === 'dip-color') &&
+              fromClipId &&
+              toClipId
+            ) {
+              transition = {
+                type,
+                fromClipId,
+                toClipId,
+                color: /^#[\da-f]{6}$/i.test(color) ? color : '#000000',
+                easing: (EASING_ORDER as string[]).includes(value.easing as string)
+                  ? (value.easing as KeyframeEasing)
+                  : 'easeInOut',
+              };
+            }
+          }
           const rawLook = c.look;
           const look: Record<string, Record<string, unknown>> | undefined =
             rawLook && typeof rawLook === 'object' && !Array.isArray(rawLook)
@@ -149,6 +175,7 @@ function sanitizeTimeline(raw: unknown, duration: number): TimelineDoc {
             ...(mediaId ? { mediaId } : {}),
             ...(mediaId ? { sourceStart: num(c.sourceStart, 0) } : {}),
             ...(textNodeId ? { textNodeId } : {}),
+            ...(transition ? { transition } : {}),
             ...(look ? { look } : {}),
           };
         })
@@ -179,6 +206,7 @@ export function normalizeProject(raw: unknown): ProjectDocument {
   };
   const safe = (doc.safeZones ?? {}) as Partial<SafeZoneState>;
   const graph = doc.graph as DAG | undefined;
+  const timeline = reconcileTransitions(sanitizeTimeline(doc.timeline, composition.duration));
   return {
     format: 'vfxproj',
     version: num(doc.version, PROJECT_VERSION),
@@ -191,7 +219,7 @@ export function normalizeProject(raw: unknown): ProjectDocument {
       ratio: RATIOS.includes(safe.ratio as SafeZoneRatio) ? (safe.ratio as SafeZoneRatio) : '16:9',
     },
     brandLUT: str(doc.brandLUT, 'none'),
-    timeline: sanitizeTimeline(doc.timeline, composition.duration),
+    timeline,
     graph:
       graph && Array.isArray(graph.nodes) && Array.isArray(graph.edges)
         ? graph

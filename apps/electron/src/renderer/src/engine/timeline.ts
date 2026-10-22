@@ -54,6 +54,64 @@ export function findClip(doc: TimelineDoc, id: string): TimelineClip | undefined
   return doc.clips.find((c) => c.id === id);
 }
 
+/** Keep transition overlays centered on their cut, and drop them when the cut is removed. */
+export function reconcileTransitions(doc: TimelineDoc): TimelineDoc {
+  const clipsById = new Map(doc.clips.map((clip) => [clip.id, clip]));
+  let changed = false;
+  const clips = doc.clips.flatMap((clip) => {
+    const transition = clip.transition;
+    if (!transition) return [clip];
+    const from = clipsById.get(transition.fromClipId);
+    const to = clipsById.get(transition.toClipId);
+    if (
+      clip.trackId !== 'transitions' ||
+      !from ||
+      !to ||
+      from.trackId !== 'video' ||
+      to.trackId !== 'video'
+    ) {
+      changed = true;
+      return [];
+    }
+    const cut = (from.end + to.start) / 2;
+    const duration = clip.end - clip.start;
+    if (Math.abs(to.start - from.end) > 0.001 || duration < 0.2) {
+      changed = true;
+      return [];
+    }
+    const fittedDuration = Math.min(
+      duration,
+      (from.end - from.start) * 0.8,
+      (to.end - to.start) * 0.8,
+      cut * 2,
+      (doc.duration - cut) * 2,
+    );
+    if (fittedDuration < 0.2) {
+      changed = true;
+      return [];
+    }
+    const start = cut - fittedDuration / 2;
+    const end = cut + fittedDuration / 2;
+    if (start !== clip.start || end !== clip.end) changed = true;
+    return [{ ...clip, start, end }];
+  });
+  return changed ? { ...doc, clips } : doc;
+}
+
+/** Remove clips and any transitions which depend on them. */
+export function removeClips(doc: TimelineDoc, ids: ReadonlySet<string>): TimelineDoc {
+  if (ids.size === 0) return doc;
+  const clips = doc.clips.filter(
+    (clip) =>
+      !ids.has(clip.id) &&
+      !(
+        clip.transition &&
+        (ids.has(clip.transition.fromClipId) || ids.has(clip.transition.toClipId))
+      ),
+  );
+  return clips.length === doc.clips.length ? doc : { ...doc, clips };
+}
+
 /** Set a clip's absolute range with snapping and clamping. */
 export function setClipRange(
   doc: TimelineDoc,
@@ -69,7 +127,10 @@ export function setClipRange(
     s = clamp(snapTime(s, snapTargets), 0, doc.duration - min);
     e = clamp(snapTime(e, snapTargets), s + min, doc.duration);
   }
-  return { ...doc, clips: doc.clips.map((c) => (c.id === id ? { ...c, start: s, end: e } : c)) };
+  return reconcileTransitions({
+    ...doc,
+    clips: doc.clips.map((c) => (c.id === id ? { ...c, start: s, end: e } : c)),
+  });
 }
 
 export function clipsFor(doc: TimelineDoc, trackId: string): TimelineClip[] {
@@ -89,10 +150,10 @@ export function moveClip(
   let start = clamp(clip.start + delta, 0, Math.max(0, doc.duration - len));
   start = clamp(snapTime(start, snapTargets), 0, Math.max(0, doc.duration - len));
   const end = start + len;
-  return {
+  return reconcileTransitions({
     ...doc,
     clips: doc.clips.map((c) => (c.id === id ? { ...c, start, end } : c)),
-  };
+  });
 }
 
 /** Trim a clip edge to an absolute time, respecting the minimum clip length. */
@@ -105,19 +166,24 @@ export function trimClip(
 ): TimelineDoc {
   const clip = findClip(doc, id);
   if (!clip) return doc;
+  if (clip.transition) return doc;
   const t = clamp(snapTime(time, snapTargets), 0, doc.duration);
   const min = 0.2;
   const next =
     edge === 'start'
       ? { start: Math.min(t, clip.end - min), end: clip.end }
       : { start: clip.start, end: Math.max(t, clip.start + min) };
-  return { ...doc, clips: doc.clips.map((c) => (c.id === id ? { ...c, ...next } : c)) };
+  return reconcileTransitions({
+    ...doc,
+    clips: doc.clips.map((c) => (c.id === id ? { ...c, ...next } : c)),
+  });
 }
 
 /** Split a clip at a given time, returning two clips. */
 export function splitClip(doc: TimelineDoc, id: string, time: number): TimelineDoc {
   const clip = findClip(doc, id);
   if (!clip) return doc;
+  if (clip.transition) return doc;
   const t = clamp(time, clip.start + 0.2, clip.end - 0.2);
   if (t <= clip.start || t >= clip.end) return doc;
   const left: TimelineClip = {
@@ -135,10 +201,11 @@ export function splitClip(doc: TimelineDoc, id: string, time: number): TimelineD
     ...(clip.mediaId ? { sourceStart: (clip.sourceStart ?? 0) + (t - clip.start) } : {}),
     keyframes: clip.keyframes.filter((k) => k.time >= t).map((k) => ({ ...k, id: nextId('kf') })),
   };
-  return {
+  const next = {
     ...doc,
     clips: [...doc.clips.filter((c) => c.id !== id), left, right].sort((a, b) => a.start - b.start),
   };
+  return reconcileTransitions(removeClips(next, new Set([id])));
 }
 
 /** Set a clip's name and range in one go. */
@@ -189,7 +256,7 @@ export function addMediaClip(
     mediaId: opts.mediaId,
     sourceStart: 0,
   };
-  return { ...doc, clips: [...doc.clips, clip] };
+  return reconcileTransitions({ ...doc, clips: [...doc.clips, clip] });
 }
 
 /** Create a timeline clip that owns one editor-authored text graph node. */

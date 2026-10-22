@@ -62,6 +62,7 @@ import {
   createTextClip,
   moveKeyframe,
   nextId,
+  removeClips,
   removeKeyframe,
   renameClip,
   setClipFields,
@@ -71,6 +72,13 @@ import {
   splitClip,
   TRACKS,
 } from './engine/timeline';
+import {
+  canAddDipTransition,
+  createDipTransition,
+  setTransitionDefinition,
+  setTransitionDuration,
+  transitionOverlayAtTime,
+} from './engine/transitions';
 import type {
   CompositionState,
   DAG,
@@ -82,6 +90,7 @@ import type {
   TimelineClip,
   TimelineDoc,
   TransformState,
+  TransitionType,
 } from './engine/types';
 import { BRAND_LUTS } from './engine/types';
 import { createDefaultDAG, useDAG } from './engine/useDAG';
@@ -451,6 +460,11 @@ export function App() {
     }
     return undefined;
   }, [timelineDoc.clips, playhead]);
+  const transitionOverlay = useMemo(
+    () =>
+      trackState.transitions?.visible ? transitionOverlayAtTime(timelineDoc.clips, playhead) : null,
+    [playhead, timelineDoc.clips, trackState.transitions?.visible],
+  );
 
   // Bridge the DAG output into the composite shader pipeline.
   const bridgeResult = useMemo(
@@ -568,6 +582,11 @@ export function App() {
       return decoded?.frame ?? null;
     },
     [timelineDoc.clips, mediaBin],
+  );
+  const outputOverlayAtTime = useCallback(
+    (time: number) =>
+      trackState.transitions?.visible ? transitionOverlayAtTime(timelineDoc.clips, time) : null,
+    [timelineDoc.clips, trackState.transitions?.visible],
   );
   const disposeExportMedia = useCallback(() => {
     for (const source of exportMediaSourcesRef.current.values()) {
@@ -1331,6 +1350,23 @@ export function App() {
     notify(`Added ${source.name} at ${fmtTC(playhead, composition.fps)}`);
   };
 
+  const addTransitionAtCut = () => {
+    if (selectedTimelineClip?.trackId !== 'video') {
+      notify('Select a video clip next to a cut to add a transition');
+      return;
+    }
+    const transition = createDipTransition(timelineDoc, selectedTimelineClip.id);
+    if (!transition) {
+      notify('A transition needs two adjacent video clips with room on both sides of the cut');
+      return;
+    }
+    dispatchTimeline('Add Transition', (doc) => ({ ...doc, clips: [...doc.clips, transition] }));
+    setSelectedClip(transition.id);
+    setSelectedClips(new Set([transition.id]));
+    setInsTab('props');
+    notify('Added a dip transition. Edit its style, color, duration, and easing in the inspector.');
+  };
+
   const updateTransform = (patch: Partial<TransformState>) => {
     setComposition((c) => ({ ...c, transform: { ...c.transform, ...patch } }));
     touch();
@@ -1746,6 +1782,10 @@ export function App() {
       notify('Select a clip first');
       return;
     }
+    if (selectedTimelineClip?.transition) {
+      notify('Transition motion is controlled by its duration and easing settings');
+      return;
+    }
     const selectedTitle = selectedTimelineClip?.textNodeId === selectedTextNode?.id;
     const property = selectedTitle ? animationProperty : 'opacity';
     const value = selectedTitle
@@ -1757,7 +1797,7 @@ export function App() {
   };
 
   const deleteSelectedClip = () => {
-    const targets =
+    const targets: Set<string> =
       selectedClips.size > 0 ? selectedClips : selectedClip ? new Set([selectedClip]) : new Set();
     if (targets.size === 0) return;
     const removedTextNodes = new Set(
@@ -1771,18 +1811,12 @@ export function App() {
         )
         .map((clip) => clip.textNodeId as string),
     );
-    const nextTimeline = {
-      ...timelineDoc,
-      clips: timelineDoc.clips.filter((clip) => !targets.has(clip.id)),
-    };
+    const nextTimeline = removeClips(timelineDoc, targets);
     if (removedTextNodes.size > 0) {
       const nextGraph = removeTextNodesFromGraph(dag.dag, removedTextNodes);
       commitTextStructure('Delete Title Layer', nextTimeline, nextGraph);
     } else {
-      dispatchTimeline('Delete Clips', (doc) => ({
-        ...doc,
-        clips: doc.clips.filter((clip) => !targets.has(clip.id)),
-      }));
+      dispatchTimeline('Delete Clips', (doc) => removeClips(doc, targets));
     }
     setSelectedClip(null);
     setSelectedClips(new Set());
@@ -1794,6 +1828,7 @@ export function App() {
       notify('Select a clip to duplicate');
       return;
     }
+    if (source.transition) return;
     const duration = source.end - source.start;
     const gap = Math.min(0.1, duration * 0.05);
     const after = source.end + gap;
@@ -2183,7 +2218,7 @@ export function App() {
             type="button"
             className="iconbtn"
             title="Split at playhead (S)"
-            disabled={!selectedTimelineClip}
+            disabled={!selectedTimelineClip || !!selectedTimelineClip.transition}
             onClick={splitAtPlayhead}
           >
             <Icon name="split" size={14} />
@@ -2192,10 +2227,23 @@ export function App() {
             type="button"
             className="iconbtn"
             title="Duplicate (Ctrl+D)"
-            disabled={!selectedTimelineClip}
+            disabled={!selectedTimelineClip || !!selectedTimelineClip.transition}
             onClick={duplicateSelectedClip}
           >
             <Icon name="copy" size={14} />
+          </button>
+          <button
+            type="button"
+            className="iconbtn"
+            title="Add dip transition at the selected clip's nearest cut"
+            aria-label="Add dip transition"
+            disabled={
+              !canAddDipTransition(timelineDoc, selectedClip) ||
+              trackState.transitions?.locked === true
+            }
+            onClick={addTransitionAtCut}
+          >
+            <Icon name="shuffle" size={14} />
           </button>
           <button
             type="button"
@@ -2219,6 +2267,7 @@ export function App() {
             type="button"
             className="iconbtn"
             title="Add keyframe at playhead"
+            disabled={!selectedTimelineClip || !!selectedTimelineClip.transition}
             onClick={addKeyframeAtPlayhead}
           >
             <Icon name="keyframe" size={14} />
@@ -2973,6 +3022,7 @@ export function App() {
                     outputSegment={bridgeResult.outputSegment}
                     compileError={bridgeResult.ok ? undefined : bridgeResult.errors.join('\n')}
                     mediaFrame={mediaFrame}
+                    transitionOverlay={transitionOverlay}
                     appTextureSlots={appTextureSlots}
                   />
                   <SafeZones
@@ -3250,135 +3300,245 @@ export function App() {
                             aria-label="Clip name"
                           />
                         </label>
-                        <label className="field">
-                          <span className="field__label">In / Out</span>
-                          <input
-                            className="field__input"
-                            value={clip.start.toFixed(2)}
-                            onFocus={() => beginClipEdit(clip)}
-                            onBlur={() => endClipEdit(clip)}
-                            onChange={(e) => {
-                              setTimelineDoc((doc) =>
-                                setClipRange(
-                                  doc,
-                                  clip.id,
-                                  toNum(e.target.value, clip.start),
-                                  clip.end,
-                                  [],
-                                ),
-                              );
-                              touch();
-                            }}
-                            aria-label="Clip in point"
-                            inputMode="decimal"
-                          />
-                          <span className="muted">to</span>
-                          <input
-                            className="field__input"
-                            value={clip.end.toFixed(2)}
-                            onFocus={() => beginClipEdit(clip)}
-                            onBlur={() => endClipEdit(clip)}
-                            onChange={(e) => {
-                              setTimelineDoc((doc) =>
-                                setClipRange(
-                                  doc,
-                                  clip.id,
-                                  clip.start,
-                                  toNum(e.target.value, clip.end),
-                                  [],
-                                ),
-                              );
-                              touch();
-                            }}
-                            aria-label="Clip out point"
-                            inputMode="decimal"
-                          />
-                        </label>
-                        <div className="sect__head">
-                          <span className="sect__title">Keyframes</span>
-                          <span className="sect__meta">{clip.keyframes.length}</span>
-                        </div>
-                        {clip.keyframes.map((k) => (
-                          <div key={k.id} className="row row--kf">
-                            <span className="row__icon">
-                              <Icon name="keyframe" size={12} />
-                            </span>
-                            <button
-                              type="button"
-                              className="rowbtn rowbtn--kf"
-                              onClick={() => {
-                                setPlayhead(k.time);
-                                setAnimationProperty(k.property);
-                              }}
-                              title={`${k.time.toFixed(2)}s · ${k.property}`}
-                            >
-                              <span className="row__title">{k.time.toFixed(2)}s</span>
-                              <span className="row__sub">{k.property}</span>
-                            </button>
+                        {!clip.transition && (
+                          <label className="field">
+                            <span className="field__label">In / Out</span>
                             <input
                               className="field__input"
-                              type="number"
-                              step="any"
-                              value={k.value}
-                              onChange={(event) => {
-                                const value = Number(event.target.value);
-                                if (!Number.isFinite(value)) return;
-                                dispatchTimeline('Set Keyframe Value', (doc) =>
-                                  setKeyframeValue(doc, clip.id, k.id, value),
-                                );
-                              }}
-                              aria-label={`Value for ${k.property} keyframe`}
-                              style={{ maxWidth: 76 }}
-                            />
-                            <select
-                              className="field__input kf__ease"
-                              value={k.easing}
-                              title="Interpolation into this keyframe"
-                              aria-label={`Easing for ${k.property} keyframe at ${k.time.toFixed(2)}s`}
-                              onClick={(e) => e.stopPropagation()}
+                              value={clip.start.toFixed(2)}
+                              onFocus={() => beginClipEdit(clip)}
+                              onBlur={() => endClipEdit(clip)}
                               onChange={(e) => {
-                                const next = e.target.value as KeyframeEasing;
-                                if (next === k.easing) return;
-                                dispatchTimeline('Set Keyframe Easing', (doc) =>
-                                  setKeyframeEasing(doc, clip.id, k.id, next),
+                                setTimelineDoc((doc) =>
+                                  setClipRange(
+                                    doc,
+                                    clip.id,
+                                    toNum(e.target.value, clip.start),
+                                    clip.end,
+                                    [],
+                                  ),
                                 );
+                                touch();
                               }}
-                            >
-                              {EASING_ORDER.map((kind) => (
-                                <option key={kind} value={kind}>
-                                  {EASING_LABELS[kind]}
-                                </option>
-                              ))}
-                            </select>
+                              aria-label="Clip in point"
+                              inputMode="decimal"
+                            />
+                            <span className="muted">to</span>
+                            <input
+                              className="field__input"
+                              value={clip.end.toFixed(2)}
+                              onFocus={() => beginClipEdit(clip)}
+                              onBlur={() => endClipEdit(clip)}
+                              onChange={(e) => {
+                                setTimelineDoc((doc) =>
+                                  setClipRange(
+                                    doc,
+                                    clip.id,
+                                    clip.start,
+                                    toNum(e.target.value, clip.end),
+                                    [],
+                                  ),
+                                );
+                                touch();
+                              }}
+                              aria-label="Clip out point"
+                              inputMode="decimal"
+                            />
+                          </label>
+                        )}
+                        {clip.transition && (
+                          <div className="sect sect--nested">
+                            <div className="sect__head">
+                              <span className="sect__title">Transition</span>
+                              <span className="sect__meta">
+                                {timelineDoc.clips.find(
+                                  (item) => item.id === clip.transition?.fromClipId,
+                                )?.name ?? 'Missing shot'}{' '}
+                                →{' '}
+                                {timelineDoc.clips.find(
+                                  (item) => item.id === clip.transition?.toClipId,
+                                )?.name ?? 'Missing shot'}
+                              </span>
+                            </div>
+                            <label className="field">
+                              <span className="field__label">Style</span>
+                              <select
+                                className="field__input"
+                                value={clip.transition.type}
+                                aria-label="Transition style"
+                                onChange={(event) => {
+                                  const type = event.target.value as TransitionType;
+                                  dispatchTimeline('Set Transition Style', (doc) =>
+                                    setTransitionDefinition(doc, clip.id, {
+                                      type,
+                                      ...(type === 'dip-white'
+                                        ? { color: '#ffffff' }
+                                        : type === 'dip-black'
+                                          ? { color: '#000000' }
+                                          : {}),
+                                    }),
+                                  );
+                                }}
+                              >
+                                <option value="dip-black">Dip to black</option>
+                                <option value="dip-white">Dip to white</option>
+                                <option value="dip-color">Dip to color</option>
+                              </select>
+                            </label>
+                            {clip.transition.type === 'dip-color' && (
+                              <label className="field">
+                                <span className="field__label">Dip color</span>
+                                <input
+                                  className="field__input"
+                                  type="color"
+                                  value={clip.transition.color}
+                                  aria-label="Transition color"
+                                  onChange={(event) =>
+                                    dispatchTimeline('Set Transition Color', (doc) =>
+                                      setTransitionDefinition(doc, clip.id, {
+                                        color: event.target.value,
+                                      }),
+                                    )
+                                  }
+                                />
+                              </label>
+                            )}
+                            <label className="field">
+                              <span className="field__label">Duration</span>
+                              <input
+                                className="field__input"
+                                type="number"
+                                min={0.2}
+                                max={1.2}
+                                step={0.05}
+                                value={(clip.end - clip.start).toFixed(2)}
+                                aria-label="Transition duration in seconds"
+                                onChange={(event) => {
+                                  const duration = Number(event.target.value);
+                                  if (Number.isFinite(duration)) {
+                                    dispatchTimeline('Set Transition Duration', (doc) =>
+                                      setTransitionDuration(doc, clip.id, duration),
+                                    );
+                                  }
+                                }}
+                              />
+                            </label>
+                            <label className="field">
+                              <span className="field__label">Easing</span>
+                              <select
+                                className="field__input"
+                                value={clip.transition.easing}
+                                aria-label="Transition easing"
+                                onChange={(event) =>
+                                  dispatchTimeline('Set Transition Easing', (doc) =>
+                                    setTransitionDefinition(doc, clip.id, {
+                                      easing: event.target.value as KeyframeEasing,
+                                    }),
+                                  )
+                                }
+                              >
+                                {EASING_ORDER.map((easing) => (
+                                  <option key={easing} value={easing}>
+                                    {EASING_LABELS[easing]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <p className="muted">
+                              The overlay rises to full color at the cut and fades away on the next
+                              shot. It follows the cut while both clips remain adjacent.
+                            </p>
+                          </div>
+                        )}
+                        {!clip.transition && (
+                          <>
+                            <div className="sect__head">
+                              <span className="sect__title">Keyframes</span>
+                              <span className="sect__meta">{clip.keyframes.length}</span>
+                            </div>
+                            {clip.keyframes.map((k) => (
+                              <div key={k.id} className="row row--kf">
+                                <span className="row__icon">
+                                  <Icon name="keyframe" size={12} />
+                                </span>
+                                <button
+                                  type="button"
+                                  className="rowbtn rowbtn--kf"
+                                  onClick={() => {
+                                    setPlayhead(k.time);
+                                    setAnimationProperty(k.property);
+                                  }}
+                                  title={`${k.time.toFixed(2)}s · ${k.property}`}
+                                >
+                                  <span className="row__title">{k.time.toFixed(2)}s</span>
+                                  <span className="row__sub">{k.property}</span>
+                                </button>
+                                <input
+                                  className="field__input"
+                                  type="number"
+                                  step="any"
+                                  value={k.value}
+                                  onChange={(event) => {
+                                    const value = Number(event.target.value);
+                                    if (!Number.isFinite(value)) return;
+                                    dispatchTimeline('Set Keyframe Value', (doc) =>
+                                      setKeyframeValue(doc, clip.id, k.id, value),
+                                    );
+                                  }}
+                                  aria-label={`Value for ${k.property} keyframe`}
+                                  style={{ maxWidth: 76 }}
+                                />
+                                <select
+                                  className="field__input kf__ease"
+                                  value={k.easing}
+                                  title="Interpolation into this keyframe"
+                                  aria-label={`Easing for ${k.property} keyframe at ${k.time.toFixed(2)}s`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    const next = e.target.value as KeyframeEasing;
+                                    if (next === k.easing) return;
+                                    dispatchTimeline('Set Keyframe Easing', (doc) =>
+                                      setKeyframeEasing(doc, clip.id, k.id, next),
+                                    );
+                                  }}
+                                >
+                                  {EASING_ORDER.map((kind) => (
+                                    <option key={kind} value={kind}>
+                                      {EASING_LABELS[kind]}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  className="iconbtn"
+                                  title="Remove keyframe"
+                                  aria-label="Remove keyframe"
+                                  onClick={() => {
+                                    dispatchTimeline('Remove Keyframe', (doc) =>
+                                      removeKeyframe(doc, clip.id, k.id),
+                                    );
+                                  }}
+                                >
+                                  <Icon name="close" size={12} />
+                                </button>
+                              </div>
+                            ))}
+                            {clip.keyframes.length === 0 && (
+                              <p className="muted">
+                                No keyframes. Double-click the clip or use the button.
+                              </p>
+                            )}
                             <button
                               type="button"
-                              className="iconbtn"
-                              title="Remove keyframe"
-                              aria-label="Remove keyframe"
-                              onClick={() => {
-                                dispatchTimeline('Remove Keyframe', (doc) =>
-                                  removeKeyframe(doc, clip.id, k.id),
-                                );
-                              }}
+                              className="btn btn--block"
+                              style={{ marginTop: 8 }}
+                              onClick={addKeyframeAtPlayhead}
                             >
-                              <Icon name="close" size={12} />
+                              <Icon name="keyframe" size={12} />
+                              Add at playhead
                             </button>
-                          </div>
-                        ))}
-                        {clip.keyframes.length === 0 && (
-                          <p className="muted">
-                            No keyframes. Double-click the clip or use the button.
-                          </p>
+                          </>
                         )}
-                        <button
-                          type="button"
-                          className="btn btn--block"
-                          style={{ marginTop: 8 }}
-                          onClick={addKeyframeAtPlayhead}
-                        >
-                          <Icon name="keyframe" size={12} />
-                          Add at playhead
-                        </button>
                       </div>
                     );
                   })()}
@@ -3616,6 +3776,7 @@ export function App() {
                 lut={BRAND_LUTS.find((l) => l.id === brandLUT) ?? null}
                 programAtTime={programAtTime}
                 mediaFrameAtTime={mediaFrameAtTime}
+                outputOverlayAtTime={outputOverlayAtTime}
                 appTexturesAtTime={appTexturesAtTime}
                 disposeExportMedia={disposeExportMedia}
               />
@@ -3765,9 +3926,11 @@ export function App() {
                               }
                               setSelectedClips(new Set([c.id]));
                               setSelectedClip(c.id);
-                              beginClipDrag(e, 'move', c.id);
+                              if (!c.transition) beginClipDrag(e, 'move', c.id);
                             }}
-                            onDoubleClick={() => onClipDoubleClick(c.id)}
+                            onDoubleClick={() => {
+                              if (!c.transition) onClipDoubleClick(c.id);
+                            }}
                             style={{
                               left: `${(c.start / DURATION) * 100}%`,
                               width: `${(span / DURATION) * 100}%`,
@@ -3779,13 +3942,15 @@ export function App() {
                               opacity: st.locked ? 0.55 : 1,
                             }}
                           >
-                            <span
-                              className="clip__handle clip__handle--start"
-                              onPointerDown={(e) => {
-                                if (!st.locked) beginClipDrag(e, 'trim-start', c.id);
-                              }}
-                            />
-                            <Icon name={t.icon} size={11} />
+                            {!c.transition && (
+                              <span
+                                className="clip__handle clip__handle--start"
+                                onPointerDown={(e) => {
+                                  if (!st.locked) beginClipDrag(e, 'trim-start', c.id);
+                                }}
+                              />
+                            )}
+                            <Icon name={c.transition ? 'shuffle' : t.icon} size={11} />
                             {c.mediaId && (
                               <MediaThumb
                                 frame={mediaFor(c)?.frames[0]?.frame ?? null}
@@ -3793,25 +3958,28 @@ export function App() {
                               />
                             )}
                             <span className="clip__name">{c.name}</span>
-                            <span
-                              className="clip__handle clip__handle--end"
-                              onPointerDown={(e) => {
-                                if (!st.locked) beginClipDrag(e, 'trim-end', c.id);
-                              }}
-                            />
-                            {c.keyframes.map((k) => (
+                            {!c.transition && (
                               <span
-                                key={k.id}
-                                className="keyframe"
-                                title={`${k.time.toFixed(2)}s · ${k.easing} (alt-click removes)`}
-                                style={{
-                                  left: `${((k.time - c.start) / span) * 100}%`,
-                                }}
+                                className="clip__handle clip__handle--end"
                                 onPointerDown={(e) => {
-                                  if (!st.locked) onKeyframeClick(e, c.id, k.id, k.time);
+                                  if (!st.locked) beginClipDrag(e, 'trim-end', c.id);
                                 }}
                               />
-                            ))}
+                            )}
+                            {!c.transition &&
+                              c.keyframes.map((k) => (
+                                <span
+                                  key={k.id}
+                                  className="keyframe"
+                                  title={`${k.time.toFixed(2)}s · ${k.easing} (alt-click removes)`}
+                                  style={{
+                                    left: `${((k.time - c.start) / span) * 100}%`,
+                                  }}
+                                  onPointerDown={(e) => {
+                                    if (!st.locked) onKeyframeClick(e, c.id, k.id, k.time);
+                                  }}
+                                />
+                              ))}
                           </div>
                         );
                       })}

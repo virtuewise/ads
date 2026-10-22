@@ -149,6 +149,29 @@ React 19 + Vite + Tailwind 4 + Zustand + Motion. Hosts the **engine core** — t
 WGSL, the timeline model, the genre workflows, and the export orchestration. It is pure TypeScript with
 WebGPU; it has no Node access and reaches the OS only through `window.studio`.
 
+### Code-to-motion renderer strategy
+
+The repo already has a second renderer in `apps/renderer`: Remotion compositions use JSON-serializable
+props, React layout, and React Three Fiber for product and 3D films. Keep its role clear: Remotion
+authors complete React scenes, while the Electron WebGPU compositor edits imported clips, titles, and
+effects into a shared project and final export. The two renderers are complementary, not interchangeable.
+
+| Framework | Role in Virtue Studio | Boundary |
+|---|---|---|
+| Remotion | Existing parametric product films, UI-driven explainers, and React/Three scenes | Keep the current `apps/renderer` app; a future adapter should map validated scene inputs to JSON props and render outputs |
+| Motion Canvas | Optional specialist authoring for vector-heavy mathematics and technical explainers | Not installed or wired to projects; it has its own code editor and exports image sequences or video, so integrate through a renderer job and a real sequence-import path |
+| GSAP | Optional browser animation engine for interaction-specific choreography | Not a video renderer; avoid making it a second timeline model. Any future use must seek deterministically from the project frame/time |
+| Manim Community | Optional external Python renderer for equation-centric scenes | Not installed or sandboxed; add only behind an isolated render worker that returns media assets |
+
+Tailwind is a styling system, not a frame clock or video renderer. For editor-authored motion, the
+project's serializable keyframes stay authoritative so scrubbing, undo, save/load, and export agree.
+The existing renderer uses Remotion's frame-driven composition contract ([core idea](https://www.remotion.dev/docs/idea),
+[compositions](https://www.remotion.dev/docs/composition)). Motion Canvas describes itself as a TypeScript
+animation library and real-time editor for informative vector work ([introduction](https://motioncanvas.io/docs/),
+[image-sequence export](https://motioncanvas.io/docs/rendering/image-sequence/)). GSAP's official docs
+describe timelines as containers for sequencing tweens ([timeline](https://gsap.com/docs/v3/GSAP/Timeline/));
+Manim Community builds animations from Python `Scene` objects ([Scene reference](https://docs.manim.community/en/stable/reference/manim.scene.scene.Scene.html)).
+
 ---
 
 ## The DAG as the unified core

@@ -12,8 +12,9 @@
 ## The WYSIWYG contract
 
 > **A frame rendered in the viewport at time `t` and exported at time `t` uses the same graph, pass
-> order, uniforms, media frame, and title rasterization** at equal resolution and LUT. Byte identity
-> still needs a manual comparison on supported GPU hardware.
+> order, uniforms, media frame, title rasterization, and dip-transition state** at equal resolution
+> and LUT. The transition is a CSS overlay above the preview canvas and an RGBA blend after export
+> readback; byte identity still needs a manual comparison on supported GPU hardware.
 
 This is guaranteed **structurally** for the composite path, not by testing discipline:
 
@@ -54,9 +55,10 @@ to drift.
    ```
 4. **Applies opacity** and returns premultiplied-ish `vec4(col * a, a)`.
 
-> The procedural content here is a **placeholder scene**. Once media import lands
-> ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md)), this shader is replaced by a real layered compositor —
-> see [22-COMPOSITOR](22-COMPOSITOR.md) and [21-ROADMAP](21-ROADMAP.md).
+> This procedural content remains the **fallback scene** when no graph-backed source is active.
+> Imported media, title textures, and shader effects now flow through the graph compositor. A full
+> multi-layer compositor with simultaneous media inputs is still planned — see
+> [22-COMPOSITOR](22-COMPOSITOR.md) and [21-ROADMAP](21-ROADMAP.md).
 
 ### The uniform block
 
@@ -110,6 +112,8 @@ to drift.
   current decoded `VideoFrame` with `device.importExternalTexture()` and rebuilds the media bind
   group every frame — an imported external texture only lives for the current task. The pixels
   reach the GPU with no copy ([29-MEDIA-PIPELINE](29-MEDIA-PIPELINE.md#zero-copy-to-the-gpu)).
+- **Shows dip transitions** as a full-frame color overlay driven by the transition clip's timeline
+  range. The lane visibility toggle also controls whether that overlay is active.
 
 ---
 
@@ -117,7 +121,8 @@ to drift.
 
 `createFrameRenderer({ width, height, lut })` returns a `FrameRenderer` or **`null` when WebGPU is
 unavailable** (the export reports that failure — see [07-EXPORT-PIPELINE](07-EXPORT-PIPELINE.md)). A
-render call can supply the graph program, current `VideoFrame`, and app-painted images; compiled
+render call can supply the graph program, current `VideoFrame`, app-painted images, and a dip
+transition overlay; compiled
 program variants are cached for the export.
 
 ### Pipeline
@@ -143,7 +148,8 @@ WebGPU requires `bytesPerRow` to be a multiple of 256 when copying a texture to 
    active pass renders to the output texture.
 3. `copyTextureToBuffer` with the aligned `bytesPerRow`.
 4. `submit`, then `await mapAsync(READ)`.
-5. Slice (or repack) the mapped range into tightly packed RGBA bytes, `unmap`, return.
+5. Slice (or repack) the mapped range into tightly packed RGBA bytes and `unmap`.
+6. Apply the active dip-transition color and opacity to the RGBA pixels, then return.
 
 `dispose()` destroys cached intermediate textures, app textures, the output texture, staging buffer,
 uniform buffer, and device.

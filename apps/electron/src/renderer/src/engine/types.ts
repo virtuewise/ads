@@ -321,6 +321,18 @@ export interface Keyframe {
   easing: KeyframeEasing;
 }
 
+export type TransitionType = 'dip-black' | 'dip-white' | 'dip-color';
+
+/** A first-class transition between two timeline clips. */
+export interface TransitionDefinition {
+  type: TransitionType;
+  fromClipId: string;
+  toClipId: string;
+  /** Used by `dip-color`; stored for the other styles as a safe fallback. */
+  color: string;
+  easing: KeyframeEasing;
+}
+
 export interface TimelineClip {
   id: string;
   trackId: string;
@@ -334,6 +346,8 @@ export interface TimelineClip {
   sourceStart?: number;
   /** Text graph node rendered during this clip's active range. */
   textNodeId?: string;
+  /** A transition clip is stored on the transitions track. */
+  transition?: TransitionDefinition;
   /**
    * The look for this clip: the parameters of each node kind, keyed by kind.
    *
